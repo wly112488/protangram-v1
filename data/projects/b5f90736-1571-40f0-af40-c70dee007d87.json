@@ -1,0 +1,17 @@
+{
+  "id": "b5f90736-1571-40f0-af40-c70dee007d87",
+  "name": "航空活塞发动机防尘测试",
+  "experimentId": "94b2bacb-13eb-4770-8ae3-98e2bd436a3e",
+  "experimentName": "航空活塞发动机防尘测试test1",
+  "outlineSummary": "方法:全因子试验设计 | 因子:4",
+  "templateId": "58693577-16ec-4e11-9fad-2ecce7b55644",
+  "templateName": "航空活塞发动机防尘测试test1",
+  "createTime": "2026-03-02 18:10:07",
+  "status": "running",
+  "completedNodes": [
+    "6654696e-cbd6-4ad9-ab5b-94a8b79b046c",
+    "0ca50ff7-7903-4d6a-9f2b-96666772a3c7",
+    "32656520-8665-4d1e-954e-af6df2033adf",
+    "b84c4783-6482-4d17-9e03-8f8e5352b53a"
+  ]
+}

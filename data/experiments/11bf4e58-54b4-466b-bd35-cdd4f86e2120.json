@@ -1,0 +1,356 @@
+{
+  "id": "11bf4e58-54b4-466b-bd35-cdd4f86e2120",
+  "name": "航空活塞发动机防尘测试",
+  "createTime": "2026-03-02 18:03:33",
+  "testObjects": [
+    "bom-0"
+  ],
+  "testObjectNames": [
+    "机身主体"
+  ],
+  "testSubjects": [
+    "tsub-5"
+  ],
+  "testSubjectNames": [
+    "防尘试验"
+  ],
+  "testGoal": "非他v打开V领看到回复大厦他v打开V领看到回出v地方",
+  "testMethod": "",
+  "objectDescription": "好疼",
+  "attachments": [
+    {
+      "fileName": "优化说明.docx",
+      "fileSize": 0,
+      "uploadTime": "2026-03-02 18:03:29",
+      "content": "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,"
+    }
+  ],
+  "hasOutline": true,
+  "outline": {
+    "method": "部分因子试验设计",
+    "methodDescription": "部分因子试验设计是全因子设计的分数重复，通过有计划地混杂高阶交互效应来减少试验次数。适用于因子数较多（5个以上）的初步筛选阶段，以较少的试验次数识别显著因子。",
+    "basicParams": {
+      "factorCount": 5,
+      "centerPointCount": 2,
+      "levelCount": 2,
+      "blockCount": 1
+    },
+    "samplingRequirements": [
+      {
+        "id": "bb1d9467-a65d-440a-845a-288935b7177c",
+        "position": "传感器位置A",
+        "quantity": 10
+      },
+      {
+        "id": "df3f2b1c-98db-4b6e-9d98-1e649d8d1593",
+        "position": "",
+        "quantity": 4
+      },
+      {
+        "id": "787d9b77-9d1a-4b2f-9f41-8c4e4145fc16",
+        "position": "",
+        "quantity": 3
+      },
+      {
+        "id": "3a49d301-2518-4a43-9e59-5e2255cebe45",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "42550cb1-01c6-4ba3-9130-ffddda96dc4b",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "c12b2224-af9f-4fcd-b5d8-608430708bc7",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "9f7200aa-57a8-410e-ada7-b684c6bccf53",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "6a4c7c4e-8c2f-45f6-8d87-e00344852722",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "31c405d8-d717-439e-bc50-8ec623160914",
+        "position": "",
+        "quantity": 1
+      }
+    ],
+    "factors": [
+      {
+        "id": "c6b632a6-22f1-493c-a958-fd922904343f",
+        "name": "马赫数",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "385ec9a4-1434-4891-841b-ef9923a9efb1",
+        "name": "侧滑角",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "865a2174-65a5-4844-adce-44b2546aa9a9",
+        "name": "燃油流量",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "3972fdf0-c5b1-4d9d-843d-fe977ed4f35a",
+        "name": "冷却风速",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "cf0f6cd2-85f3-4b45-bcb2-cc831a013637",
+        "name": "",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "ed5a8188-aef0-462b-b33e-e1b0db9c9fc0",
+        "name": "",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "c8ae8adc-a370-4e4c-ba37-caee6218f75f",
+        "name": "",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "61f12693-1983-45b1-afc8-afda9adebae0",
+        "name": "",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "ebe1d81a-4758-4c84-b07d-9f47e82d268f",
+        "name": "",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      }
+    ],
+    "responseVariables": [
+      {
+        "id": "a3098fe9-73e3-4bb8-84e9-d74321a191eb",
+        "name": "机身主体_响应",
+        "description": ""
+      },
+      {
+        "id": "cd7d1155-142a-4fb4-bade-3d5ea6cb1e4b",
+        "name": "",
+        "description": ""
+      },
+      {
+        "id": "faecc7b7-2c9f-4bc4-bd32-d8bf0b2d0b4c",
+        "name": "",
+        "description": ""
+      },
+      {
+        "id": "ac7373c9-b6c3-418b-bf20-582af666d3fc",
+        "name": "",
+        "description": ""
+      },
+      {
+        "id": "b7f255b3-f4f2-46c2-ac99-2b1615506cc5",
+        "name": "",
+        "description": ""
+      }
+    ],
+    "testPlan": [
+      {
+        "stdOrder": 1,
+        "runOrder": 1,
+        "centerPoint": 1,
+        "block": 1,
+        "temperature": "21.9",
+        "time": "49",
+        "concentration": "0.44",
+        "pressure": "288.1",
+        "vibration": "3.83"
+      },
+      {
+        "stdOrder": 2,
+        "runOrder": 2,
+        "centerPoint": 1,
+        "block": 1,
+        "temperature": "58.1",
+        "time": "37",
+        "concentration": "1.55",
+        "pressure": "133.6",
+        "vibration": "4.41"
+      },
+      {
+        "stdOrder": 3,
+        "runOrder": 3,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "22.1",
+        "time": "21",
+        "concentration": "0.91",
+        "pressure": "152.9",
+        "vibration": "3.95"
+      },
+      {
+        "stdOrder": 4,
+        "runOrder": 4,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "25.8",
+        "time": "56",
+        "concentration": "1.71",
+        "pressure": "136.4",
+        "vibration": "2.68"
+      },
+      {
+        "stdOrder": 5,
+        "runOrder": 5,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "77.4",
+        "time": "43",
+        "concentration": "0.96",
+        "pressure": "186.6",
+        "vibration": "4.65"
+      },
+      {
+        "stdOrder": 6,
+        "runOrder": 6,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "70.9",
+        "time": "54",
+        "concentration": "0.79",
+        "pressure": "106.3",
+        "vibration": "3.31"
+      },
+      {
+        "stdOrder": 7,
+        "runOrder": 7,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "26.9",
+        "time": "44",
+        "concentration": "0.58",
+        "pressure": "272.0",
+        "vibration": "1.16"
+      },
+      {
+        "stdOrder": 8,
+        "runOrder": 8,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "57.2",
+        "time": "17",
+        "concentration": "0.66",
+        "pressure": "117.6",
+        "vibration": "4.89"
+      },
+      {
+        "stdOrder": 9,
+        "runOrder": 9,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "74.0",
+        "time": "21",
+        "concentration": "1.54",
+        "pressure": "253.1",
+        "vibration": "4.73"
+      },
+      {
+        "stdOrder": 10,
+        "runOrder": 10,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "62.6",
+        "time": "21",
+        "concentration": "1.91",
+        "pressure": "219.1",
+        "vibration": "2.55"
+      },
+      {
+        "stdOrder": 11,
+        "runOrder": 11,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "40.9",
+        "time": "27",
+        "concentration": "1.06",
+        "pressure": "260.8",
+        "vibration": "4.25"
+      },
+      {
+        "stdOrder": 12,
+        "runOrder": 12,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "45.7",
+        "time": "46",
+        "concentration": "1.45",
+        "pressure": "241.5",
+        "vibration": "4.06"
+      }
+    ],
+    "currentStep": 4,
+    "stepStatus": [
+      "completed",
+      "completed",
+      "completed",
+      "completed",
+      "completed"
+    ]
+  }
+}

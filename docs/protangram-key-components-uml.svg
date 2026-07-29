@@ -1,0 +1,348 @@
+<svg width="2000" height="1380" viewBox="0 0 2000 1380" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbfdff"/>
+      <stop offset="100%" stop-color="#f7fbff"/>
+    </linearGradient>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#edf5ff"/>
+      <stop offset="50%" stop-color="#f6f8ff"/>
+      <stop offset="100%" stop-color="#eefaf2"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#94a9c3" flood-opacity="0.16"/>
+    </filter>
+    <marker id="solidArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#5d7695"/>
+    </marker>
+    <marker id="dashedArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#7f8fa5"/>
+    </marker>
+    <style>
+      .title { font: 700 40px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #1d2d40; }
+      .subtitle { font: 400 18px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #62758a; }
+      .pkgTitle { font: 700 24px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #21354d; }
+      .stereotype { font: italic 400 14px 'Consolas', 'Microsoft YaHei', sans-serif; fill: #6f84a0; }
+      .className { font: 700 18px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #24384e; }
+      .body { font: 400 14px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #5f7287; }
+      .small { font: 400 13px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #72849a; }
+      .label { font: 700 13px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #4e6785; }
+      .legend { font: 400 13px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #4e6078; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="2000" height="1380" fill="url(#bg)"/>
+  <circle cx="1780" cy="160" r="180" fill="#eef6ff"/>
+  <circle cx="156" cy="1220" r="210" fill="#eefaf3"/>
+  <circle cx="1880" cy="1120" r="150" fill="#f6f8ff"/>
+
+  <rect x="48" y="36" width="1904" height="118" rx="28" fill="url(#header)" stroke="#d7e5f2" stroke-width="2" filter="url(#shadow)"/>
+  <text x="88" y="92" class="title">ProTangram 关键组件 UML / 类图风格关系图</text>
+  <text x="88" y="126" class="subtitle">用 UML 风格表达实际代码中的模块职责、依赖方向和核心业务对象关系，适合技术设计文档、说明书与答辩汇报</text>
+
+  <!-- Package: Frontend Entry -->
+  <rect x="56" y="196" width="620" height="390" rx="24" fill="#ffffff" stroke="#d8e4f0" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="56" y="196" width="620" height="52" rx="24" fill="#eef5ff"/>
+  <text x="90" y="229" class="pkgTitle">Package 1 - 前端入口与壳层</text>
+
+  <!-- main -->
+  <rect x="88" y="276" width="170" height="118" rx="14" fill="#fbfdff" stroke="#cad9e8" stroke-width="1.5"/>
+  <line x1="88" y1="314" x2="258" y2="314" stroke="#cad9e8"/>
+  <line x1="88" y1="346" x2="258" y2="346" stroke="#cad9e8"/>
+  <text x="136" y="302" class="stereotype">&lt;&lt;Entry&gt;&gt;</text>
+  <text x="138" y="336" class="className">main.tsx</text>
+  <text x="108" y="370" class="body">+ createRoot()</text>
+  <text x="108" y="392" class="body">+ render(App)</text>
+
+  <!-- App -->
+  <rect x="298" y="262" width="214" height="146" rx="14" fill="#fbfdff" stroke="#cad9e8" stroke-width="1.5"/>
+  <line x1="298" y1="300" x2="512" y2="300" stroke="#cad9e8"/>
+  <line x1="298" y1="332" x2="512" y2="332" stroke="#cad9e8"/>
+  <text x="366" y="288" class="stereotype">&lt;&lt;Root Component&gt;&gt;</text>
+  <text x="382" y="322" class="className">App.tsx</text>
+  <text x="318" y="356" class="body">+ useEffect(syncAllFromBackend)</text>
+  <text x="318" y="378" class="body">+ ThemeProvider</text>
+  <text x="318" y="400" class="body">+ RouterProvider(router)</text>
+
+  <!-- ThemeProvider -->
+  <rect x="552" y="276" width="92" height="118" rx="14" fill="#fbfdff" stroke="#cad9e8" stroke-width="1.5"/>
+  <line x1="552" y1="314" x2="644" y2="314" stroke="#cad9e8"/>
+  <line x1="552" y1="346" x2="644" y2="346" stroke="#cad9e8"/>
+  <text x="566" y="302" class="stereotype">&lt;&lt;Component&gt;&gt;</text>
+  <text x="565" y="336" class="className">Theme</text>
+  <text x="565" y="358" class="className">Provider</text>
+  <text x="566" y="382" class="small">AntD 主题适配</text>
+
+  <!-- Router -->
+  <rect x="88" y="446" width="214" height="122" rx="14" fill="#fbfdff" stroke="#cad9e8" stroke-width="1.5"/>
+  <line x1="88" y1="484" x2="302" y2="484" stroke="#cad9e8"/>
+  <line x1="88" y1="516" x2="302" y2="516" stroke="#cad9e8"/>
+  <text x="136" y="472" class="stereotype">&lt;&lt;Router Config&gt;&gt;</text>
+  <text x="114" y="506" class="className">router/index.tsx</text>
+  <text x="108" y="540" class="body">+ createBrowserRouter()</text>
+  <text x="108" y="562" class="body">+ routes -> pages</text>
+
+  <!-- MainLayout -->
+  <rect x="338" y="430" width="190" height="140" rx="14" fill="#fbfdff" stroke="#cad9e8" stroke-width="1.5"/>
+  <line x1="338" y1="468" x2="528" y2="468" stroke="#cad9e8"/>
+  <line x1="338" y1="500" x2="528" y2="500" stroke="#cad9e8"/>
+  <text x="376" y="456" class="stereotype">&lt;&lt;Layout&gt;&gt;</text>
+  <text x="368" y="490" class="className">MainLayout.tsx</text>
+  <text x="358" y="524" class="body">+ Menu / Tabs / Header</text>
+  <text x="358" y="546" class="body">+ Outlet()</text>
+  <text x="358" y="568" class="body">+ useNavigate()</text>
+
+  <!-- ThemeToggle -->
+  <rect x="548" y="446" width="96" height="122" rx="14" fill="#fbfdff" stroke="#cad9e8" stroke-width="1.5"/>
+  <line x1="548" y1="484" x2="644" y2="484" stroke="#cad9e8"/>
+  <line x1="548" y1="516" x2="644" y2="516" stroke="#cad9e8"/>
+  <text x="559" y="472" class="stereotype">&lt;&lt;Component&gt;&gt;</text>
+  <text x="558" y="506" class="className">Theme</text>
+  <text x="558" y="528" class="className">Toggle</text>
+  <text x="560" y="552" class="small">toggleTheme()</text>
+
+  <!-- Package: State & Services -->
+  <rect x="716" y="196" width="620" height="390" rx="24" fill="#ffffff" stroke="#d8e4f0" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="716" y="196" width="620" height="52" rx="24" fill="#f3f0ff"/>
+  <text x="750" y="229" class="pkgTitle">Package 2 - 状态中心与服务桥接</text>
+
+  <rect x="748" y="276" width="244" height="136" rx="14" fill="#fbfdff" stroke="#d6cbed" stroke-width="1.5"/>
+  <line x1="748" y1="314" x2="992" y2="314" stroke="#d6cbed"/>
+  <line x1="748" y1="346" x2="992" y2="346" stroke="#d6cbed"/>
+  <text x="808" y="302" class="stereotype">&lt;&lt;Store&gt;&gt;</text>
+  <text x="808" y="336" class="className">useAppStore.ts</text>
+  <text x="768" y="370" class="body">+ experiments</text>
+  <text x="768" y="392" class="body">+ analysisTemplates / analysisProjects</text>
+  <text x="768" y="414" class="body">+ analysisReports / setters</text>
+
+  <rect x="1028" y="276" width="274" height="136" rx="14" fill="#fbfdff" stroke="#d6cbed" stroke-width="1.5"/>
+  <line x1="1028" y1="314" x2="1302" y2="314" stroke="#d6cbed"/>
+  <line x1="1028" y1="346" x2="1302" y2="346" stroke="#d6cbed"/>
+  <text x="1110" y="302" class="stereotype">&lt;&lt;Store&gt;&gt;</text>
+  <text x="1096" y="336" class="className">useThemeStore.ts</text>
+  <text x="1048" y="370" class="body">+ theme: light | dark</text>
+  <text x="1048" y="392" class="body">+ toggleTheme()</text>
+  <text x="1048" y="414" class="body">+ persist(data-theme)</text>
+
+  <rect x="748" y="446" width="244" height="122" rx="14" fill="#fbfdff" stroke="#d6cbed" stroke-width="1.5"/>
+  <line x1="748" y1="484" x2="992" y2="484" stroke="#d6cbed"/>
+  <line x1="748" y1="516" x2="992" y2="516" stroke="#d6cbed"/>
+  <text x="806" y="472" class="stereotype">&lt;&lt;Bridge / Utility&gt;&gt;</text>
+  <text x="818" y="506" class="className">storage.ts</text>
+  <text x="768" y="540" class="body">+ load/save localStorage</text>
+  <text x="768" y="562" class="body">+ fetchAndSync*</text>
+
+  <rect x="1028" y="446" width="274" height="122" rx="14" fill="#fbfdff" stroke="#d6cbed" stroke-width="1.5"/>
+  <line x1="1028" y1="484" x2="1302" y2="484" stroke="#d6cbed"/>
+  <line x1="1028" y1="516" x2="1302" y2="516" stroke="#d6cbed"/>
+  <text x="1090" y="472" class="stereotype">&lt;&lt;Service&gt;&gt;</text>
+  <text x="1090" y="506" class="className">services/api.ts</text>
+  <text x="1048" y="540" class="body">+ request&lt;T&gt;()</text>
+  <text x="1048" y="562" class="body">+ fetch*/save*/delete*</text>
+
+  <!-- Package: Backend -->
+  <rect x="1376" y="196" width="568" height="530" rx="24" fill="#ffffff" stroke="#d8e4f0" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1376" y="196" width="568" height="52" rx="24" fill="#fff4ea"/>
+  <text x="1410" y="229" class="pkgTitle">Package 3 - 后端服务与持久化</text>
+
+  <rect x="1408" y="276" width="504" height="204" rx="14" fill="#fbfdff" stroke="#efd8bc" stroke-width="1.5"/>
+  <line x1="1408" y1="314" x2="1912" y2="314" stroke="#efd8bc"/>
+  <line x1="1408" y1="346" x2="1912" y2="346" stroke="#efd8bc"/>
+  <text x="1608" y="302" class="stereotype">&lt;&lt;Backend Entry&gt;&gt;</text>
+  <text x="1570" y="336" class="className">backend/src/index.js</text>
+  <text x="1428" y="370" class="body">+ GET /api/experiments | POST /api/experiments | DELETE /api/experiments/:id</text>
+  <text x="1428" y="394" class="body">+ GET /api/templates   | POST /api/templates   | DELETE /api/templates/:id</text>
+  <text x="1428" y="418" class="body">+ GET /api/projects    | POST /api/projects    | DELETE /api/projects/:id</text>
+  <text x="1428" y="442" class="body">+ GET /api/reports     | POST /api/reports     | DELETE /api/reports/:id</text>
+  <text x="1428" y="466" class="body">+ compute / AI / read-chunk / report-templates 扩展接口</text>
+
+  <rect x="1408" y="516" width="244" height="178" rx="14" fill="#fbfdff" stroke="#efd8bc" stroke-width="1.5"/>
+  <line x1="1408" y1="554" x2="1652" y2="554" stroke="#efd8bc"/>
+  <line x1="1408" y1="586" x2="1652" y2="586" stroke="#efd8bc"/>
+  <text x="1480" y="542" class="stereotype">&lt;&lt;Persistence&gt;&gt;</text>
+  <text x="1478" y="576" class="className">data / *.json</text>
+  <text x="1428" y="610" class="body">+ experiments/</text>
+  <text x="1428" y="632" class="body">+ templates/</text>
+  <text x="1428" y="654" class="body">+ projects/</text>
+  <text x="1428" y="676" class="body">+ reports/</text>
+
+  <rect x="1684" y="516" width="228" height="178" rx="14" fill="#fbfdff" stroke="#efd8bc" stroke-width="1.5"/>
+  <line x1="1684" y1="554" x2="1912" y2="554" stroke="#efd8bc"/>
+  <line x1="1684" y1="586" x2="1912" y2="586" stroke="#efd8bc"/>
+  <text x="1742" y="542" class="stereotype">&lt;&lt;Resource&gt;&gt;</text>
+  <text x="1718" y="576" class="className">本地资源目录</text>
+  <text x="1704" y="610" class="body">+ process_data/</text>
+  <text x="1704" y="632" class="body">+ wordreporttemplate/</text>
+  <text x="1704" y="654" class="body">+ BOM.csv / test.csv</text>
+
+  <!-- Package: Business Pages -->
+  <rect x="56" y="628" width="1140" height="466" rx="24" fill="#ffffff" stroke="#d8e4f0" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="56" y="628" width="1140" height="52" rx="24" fill="#eef8f2"/>
+  <text x="90" y="661" class="pkgTitle">Package 4 - 核心业务页面</text>
+
+  <rect x="88" y="708" width="250" height="156" rx="14" fill="#fbfdff" stroke="#cfe0d3" stroke-width="1.5"/>
+  <line x1="88" y1="746" x2="338" y2="746" stroke="#cfe0d3"/>
+  <line x1="88" y1="778" x2="338" y2="778" stroke="#cfe0d3"/>
+  <text x="156" y="734" class="stereotype">&lt;&lt;Page&gt;&gt;</text>
+  <text x="118" y="768" class="className">TemplateCreate.tsx</text>
+  <text x="108" y="802" class="body">+ ReactFlow 模板设计</text>
+  <text x="108" y="824" class="body">+ 节点配置</text>
+  <text x="108" y="846" class="body">+ handleSave()</text>
+
+  <rect x="374" y="708" width="314" height="202" rx="14" fill="#fbfdff" stroke="#cfe0d3" stroke-width="1.5"/>
+  <line x1="374" y1="746" x2="688" y2="746" stroke="#cfe0d3"/>
+  <line x1="374" y1="778" x2="688" y2="778" stroke="#cfe0d3"/>
+  <text x="480" y="734" class="stereotype">&lt;&lt;Page&gt;&gt;</text>
+  <text x="430" y="768" class="className">AnalysisExecution.tsx</text>
+  <text x="394" y="802" class="body">+ load project + template</text>
+  <text x="394" y="824" class="body">+ compute executionOrder</text>
+  <text x="394" y="846" class="body">+ handleNodeClick()</text>
+  <text x="394" y="868" class="body">+ completeCurrentNode()</text>
+  <text x="394" y="890" class="body">+ 保存执行进度</text>
+
+  <rect x="724" y="708" width="206" height="156" rx="14" fill="#fbfdff" stroke="#cfe0d3" stroke-width="1.5"/>
+  <line x1="724" y1="746" x2="930" y2="746" stroke="#cfe0d3"/>
+  <line x1="724" y1="778" x2="930" y2="778" stroke="#cfe0d3"/>
+  <text x="786" y="734" class="stereotype">&lt;&lt;Page&gt;&gt;</text>
+  <text x="758" y="768" class="className">ReportCreate.tsx</text>
+  <text x="744" y="802" class="body">+ 选项目 + 选模板</text>
+  <text x="744" y="824" class="body">+ create AnalysisReport</text>
+  <text x="744" y="846" class="body">+ navigate(generate)</text>
+
+  <rect x="966" y="708" width="198" height="156" rx="14" fill="#fbfdff" stroke="#cfe0d3" stroke-width="1.5"/>
+  <line x1="966" y1="746" x2="1164" y2="746" stroke="#cfe0d3"/>
+  <line x1="966" y1="778" x2="1164" y2="778" stroke="#cfe0d3"/>
+  <text x="1022" y="734" class="stereotype">&lt;&lt;Page&gt;&gt;</text>
+  <text x="992" y="768" class="className">ReportGenerate.tsx</text>
+  <text x="986" y="802" class="body">+ tagBindings</text>
+  <text x="986" y="824" class="body">+ handleSave()</text>
+  <text x="986" y="846" class="body">+ handleGenerateReport()</text>
+
+  <rect x="448" y="946" width="178" height="120" rx="14" fill="#fbfdff" stroke="#cfe0d3" stroke-width="1.5"/>
+  <line x1="448" y1="984" x2="626" y2="984" stroke="#cfe0d3"/>
+  <line x1="448" y1="1016" x2="626" y2="1016" stroke="#cfe0d3"/>
+  <text x="484" y="972" class="stereotype">&lt;&lt;Component&gt;&gt;</text>
+  <text x="470" y="1006" class="className">FullscreenPanel.tsx</text>
+  <text x="468" y="1040" class="body">+ iframe 全屏显示</text>
+  <text x="468" y="1062" class="body">+ open / reload / close</text>
+
+  <rect x="88" y="894" width="1076" height="164" rx="14" fill="#fcfeff" stroke="#d5e6da" stroke-dasharray="8 6" stroke-width="1.5"/>
+  <text x="114" y="926" class="className">业务页面共同特征</text>
+  <text x="114" y="954" class="body">1. 通过 router/index.tsx 注册路径并由 MainLayout/Outlet 装载</text>
+  <text x="114" y="980" class="body">2. 通过 useAppStore 读取业务状态；通过 storage.ts / api.ts 实现本地缓存与后端持久化</text>
+  <text x="114" y="1006" class="body">3. 通过 AnalysisTemplate / AnalysisProject / AnalysisReport 等核心对象完成“设计 -> 执行 -> 报告”的主流程闭环</text>
+
+  <!-- Package: Domain Model -->
+  <rect x="1236" y="768" width="708" height="326" rx="24" fill="#ffffff" stroke="#d8e4f0" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1236" y="768" width="708" height="52" rx="24" fill="#fff2f6"/>
+  <text x="1270" y="801" class="pkgTitle">Package 5 - 核心数据模型</text>
+
+  <rect x="1272" y="848" width="286" height="98" rx="14" fill="#fbfdff" stroke="#f0cfdb" stroke-width="1.5"/>
+  <line x1="1272" y1="886" x2="1558" y2="886" stroke="#f0cfdb"/>
+  <line x1="1272" y1="918" x2="1558" y2="918" stroke="#f0cfdb"/>
+  <text x="1360" y="874" class="stereotype">&lt;&lt;Type&gt;&gt;</text>
+  <text x="1336" y="908" class="className">ExperimentCard</text>
+  <text x="1292" y="940" class="body">id, name, testGoal, outline, hasOutline</text>
+
+  <rect x="1600" y="848" width="308" height="98" rx="14" fill="#fbfdff" stroke="#f0cfdb" stroke-width="1.5"/>
+  <line x1="1600" y1="886" x2="1908" y2="886" stroke="#f0cfdb"/>
+  <line x1="1600" y1="918" x2="1908" y2="918" stroke="#f0cfdb"/>
+  <text x="1708" y="874" class="stereotype">&lt;&lt;Type&gt;&gt;</text>
+  <text x="1688" y="908" class="className">AnalysisTemplate</text>
+  <text x="1620" y="940" class="body">id, name, nodes, edges, condition</text>
+
+  <rect x="1272" y="974" width="308" height="98" rx="14" fill="#fbfdff" stroke="#f0cfdb" stroke-width="1.5"/>
+  <line x1="1272" y1="1012" x2="1580" y2="1012" stroke="#f0cfdb"/>
+  <line x1="1272" y1="1044" x2="1580" y2="1044" stroke="#f0cfdb"/>
+  <text x="1380" y="1000" class="stereotype">&lt;&lt;Type&gt;&gt;</text>
+  <text x="1360" y="1034" class="className">AnalysisProject</text>
+  <text x="1292" y="1066" class="body">experimentId, templateId, status, completedNodes</text>
+
+  <rect x="1620" y="974" width="288" height="98" rx="14" fill="#fbfdff" stroke="#f0cfdb" stroke-width="1.5"/>
+  <line x1="1620" y1="1012" x2="1908" y2="1012" stroke="#f0cfdb"/>
+  <line x1="1620" y1="1044" x2="1908" y2="1044" stroke="#f0cfdb"/>
+  <text x="1716" y="1000" class="stereotype">&lt;&lt;Type&gt;&gt;</text>
+  <text x="1702" y="1034" class="className">AnalysisReport</text>
+  <text x="1640" y="1066" class="body">analysisProjectId, tagBindings, status</text>
+
+  <!-- Legend -->
+  <rect x="56" y="1128" width="1888" height="212" rx="24" fill="#ffffff" stroke="#d8e4f0" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="56" y="1128" width="1888" height="52" rx="24" fill="#f4f8fb"/>
+  <text x="90" y="1161" class="pkgTitle">图例与主要关系说明</text>
+
+  <line x1="98" y1="1214" x2="180" y2="1214" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="196" y="1219" class="legend">实线箭头：直接调用 / 渲染 / 触发</text>
+
+  <line x1="98" y1="1252" x2="180" y2="1252" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="196" y="1257" class="legend">虚线箭头：依赖 / 使用 / 关联</text>
+
+  <text x="98" y="1302" class="legend">主链路：ExperimentCard → AnalysisTemplate → AnalysisProject → AnalysisReport</text>
+  <text x="98" y="1328" class="legend">运行链路：main.tsx → App.tsx → router/index.tsx → MainLayout.tsx → 业务页面 → useAppStore / storage.ts / services/api.ts → backend/src/index.js → data/*.json</text>
+
+  <!-- Arrows / Dependencies -->
+  <line x1="258" y1="335" x2="292" y2="335" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="216" y="322" class="label">render</text>
+
+  <line x1="512" y1="308" x2="546" y2="308" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="520" y="294" class="label">wrap</text>
+
+  <line x1="406" y1="408" x2="406" y2="422" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="420" y="420" class="label">use router</text>
+
+  <line x1="302" y1="507" x2="332" y2="507" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="268" y="494" class="label">layout</text>
+
+  <line x1="528" y1="507" x2="542" y2="507" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="500" y="494" class="label">use</text>
+
+  <line x1="600" y1="394" x2="1158" y2="394" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="862" y="380" class="label">depends on currentTheme</text>
+
+  <path d="M512 356 C620 356, 680 356, 742 507" fill="none" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="604" y="340" class="label">syncAllFromBackend()</text>
+
+  <line x1="992" y1="507" x2="1022" y2="507" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="996" y="494" class="label">HTTP bridge</text>
+
+  <line x1="1302" y1="507" x2="1402" y2="507" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="1328" y="494" class="label">/api/*</text>
+
+  <line x1="1660" y1="480" x2="1530" y2="510" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="1544" y="496" class="label">write/read json</text>
+
+  <line x1="1684" y1="606" x2="1658" y2="606" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="1664" y="592" class="label">uses</text>
+
+  <path d="M528 548 C650 640, 720 710, 742 760" fill="none" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="598" y="664" class="label">Outlet loads pages</text>
+
+  <line x1="338" y1="786" x2="368" y2="786" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="322" y="772" class="label">template → execution</text>
+
+  <line x1="688" y1="786" x2="718" y2="786" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="694" y="772" class="label">done</text>
+
+  <line x1="930" y1="786" x2="960" y2="786" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="934" y="772" class="label">bind</text>
+
+  <path d="M214 864 C214 934, 834 934, 834 422" fill="none" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="344" y="922" class="label">useAppStore / storage.ts</text>
+
+  <path d="M532 910 C532 924, 532 936, 532 940" fill="none" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="548" y="936" class="label">OUT 结果展示</text>
+
+  <path d="M1140 864 C1180 864, 1210 864, 1266 896" fill="none" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="1168" y="850" class="label">produce / consume models</text>
+
+  <line x1="1558" y1="924" x2="1594" y2="924" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="1548" y="910" class="label">template basis</text>
+
+  <line x1="1416" y1="946" x2="1416" y2="968" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="1430" y="962" class="label">referenced by</text>
+
+  <line x1="1754" y1="946" x2="1754" y2="968" stroke="#7f8fa5" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#dashedArrow)"/>
+  <text x="1768" y="962" class="label">used by</text>
+
+  <line x1="1580" y1="1022" x2="1614" y2="1022" stroke="#5d7695" stroke-width="3" marker-end="url(#solidArrow)"/>
+  <text x="1586" y="1008" class="label">generate report from project</text>
+</svg>

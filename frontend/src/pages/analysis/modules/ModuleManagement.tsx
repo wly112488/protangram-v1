@@ -1,0 +1,318 @@
+import React, { useState, useEffect } from 'react';
+import { Card, Typography, Tabs, Row, Col, Tag, Modal, Table, Badge, Button, message, Space } from 'antd';
+import {
+  DatabaseOutlined, CalculatorOutlined, SwapOutlined, LineChartOutlined,
+  BarChartOutlined, DotChartOutlined, PieChartOutlined, AreaChartOutlined,
+  HeatMapOutlined, RadarChartOutlined, BoxPlotOutlined, FundOutlined,
+  SyncOutlined,
+} from '@ant-design/icons';
+import useAppStore from '@/stores/useAppStore';
+import type { CalculationModule, AlgorithmDef } from '@/types';
+import ReactECharts from 'echarts-for-react';
+
+const { Title, Text, Paragraph } = Typography;
+
+// 数据模块清单（需求2.1.1）
+const DATA_MODULES = [
+  { id: 'import_training', name: '导入训练数据', description: '导入用于模型训练的数据集，支持CSV格式，自动进行数据格式校验和预处理。' },
+  { id: 'import_validation', name: '导入验证数据', description: '导入用于模型验证的数据集，验证模型的泛化能力和预测准确性。' },
+  { id: 'import_label', name: '导入标注数据', description: '导入经过专家标注的数据集，用于监督学习或数据质量评估。' },
+  { id: 'import_experiment', name: '导入试验数据', description: '导入实际试验采集的数据，支持大文件分块读取，确保数据完整性。' },
+  { id: 'import_simulation', name: '导入仿真数据', description: '导入仿真计算得到的数据，用于与试验数据进行对比分析。' },
+  { id: 'import_sample', name: '导入样本数据', description: '导入采样得到的数据子集，支持随机采样和分层采样导入。' },
+  { id: 'import_benchmark', name: '导入基准数据', description: '导入基准测试数据，作为对比分析的参考标准。' },
+  { id: 'import_production', name: '导入生产数据', description: '导入实际生产环境中采集的数据，用于生产质量监控分析。' },
+  { id: 'import_archive', name: '导入归档数据', description: '导入历史归档数据，用于长期趋势分析和历史对比。' },
+  { id: 'import_temp', name: '导入临时数据', description: '导入临时性数据，用于快速数据验证和探索性分析。' },
+];
+
+// 绘图模块清单（需求2.1.4）
+const CHART_MODULES = [
+  { id: 'line', name: '折线图', icon: <LineChartOutlined />, chartType: 'line', description: '适用于展示数据随时间或连续变量的变化趋势。' },
+  { id: 'bar', name: '柱状图', icon: <BarChartOutlined />, chartType: 'bar', description: '适用于比较不同类别间的数值差异。' },
+  { id: 'scatter', name: '散点图', icon: <DotChartOutlined />, chartType: 'scatter', description: '适用于分析两个变量之间的相关性和分布特征。' },
+  { id: 'pie', name: '饼图', icon: <PieChartOutlined />, chartType: 'pie', description: '适用于展示各部分占总体的比例关系。' },
+  { id: 'horizontal_bar', name: '条形图', icon: <BarChartOutlined />, chartType: 'horizontal_bar', description: '水平方向的柱状图，适用于类别名称较长的场景。' },
+  { id: 'area', name: '面积图', icon: <AreaChartOutlined />, chartType: 'area', description: '在折线图基础上填充区域，强调数据量的累积效果。' },
+  { id: 'histogram', name: '直方图', icon: <FundOutlined />, chartType: 'histogram', description: '展示数据的频率分布特征，用于了解数据的集中趋势。' },
+  { id: 'boxplot', name: '箱线图', icon: <BoxPlotOutlined />, chartType: 'boxplot', description: '展示数据的中位数、四分位数和异常值分布。' },
+  { id: 'heatmap', name: '热力图', icon: <HeatMapOutlined />, chartType: 'heatmap', description: '通过颜色深浅展示二维数据矩阵的值分布。' },
+  { id: 'radar', name: '雷达图', icon: <RadarChartOutlined />, chartType: 'radar', description: '适用于多维度对比分析，展示各维度的综合表现。' },
+];
+
+/**
+ * 获取图表样例的ECharts配置
+ * @param chartType - 图表类型
+ * @returns ECharts option
+ */
+const getChartSampleOption = (chartType: string): Record<string, unknown> => {
+  const sampleData = [820, 932, 901, 934, 1290, 1330, 1320];
+  const categories = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  switch (chartType) {
+    case 'line':
+      return { xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ data: sampleData, type: 'line', smooth: true }], tooltip: { trigger: 'axis' } };
+    case 'bar':
+      return { xAxis: { type: 'category', data: categories }, yAxis: { type: 'value' }, series: [{ data: sampleData, type: 'bar' }], tooltip: { trigger: 'axis' } };
+    case 'scatter':
+      return { xAxis: {}, yAxis: {}, series: [{ type: 'scatter', data: [[10, 8.04], [8, 6.95], [13, 7.58], [9, 8.81], [11, 8.33], [14, 9.96], [6, 7.24], [4, 4.26], [12, 10.84], [7, 4.82]] }], tooltip: { trigger: 'item' } };
+    case 'pie':
+      return { series: [{ type: 'pie', data: [{ value: 1048, name: 'A' }, { value: 735, name: 'B' }, { value: 580, name: 'C' }, { value: 484, name: 'D' }, { value: 300, name: 'E' }] }], tooltip: { trigger: 'item' } };
+    case 'horizontal_bar':
+      return { xAxis: { type: 'value' }, yAxis: { type: 'category', data: categories }, series: [{ data: sampleData, type: 'bar' }], tooltip: { trigger: 'axis' } };
+    case 'area':
+      return { xAxis: { type: 'category', data: categories, boundaryGap: false }, yAxis: { type: 'value' }, series: [{ data: sampleData, type: 'line', areaStyle: {} }], tooltip: { trigger: 'axis' } };
+    case 'histogram':
+      return { xAxis: { type: 'category', data: ['0-10', '10-20', '20-30', '30-40', '40-50'] }, yAxis: { type: 'value' }, series: [{ data: [5, 20, 36, 10, 10], type: 'bar', barWidth: '90%' }], tooltip: { trigger: 'axis' } };
+    case 'boxplot':
+      return { xAxis: { type: 'category', data: ['A', 'B'] }, yAxis: { type: 'value' }, series: [{ type: 'boxplot', data: [[655, 850, 940, 980, 1070], [760, 800, 845, 885, 960]] }], tooltip: { trigger: 'item' } };
+    case 'heatmap':
+      return { xAxis: { type: 'category', data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] }, yAxis: { type: 'category', data: ['A', 'B', 'C'] }, visualMap: { min: 0, max: 10 }, series: [{ type: 'heatmap', data: [[0,0,5],[0,1,1],[0,2,0],[1,0,1],[1,1,3],[1,2,4],[2,0,7],[2,1,2],[2,2,6],[3,0,8],[3,1,4],[3,2,3],[4,0,2],[4,1,9],[4,2,1]] }] };
+    case 'radar':
+      return { radar: { indicator: [{ name: 'Sales', max: 6500 }, { name: 'Admin', max: 16000 }, { name: 'IT', max: 30000 }, { name: 'Support', max: 38000 }, { name: 'Dev', max: 52000 }] }, series: [{ type: 'radar', data: [{ value: [4200, 3000, 20000, 35000, 50000] }] }] };
+    default:
+      return {};
+  }
+};
+
+/**
+ * 模块管理页面
+ * @description 数据模块/计算模块/数据对比分析模块/绘图模块卡片展示（需求2.1）
+ */
+const ModuleManagement: React.FC = () => {
+  const { calculationModules, setCalculationModules } = useAppStore();
+  const [chartPreviewVisible, setChartPreviewVisible] = useState(false);
+  const [selectedChart, setSelectedChart] = useState<{ name: string; chartType: string } | null>(null);
+  const [algDetailVisible, setAlgDetailVisible] = useState(false);
+  const [selectedAlg, setSelectedAlg] = useState<AlgorithmDef | null>(null);
+  const [updatingModule, setUpdatingModule] = useState<string | null>(null);
+
+  /**
+   * 模拟模块更新操作
+   * @param moduleType - 模块类型标识
+   * @param moduleName - 模块显示名称
+   */
+  const handleUpdateModule = (moduleType: string, moduleName: string) => {
+    setUpdatingModule(moduleType);
+    message.loading({ content: `正在更新${moduleName}...`, key: moduleType });
+    setTimeout(() => {
+      setUpdatingModule(null);
+      message.success({ content: `${moduleName}已更新到最新版本`, key: moduleType, duration: 2 });
+    }, 1500);
+  };
+
+  useEffect(() => {
+    // 从data-processing.json读取计算模块配置
+    fetch('/data-processing.json')
+      .then((res) => res.json())
+      .then((data) => {
+        const modules = data?.algorithm_specification?.modules || [];
+        setCalculationModules(modules);
+      })
+      .catch(() => {
+        message.warning('加载data-processing.json失败，使用默认配置');
+      });
+  }, [setCalculationModules]);
+
+  const tabItems = [
+    {
+      key: 'data',
+      label: <span><DatabaseOutlined /> 数据模块</span>,
+      children: (
+        <div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              type="primary"
+              icon={<SyncOutlined spin={updatingModule === 'data'} />}
+              loading={updatingModule === 'data'}
+              onClick={() => handleUpdateModule('data', '数据模块')}
+            >
+              更新数据模块
+            </Button>
+          </div>
+          <Row gutter={[16, 16]}>
+            {DATA_MODULES.map((mod) => (
+              <Col key={mod.id} xs={24} sm={12} lg={8} xl={6}>
+                <Card hoverable style={{ height: '100%', borderRadius: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                    <DatabaseOutlined style={{ fontSize: 20, color: '#1890ff', marginRight: 8 }} />
+                    <Text strong>{mod.name}</Text>
+                  </div>
+                  <Paragraph type="secondary" ellipsis={{ rows: 3 }} style={{ fontSize: 13, marginBottom: 8 }}>
+                    {mod.description}
+                  </Paragraph>
+                  <Tag color="blue">支持独立更新</Tag>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </div>
+      ),
+    },
+    {
+      key: 'calculation',
+      label: <span><CalculatorOutlined /> 计算模块</span>,
+      children: (
+        <div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              type="primary"
+              icon={<SyncOutlined spin={updatingModule === 'calculation'} />}
+              loading={updatingModule === 'calculation'}
+              onClick={() => handleUpdateModule('calculation', '计算模块')}
+            >
+              更新计算模块
+            </Button>
+          </div>
+          {calculationModules.map((mod) => (
+            <div key={mod.module_id} style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Tag color="purple" style={{ fontSize: 14, padding: '2px 12px', fontWeight: 600 }}>{mod.module_name}</Tag>
+                <Text type="secondary" style={{ fontSize: 13 }}>{mod.description}</Text>
+                <Badge count={mod.algorithms.length} style={{ backgroundColor: '#722ed1' }} />
+              </div>
+              <Row gutter={[12, 12]}>
+                {mod.algorithms.map((alg) => (
+                  <Col key={alg.alg_id} xs={24} sm={12} lg={8} xl={6}>
+                    <Card
+                      hoverable
+                      style={{ borderRadius: 10, height: '100%' }}
+                      styles={{ body: { padding: '14px 16px' } }}
+                      onClick={() => { setSelectedAlg(alg); setAlgDetailVisible(true); }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <CalculatorOutlined style={{ fontSize: 18, color: '#722ed1' }} />
+                        <Text strong style={{ fontSize: 14 }}>{alg.alg_name}</Text>
+                      </div>
+                      <Paragraph ellipsis={{ rows: 2 }} style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+                        {alg.purpose}
+                      </Paragraph>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        <Tag color="blue" style={{ fontSize: 11 }}>{alg.webservice.method} {alg.webservice.endpoint}</Tag>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                        <Tag color="cyan" style={{ fontSize: 11 }}>入参 {alg.input.required.length + (alg.input.optional?.length || 0)}</Tag>
+                        <Tag color="green" style={{ fontSize: 11 }}>出参 {alg.output.param_type}</Tag>
+                      </div>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: 'comparison',
+      label: <span><SwapOutlined /> 数据对比分析</span>,
+      children: (
+        <div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              type="primary"
+              icon={<SyncOutlined spin={updatingModule === 'comparison'} />}
+              loading={updatingModule === 'comparison'}
+              onClick={() => handleUpdateModule('comparison', '数据对比分析模块')}
+            >
+              更新对比分析模块
+            </Button>
+          </div>
+          <Card>
+            <div style={{ textAlign: 'center', padding: 32 }}>
+              <SwapOutlined style={{ fontSize: 48, color: '#1890ff', marginBottom: 16 }} />
+              <Title level={5}>数据对比分析模块</Title>
+              <Paragraph type="secondary">
+                支持连接多个输入数据源（CSV文件），提供类似Excel表格的交互界面。
+                支持勾选具体列进行曲线绘制和基础处理，支持配置多个输出节点。
+              </Paragraph>
+              <Tag color="blue">支持多输入节点</Tag>
+              <Tag color="green">类Excel操作</Tag>
+              <Tag color="orange">多输出配置</Tag>
+            </div>
+          </Card>
+        </div>
+      ),
+    },
+    {
+      key: 'chart',
+      label: <span><LineChartOutlined /> 绘图模块</span>,
+      children: (
+        <div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              type="primary"
+              icon={<SyncOutlined spin={updatingModule === 'chart'} />}
+              loading={updatingModule === 'chart'}
+              onClick={() => handleUpdateModule('chart', '绘图模块')}
+            >
+              更新绘图模块
+            </Button>
+          </div>
+          <Row gutter={[16, 16]}>
+            {CHART_MODULES.map((mod) => (
+              <Col key={mod.id} xs={24} sm={12} lg={8} xl={6}>
+                <Card hoverable style={{ height: '100%', borderRadius: 12 }}
+                  onClick={() => { setSelectedChart(mod); setChartPreviewVisible(true); }}>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 24, color: '#1890ff', marginRight: 8 }}>{mod.icon}</span>
+                    <Text strong>{mod.name}</Text>
+                  </div>
+                  <Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ fontSize: 13, marginBottom: 8 }}>
+                    {mod.description}
+                  </Paragraph>
+                  <Tag color="green">点击预览</Tag>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div style={{ width: '100%', overflow: 'hidden' }}>
+      <Title level={4}>模块管理</Title>
+      <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+        管理数据模块、计算模块、对比分析模块和绘图模块
+      </Text>
+
+      <Tabs items={tabItems} size="large" />
+
+      {/* 图表样例预览弹窗 */}
+      <Modal title={`${selectedChart?.name} - 图形样例`} open={chartPreviewVisible}
+        onCancel={() => setChartPreviewVisible(false)} footer={null} width={600}>
+        {selectedChart && (
+          <ReactECharts option={getChartSampleOption(selectedChart.chartType)} style={{ height: 400 }} />
+        )}
+      </Modal>
+
+      {/* 算法详情弹窗 */}
+      <Modal title={`${selectedAlg?.alg_name} - 详细信息`} open={algDetailVisible}
+        onCancel={() => setAlgDetailVisible(false)} footer={null} width={600}>
+        {selectedAlg && (
+          <div>
+            <Paragraph><strong>用途：</strong>{selectedAlg.purpose}</Paragraph>
+            <Paragraph><strong>接口：</strong><Tag color="blue">{selectedAlg.webservice.method}</Tag> {selectedAlg.webservice.endpoint}</Paragraph>
+            <Paragraph><strong>超时：</strong>{selectedAlg.webservice.timeout}ms</Paragraph>
+            <Title level={5}>输入参数</Title>
+            <Table size="small" pagination={false}
+              dataSource={[...selectedAlg.input.required, ...selectedAlg.input.optional]}
+              columns={[
+                { title: '参数名', dataIndex: 'param_name' },
+                { title: '类型', dataIndex: 'param_type' },
+                { title: '说明', dataIndex: 'param_desc' },
+              ]}
+              rowKey="param_name"
+            />
+            <Title level={5} style={{ marginTop: 16 }}>输出参数</Title>
+            <Paragraph>{selectedAlg.output.param_name} ({selectedAlg.output.param_type}) - {selectedAlg.output.param_desc}</Paragraph>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+};
+
+export default ModuleManagement;

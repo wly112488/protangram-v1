@@ -1,0 +1,421 @@
+/* 工业仿真深色主题样式 */
+
+:root[data-theme="light"] {
+  /* 亮色主题变量 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #fafafa;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-tabs: #dee1e6;
+  --bg-tab-active: #ffffff;
+  --bg-tab-inactive: #d6d8db;
+  --bg-tab-hover: #e1e3e6;
+  
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --text-inverse: #ffffff;
+  
+  --border-primary: #d9d9d9;
+  --border-secondary: #f0f0f0;
+  --border-tabs: #c0c4cc;
+  
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-modal: 0 6px 16px rgba(0, 0, 0, 0.12);
+  
+  --accent-primary: #1890ff;
+  --accent-success: #52c41a;
+  --accent-warning: #faad14;
+  --accent-error: #ff4d4f;
+}
+
+:root[data-theme="dark"] {
+  /* 工业仿真深色主题变量 */
+  --bg-primary: #0f1419;
+  --bg-secondary: #1a1f2e;
+  --bg-tertiary: #242b3d;
+  --bg-card: #1e2532;
+  --bg-sidebar: #161b26;
+  --bg-tabs: #1a1f2e;
+  --bg-tab-active: #242b3d;
+  --bg-tab-inactive: #161b26;
+  --bg-tab-hover: #1e2532;
+  
+  --text-primary: #e6e8eb;
+  --text-secondary: #a8adb7;
+  --text-tertiary: #6c7584;
+  --text-inverse: #0f1419;
+  
+  --border-primary: #2a3441;
+  --border-secondary: #1e2532;
+  --border-tabs: #2a3441;
+  
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-modal: 0 6px 16px rgba(0, 0, 0, 0.35);
+  
+  --accent-primary: #4096ff;
+  --accent-success: #73d13d;
+  --accent-warning: #ffc53d;
+  --accent-error: #ff7875;
+}
+
+/* 全局背景和文字颜色 */
+[data-theme="dark"] body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ant-layout {
+  background-color: var(--bg-primary) !important;
+}
+
+[data-theme="dark"] .ant-layout-content {
+  background-color: var(--bg-primary) !important;
+}
+
+/* 侧边栏样式 */
+[data-theme="dark"] .ant-layout-sider {
+  background-color: var(--bg-sidebar) !important;
+}
+
+[data-theme="dark"] .ant-menu {
+  background-color: var(--bg-sidebar) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-menu-item,
+[data-theme="dark"] .ant-menu-submenu-title {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .ant-menu-item:hover,
+[data-theme="dark"] .ant-menu-submenu-title:hover {
+  color: var(--accent-primary) !important;
+  background-color: var(--bg-tertiary) !important;
+}
+
+[data-theme="dark"] .ant-menu-item-selected {
+  background-color: var(--bg-tertiary) !important;
+  color: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .ant-menu-submenu-open > .ant-menu-submenu-title {
+  color: var(--accent-primary) !important;
+}
+
+/* Chrome风格页签栏 */
+[data-theme="dark"] .chrome-tabs-bar {
+  background: var(--bg-tabs) !important;
+  border-bottom: 1px solid var(--border-tabs) !important;
+}
+
+[data-theme="dark"] .chrome-tab {
+  background: var(--bg-tab-inactive) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .chrome-tab.active {
+  background: var(--bg-tab-active) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .chrome-tab:hover:not(.active) {
+  background: var(--bg-tab-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .chrome-tab.dragging {
+  opacity: 0.4;
+}
+
+[data-theme="dark"] .chrome-tab.drag-over {
+  background: #2a3a5c !important;
+  border-left: 2px solid #4096ff !important;
+}
+
+/* 卡片样式 */
+[data-theme="dark"] .ant-card {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-primary) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+[data-theme="dark"] .ant-card-head {
+  background-color: var(--bg-card) !important;
+  border-bottom-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-card-body {
+  color: var(--text-primary) !important;
+}
+
+/* 按钮样式 */
+[data-theme="dark"] .ant-btn-default {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-btn-default:hover {
+  background-color: var(--bg-card) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .ant-btn-primary {
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+/* 输入框样式 */
+[data-theme="dark"] .ant-input {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-input:focus,
+[data-theme="dark"] .ant-input-focused {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2) !important;
+}
+
+[data-theme="dark"] .ant-input::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+/* 选择器样式 */
+[data-theme="dark"] .ant-select-selector {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-select-focused .ant-select-selector {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2) !important;
+}
+
+/* 下拉菜单样式 */
+[data-theme="dark"] .ant-dropdown,
+[data-theme="dark"] .ant-select-dropdown {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-primary) !important;
+  box-shadow: var(--shadow-modal) !important;
+}
+
+[data-theme="dark"] .ant-dropdown-menu-item,
+[data-theme="dark"] .ant-select-item {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-dropdown-menu-item:hover,
+[data-theme="dark"] .ant-select-item:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* 模态框样式 */
+[data-theme="dark"] .ant-modal-content {
+  background-color: var(--bg-card) !important;
+  box-shadow: var(--shadow-modal) !important;
+}
+
+[data-theme="dark"] .ant-modal-header {
+  background-color: var(--bg-card) !important;
+  border-bottom-color: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .ant-modal-title {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-modal-body {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-modal-footer {
+  background-color: var(--bg-card) !important;
+  border-top-color: var(--border-primary) !important;
+}
+
+/* 表格样式 */
+[data-theme="dark"] .ant-table {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-table-thead > tr > th {
+  background-color: var(--bg-tertiary) !important;
+  border-bottom-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-table-tbody > tr > td {
+  border-bottom-color: var(--border-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-table-tbody > tr:hover > td {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* 标签样式 */
+[data-theme="dark"] .ant-tag {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* 分页器样式 */
+[data-theme="dark"] .ant-pagination .ant-pagination-item {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .ant-pagination .ant-pagination-item a {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-pagination .ant-pagination-item-active {
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .ant-pagination .ant-pagination-item-active a {
+  color: var(--text-inverse) !important;
+}
+
+/* 滚动条样式 */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* 文字颜色覆盖 */
+[data-theme="dark"] .ant-typography {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .ant-typography-caption {
+  color: var(--text-secondary) !important;
+}
+
+/* 图标颜色 */
+[data-theme="dark"] .anticon {
+  color: inherit;
+}
+
+/* 工业仿真特色元素 */
+[data-theme="dark"] .industrial-accent {
+  background: linear-gradient(135deg, #4096ff 0%, #40a9ff 100%);
+  color: var(--text-inverse);
+}
+
+[data-theme="dark"] .data-visualization {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+}
+
+/* 状态指示器 */
+[data-theme="dark"] .status-indicator.running {
+  background-color: var(--accent-success);
+  box-shadow: 0 0 8px rgba(115, 209, 61, 0.3);
+}
+
+[data-theme="dark"] .status-indicator.warning {
+  background-color: var(--accent-warning);
+  box-shadow: 0 0 8px rgba(255, 197, 61, 0.3);
+}
+
+[data-theme="dark"] .status-indicator.error {
+  background-color: var(--accent-error);
+  box-shadow: 0 0 8px rgba(255, 120, 117, 0.3);
+}
+
+/* 主题切换按钮特殊样式 */
+[data-theme="dark"] .theme-toggle-btn {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .theme-toggle-btn:hover {
+  background-color: var(--bg-card) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+  box-shadow: 0 0 8px rgba(64, 150, 255, 0.2) !important;
+}
+
+/* 过渡动画 */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* 深色主题下的特殊组件样式 */
+[data-theme="dark"] .ant-tabs .ant-tabs-tab {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .ant-tabs .ant-tabs-tab:hover {
+  color: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .ant-tabs .ant-tabs-tab.ant-tabs-tab-active {
+  color: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .ant-tabs .ant-tabs-ink-bar {
+  background: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .ant-tabs .ant-tabs-content-holder {
+  background-color: var(--bg-primary) !important;
+}
+
+/* ReactFlow画布深色主题 */
+[data-theme="dark"] .react-flow {
+  background-color: var(--bg-primary) !important;
+}
+
+[data-theme="dark"] .react-flow__node {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .react-flow__edge-path {
+  stroke: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .react-flow__controls {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .react-flow__controls button {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .react-flow__controls button:hover {
+  background-color: var(--bg-card) !important;
+  color: var(--accent-primary) !important;
+}

@@ -1,0 +1,257 @@
+{
+  "id": "1db8e267-b7a9-47db-a67d-0398038b25d5",
+  "name": "试验测试",
+  "createTime": "2026-03-03 11:45:45",
+  "testObjects": [
+    "bom-5"
+  ],
+  "testObjectNames": [
+    "螺旋桨"
+  ],
+  "testSubjects": [
+    "tsub-6"
+  ],
+  "testSubjectNames": [
+    "盐雾试验"
+  ],
+  "testGoal": "大帅哥第三方海上风电就",
+  "testMethod": "",
+  "objectDescription": "辅导时间发",
+  "attachments": [],
+  "hasOutline": true,
+  "outline": {
+    "method": "全因子试验设计",
+    "methodDescription": "全因子试验设计是对所有因子的所有水平组合进行完全试验的方法。能够全面评估所有主效应和交互效应，提供最完整的信息。适用于因子数较少（通常2-4个）的场景，因子数增多时试验次数呈指数增长。",
+    "basicParams": {
+      "factorCount": 4,
+      "centerPointCount": 2,
+      "levelCount": 2,
+      "blockCount": 1
+    },
+    "samplingRequirements": [
+      {
+        "id": "def2ff16-978f-4cfe-bfcc-563eab4c26eb",
+        "position": "传感器位置A",
+        "quantity": 10
+      },
+      {
+        "id": "caab1e5b-dc7a-4c40-8432-b27ec70c3153",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "301e29b2-6e57-4751-aafb-66bd48a3ca2e",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "9419cb4e-c79d-47e6-b33c-79e69084a88d",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "3d03b399-64dd-4e76-89e8-3e7b29f989ce",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "ea622341-c80b-48d3-aa25-a89fb09caaf8",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "ebd234ed-73c0-4c4c-9434-94c04ad365b7",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "0da9a50c-3101-4a35-88ec-860d84db22d4",
+        "position": "",
+        "quantity": 1
+      }
+    ],
+    "factors": [
+      {
+        "id": "ad93053b-b2df-47a4-a6e4-da5bb70a28c8",
+        "name": "环境温度",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "f8648168-b928-43ec-9fed-296e3ce96f38",
+        "name": "振动加速度",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "ddd9fa8a-e24c-4d6d-9c24-1cbee616e922",
+        "name": "航电输入电压",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "e9094f89-c0e4-482b-a08c-5d9f7b7ea416",
+        "name": "工作载荷",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      }
+    ],
+    "responseVariables": [
+      {
+        "id": "b17a3d30-728c-41a4-8200-b3612a127f54",
+        "name": "螺旋桨_响应",
+        "description": ""
+      },
+      {
+        "id": "c86f4797-97ef-4d1d-b3f8-f61d7bc24f43",
+        "name": "",
+        "description": ""
+      },
+      {
+        "id": "162e80f9-39a9-4098-9eed-357684e78010",
+        "name": "",
+        "description": ""
+      }
+    ],
+    "testPlan": [
+      {
+        "stdOrder": 1,
+        "runOrder": 1,
+        "centerPoint": 1,
+        "block": 1,
+        "temperature": "79.8",
+        "time": "25",
+        "concentration": "0.57",
+        "pressure": "198.8",
+        "vibration": "2.63"
+      },
+      {
+        "stdOrder": 2,
+        "runOrder": 2,
+        "centerPoint": 1,
+        "block": 1,
+        "temperature": "32.2",
+        "time": "53",
+        "concentration": "0.88",
+        "pressure": "216.9",
+        "vibration": "2.16"
+      },
+      {
+        "stdOrder": 3,
+        "runOrder": 3,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "27.7",
+        "time": "48",
+        "concentration": "0.65",
+        "pressure": "120.5",
+        "vibration": "4.66"
+      },
+      {
+        "stdOrder": 4,
+        "runOrder": 4,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "44.4",
+        "time": "60",
+        "concentration": "1.62",
+        "pressure": "255.0",
+        "vibration": "0.57"
+      },
+      {
+        "stdOrder": 5,
+        "runOrder": 5,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "44.4",
+        "time": "59",
+        "concentration": "1.36",
+        "pressure": "242.2",
+        "vibration": "3.09"
+      },
+      {
+        "stdOrder": 6,
+        "runOrder": 6,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "27.2",
+        "time": "41",
+        "concentration": "0.63",
+        "pressure": "160.6",
+        "vibration": "4.22"
+      },
+      {
+        "stdOrder": 7,
+        "runOrder": 7,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "63.1",
+        "time": "54",
+        "concentration": "1.93",
+        "pressure": "136.2",
+        "vibration": "5.48"
+      },
+      {
+        "stdOrder": 8,
+        "runOrder": 8,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "47.9",
+        "time": "50",
+        "concentration": "1.06",
+        "pressure": "298.1",
+        "vibration": "1.30"
+      },
+      {
+        "stdOrder": 9,
+        "runOrder": 9,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "65.8",
+        "time": "51",
+        "concentration": "1.41",
+        "pressure": "235.9",
+        "vibration": "0.55"
+      },
+      {
+        "stdOrder": 10,
+        "runOrder": 10,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "35.1",
+        "time": "53",
+        "concentration": "1.98",
+        "pressure": "249.4",
+        "vibration": "0.63"
+      }
+    ],
+    "currentStep": 4,
+    "stepStatus": [
+      "completed",
+      "completed",
+      "completed",
+      "completed",
+      "completed"
+    ]
+  }
+}

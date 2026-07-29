@@ -1,0 +1,928 @@
+{
+  "algorithm_specification": {
+    "version": "1.0.0",
+    "base_url": "http://your-api-domain.com/v1/data-processing",
+    "request_format": "JSON",
+    "response_format": "JSON",
+    "common_headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer {your-api-token}"
+    },
+    "modules": [
+      {
+        "module_id": "statistical",
+        "module_name": "统计类",
+        "description": "基础统计特征计算，用于数据分布特征分析",
+        "algorithms": [
+          {
+            "alg_id": "mean",
+            "alg_name": "均值",
+            "purpose": "计算数据序列的算术平均值，反映数据集中趋势",
+            "webservice": {
+              "endpoint": "/statistical/mean",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "weights",
+                  "param_type": "array",
+                  "param_desc": "可选权重数组，长度需与data一致（非加权均值可不传）",
+                  "example": [0.1, 0.2, 0.3, 0.4]
+                }
+              ]
+            },
+            "output": {
+              "param_name": "mean_value",
+              "param_type": "float",
+              "param_desc": "计算得到的均值结果",
+              "example": 4.4
+            }
+          },
+          {
+            "alg_id": "median",
+            "alg_name": "中位数",
+            "purpose": "计算数据序列的中位数，反映数据中间位置特征，抗异常值影响",
+            "webservice": {
+              "endpoint": "/statistical/median",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8, 9.2]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "median_value",
+              "param_type": "float",
+              "param_desc": "计算得到的中位数结果",
+              "example": 5.1
+            }
+          },
+          {
+            "alg_id": "range",
+            "alg_name": "极差",
+            "purpose": "计算数据最大值与最小值的差值，反映数据离散程度",
+            "webservice": {
+              "endpoint": "/statistical/range",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥2",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "range_value",
+              "param_type": "float",
+              "param_desc": "计算得到的极差结果（max - min）",
+              "example": 6.6
+            }
+          },
+          {
+            "alg_id": "variance",
+            "alg_name": "方差",
+            "purpose": "计算数据序列的方差，反映数据偏离均值的程度",
+            "webservice": {
+              "endpoint": "/statistical/variance",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥2",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "ddof",
+                  "param_type": "int",
+                  "param_desc": "自由度修正值，默认0（总体方差），1为样本方差",
+                  "example": 1
+                }
+              ]
+            },
+            "output": {
+              "param_name": "variance_value",
+              "param_type": "float",
+              "param_desc": "计算得到的方差结果",
+              "example": 7.146666666666667
+            }
+          },
+          {
+            "alg_id": "std",
+            "alg_name": "标准差",
+            "purpose": "计算数据序列的标准差，方差的平方根，更直观反映数据离散程度",
+            "webservice": {
+              "endpoint": "/statistical/std",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥2",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "ddof",
+                  "param_type": "int",
+                  "param_desc": "自由度修正值，默认0（总体标准差），1为样本标准差",
+                  "example": 1
+                }
+              ]
+            },
+            "output": {
+              "param_name": "std_value",
+              "param_type": "float",
+              "param_desc": "计算得到的标准差结果",
+              "example": 2.673325020762359
+            }
+          }
+        ]
+      },
+      {
+        "module_id": "normalization",
+        "module_name": "归一化/标准化类",
+        "description": "数据尺度调整，消除量纲影响，适用于机器学习特征预处理",
+        "algorithms": [
+          {
+            "alg_id": "min_max_norm",
+            "alg_name": "最小最大归一化",
+            "purpose": "将数据缩放到[0,1]区间，保留数据相对分布特征",
+            "webservice": {
+              "endpoint": "/normalization/min-max",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "feature_range",
+                  "param_type": "array",
+                  "param_desc": "自定义缩放区间，默认[0,1]",
+                  "example": [0, 10]
+                }
+              ]
+            },
+            "output": {
+              "param_name": "normalized_data",
+              "param_type": "array",
+              "param_desc": "归一化后的数值序列",
+              "example": [0.0, 0.38095238095238093, 0.6349206349206349, 1.0]
+            }
+          },
+          {
+            "alg_id": "standard_scaler",
+            "alg_name": "标准化",
+            "purpose": "将数据转换为均值0、标准差1的标准正态分布，适用于对异常值敏感的模型",
+            "webservice": {
+              "endpoint": "/normalization/standard",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥2",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "standardized_data",
+              "param_type": "array",
+              "param_desc": "标准化后的数值序列",
+              "example": [-1.2041199826559248, -0.3374057093016922, 0.24082399653118496, 1.300691695426432]
+            }
+          },
+          {
+            "alg_id": "centralization",
+            "alg_name": "中心化",
+            "purpose": "将数据减去均值，使数据围绕0分布，保留离散程度",
+            "webservice": {
+              "endpoint": "/normalization/centralize",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "centralized_data",
+              "param_type": "array",
+              "param_desc": "中心化后的数值序列",
+              "example": [-3.2, -0.9, 0.7, 3.4]
+            }
+          },
+          {
+            "alg_id": "regularization",
+            "alg_name": "正则化",
+            "purpose": "将数据转换为单位范数（L1/L2），适用于需要统一向量长度的场景",
+            "webservice": {
+              "endpoint": "/normalization/regularize",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                },
+                {
+                  "param_name": "norm",
+                  "param_type": "string",
+                  "param_desc": "正则化类型，可选'l1'/'l2'",
+                  "example": "l2"
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "regularized_data",
+              "param_type": "array",
+              "param_desc": "正则化后的数值序列",
+              "example": [0.1143238514529076, 0.3342970110700018, 0.4865905674484014, 0.7437885699286892]
+            }
+          },
+          {
+            "alg_id": "interval_mapping",
+            "alg_name": "区间映射",
+            "purpose": "将数据从原区间线性映射到指定目标区间",
+            "webservice": {
+              "endpoint": "/normalization/interval-map",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                },
+                {
+                  "param_name": "source_range",
+                  "param_type": "array",
+                  "param_desc": "数据原始区间 [min, max]",
+                  "example": [1.2, 7.8]
+                },
+                {
+                  "param_name": "target_range",
+                  "param_type": "array",
+                  "param_desc": "目标映射区间 [min, max]",
+                  "example": [10, 20]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "mapped_data",
+              "param_type": "array",
+              "param_desc": "区间映射后的数值序列",
+              "example": [10.0, 13.809523809523809, 16.349206349206348, 20.0]
+            }
+          },
+          {
+            "alg_id": "feature_scaling",
+            "alg_name": "特征缩放",
+            "purpose": "按指定比例缩放特征值，统一不同特征的尺度",
+            "webservice": {
+              "endpoint": "/normalization/feature-scale",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                },
+                {
+                  "param_name": "scale_factor",
+                  "param_type": "float",
+                  "param_desc": "缩放因子",
+                  "example": 0.5
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "scaled_data",
+              "param_type": "array",
+              "param_desc": "缩放后的数值序列",
+              "example": [0.6, 1.75, 2.55, 3.9]
+            }
+          }
+        ]
+      },
+      {
+        "module_id": "extreme_value",
+        "module_name": "极值与筛选类",
+        "description": "数据极值提取与异常值处理，用于数据清洗和关键特征识别",
+        "algorithms": [
+          {
+            "alg_id": "maximize",
+            "alg_name": "最大化",
+            "purpose": "提取数据序列中的最大值及对应位置",
+            "webservice": {
+              "endpoint": "/extreme-value/max",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "max_result",
+              "param_type": "object",
+              "param_desc": "最大值及索引信息",
+              "example": {
+                "max_value": 7.8,
+                "max_index": 3
+              }
+            }
+          },
+          {
+            "alg_id": "minimize",
+            "alg_name": "最小化",
+            "purpose": "提取数据序列中的最小值及对应位置",
+            "webservice": {
+              "endpoint": "/extreme-value/min",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "min_result",
+              "param_type": "object",
+              "param_desc": "最小值及索引信息",
+              "example": {
+                "min_value": 1.2,
+                "min_index": 0
+              }
+            }
+          },
+          {
+            "alg_id": "extreme_extract",
+            "alg_name": "极值提取",
+            "purpose": "提取数据序列中的最大值、最小值、极值点数量等综合极值信息",
+            "webservice": {
+              "endpoint": "/extreme-value/extract",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥2",
+                  "example": [1.2, 3.5, 5.1, 7.8, 4.2, 9.1]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "extreme_result",
+              "param_type": "object",
+              "param_desc": "综合极值信息",
+              "example": {
+                "max_value": 9.1,
+                "max_index": 5,
+                "min_value": 1.2,
+                "min_index": 0,
+                "extreme_points_count": 2
+              }
+            }
+          },
+          {
+            "alg_id": "threshold_filter",
+            "alg_name": "阈值过滤",
+            "purpose": "按指定阈值筛选数据，保留符合条件的数值",
+            "webservice": {
+              "endpoint": "/extreme-value/threshold-filter",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8, 4.2, 9.1]
+                },
+                {
+                  "param_name": "threshold",
+                  "param_type": "float",
+                  "param_desc": "筛选阈值",
+                  "example": 5.0
+                },
+                {
+                  "param_name": "condition",
+                  "param_type": "string",
+                  "param_desc": "筛选条件，可选'>'/'<'/'>='/'<='/'=='/!='",
+                  "example": ">="
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "filtered_data",
+              "param_type": "array",
+              "param_desc": "阈值过滤后的数值序列",
+              "example": [5.1, 7.8, 9.1]
+            }
+          },
+          {
+            "alg_id": "outlier_remove",
+            "alg_name": "异常值剔除",
+            "purpose": "基于四分位数（IQR）法剔除异常值，用于数据清洗",
+            "webservice": {
+              "endpoint": "/extreme-value/outlier-remove",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥4",
+                  "example": [1.2, 3.5, 5.1, 7.8, 4.2, 9.1, 20.5]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "iqr_factor",
+                  "param_type": "float",
+                  "param_desc": "IQR倍数，默认1.5",
+                  "example": 1.5
+                }
+              ]
+            },
+            "output": {
+              "param_name": "cleaned_data",
+              "param_type": "array",
+              "param_desc": "剔除异常值后的数值序列",
+              "example": [1.2, 3.5, 5.1, 7.8, 4.2, 9.1]
+            }
+          },
+          {
+            "alg_id": "peak_detection",
+            "alg_name": "峰值检测",
+            "purpose": "检测数据序列中的局部最大值（峰值）",
+            "webservice": {
+              "endpoint": "/extreme-value/peak-detect",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥3",
+                  "example": [1.2, 3.5, 2.1, 7.8, 4.2, 9.1, 5.3]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "window_size",
+                  "param_type": "int",
+                  "param_desc": "检测窗口大小，默认3",
+                  "example": 3
+                }
+              ]
+            },
+            "output": {
+              "param_name": "peak_result",
+              "param_type": "object",
+              "param_desc": "峰值位置和数值",
+              "example": {
+                "peak_values": [3.5, 7.8, 9.1],
+                "peak_indices": [1, 3, 5]
+              }
+            }
+          },
+          {
+            "alg_id": "valley_detection",
+            "alg_name": "谷值检测",
+            "purpose": "检测数据序列中的局部最小值（谷值）",
+            "webservice": {
+              "endpoint": "/extreme-value/valley-detect",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥3",
+                  "example": [1.2, 3.5, 2.1, 7.8, 4.2, 9.1, 5.3]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "window_size",
+                  "param_type": "int",
+                  "param_desc": "检测窗口大小，默认3",
+                  "example": 3
+                }
+              ]
+            },
+            "output": {
+              "param_name": "valley_result",
+              "param_type": "object",
+              "param_desc": "谷值位置和数值",
+              "example": {
+                "valley_values": [1.2, 2.1, 4.2],
+                "valley_indices": [0, 2, 4]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "module_id": "math_operation",
+        "module_name": "数学运算类",
+        "description": "基础数学变换与加权计算，用于数据特征转换",
+        "algorithms": [
+          {
+            "alg_id": "weighted_sum",
+            "alg_name": "加权求和",
+            "purpose": "计算数据序列的加权和，突出重要数据的贡献",
+            "webservice": {
+              "endpoint": "/math/weighted-sum",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1]
+                },
+                {
+                  "param_name": "weights",
+                  "param_type": "array",
+                  "param_desc": "权重数组，长度需与data一致",
+                  "example": [0.2, 0.3, 0.5]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "weighted_sum_value",
+              "param_type": "float",
+              "param_desc": "加权求和结果",
+              "example": 3.89
+            }
+          },
+          {
+            "alg_id": "weighted_average",
+            "alg_name": "加权平均",
+            "purpose": "计算数据序列的加权平均值，平衡不同数据的重要性",
+            "webservice": {
+              "endpoint": "/math/weighted-average",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1]
+                },
+                {
+                  "param_name": "weights",
+                  "param_type": "array",
+                  "param_desc": "权重数组，长度需与data一致",
+                  "example": [0.2, 0.3, 0.5]
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "weighted_average_value",
+              "param_type": "float",
+              "param_desc": "加权平均值结果",
+              "example": 3.89
+            }
+          },
+          {
+            "alg_id": "log_transform",
+            "alg_name": "对数变换",
+            "purpose": "对数据进行对数变换，压缩数据范围，适用于右偏分布数据",
+            "webservice": {
+              "endpoint": "/math/log-transform",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "正数数值序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "base",
+                  "param_type": "float",
+                  "param_desc": "对数底数，默认自然对数e，可选10",
+                  "example": 10
+                }
+              ]
+            },
+            "output": {
+              "param_name": "log_transformed_data",
+              "param_type": "array",
+              "param_desc": "对数变换后的数值序列",
+              "example": [0.07918124604762482, 0.5440680443502757, 0.7075701760979363]
+            }
+          },
+          {
+            "alg_id": "exp_transform",
+            "alg_name": "指数变换",
+            "purpose": "对数据进行指数变换，扩展数据范围，适用于左偏分布数据",
+            "webservice": {
+              "endpoint": "/math/exp-transform",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [0.1, 0.3, 0.5]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "base",
+                  "param_type": "float",
+                  "param_desc": "指数底数，默认自然常数e，可选2/10",
+                  "example": 2
+                }
+              ]
+            },
+            "output": {
+              "param_name": "exp_transformed_data",
+              "param_type": "array",
+              "param_desc": "指数变换后的数值序列",
+              "example": [1.0512710963760241, 1.2311444133449163, 1.4903428149946213]
+            }
+          }
+        ]
+      },
+      {
+        "module_id": "aggregation",
+        "module_name": "聚合/降维类",
+        "description": "数据聚合与维度约简，用于数据压缩和特征提取",
+        "algorithms": [
+          {
+            "alg_id": "data_aggregation",
+            "alg_name": "数据聚合",
+            "purpose": "按指定窗口/维度聚合数据（求和/均值/最大值等），降低数据量",
+            "webservice": {
+              "endpoint": "/aggregation/aggregate",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥1",
+                  "example": [1.2, 3.5, 5.1, 7.8, 4.2, 9.1]
+                },
+                {
+                  "param_name": "window_size",
+                  "param_type": "int",
+                  "param_desc": "聚合窗口大小",
+                  "example": 2
+                },
+                {
+                  "param_name": "agg_func",
+                  "param_type": "string",
+                  "param_desc": "聚合函数，可选'sum'/'mean'/'max'/'min'",
+                  "example": "mean"
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "aggregated_data",
+              "param_type": "array",
+              "param_desc": "聚合后的数值序列",
+              "example": [2.35, 6.45, 6.65]
+            }
+          },
+          {
+            "alg_id": "feature_extract",
+            "alg_name": "特征提取",
+            "purpose": "提取数据的关键统计特征（均值/方差/峰值等），实现维度约简",
+            "webservice": {
+              "endpoint": "/aggregation/feature-extract",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥2",
+                  "example": [1.2, 3.5, 5.1, 7.8, 4.2, 9.1]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "features",
+                  "param_type": "array",
+                  "param_desc": "要提取的特征列表，默认['mean','std','max','min']",
+                  "example": ["mean", "std", "skewness"]
+                }
+              ]
+            },
+            "output": {
+              "param_name": "extracted_features",
+              "param_type": "object",
+              "param_desc": "提取的特征字典",
+              "example": {
+                "mean": 5.15,
+                "std": 2.776688639428158,
+                "skewness": 0.456789
+              }
+            }
+          },
+          {
+            "alg_id": "smoothing",
+            "alg_name": "平滑处理",
+            "purpose": "对数据进行移动平均平滑，消除噪声，保留趋势",
+            "webservice": {
+              "endpoint": "/aggregation/smooth",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "data",
+                  "param_type": "array",
+                  "param_desc": "数值型数据序列，不能为空且长度≥3",
+                  "example": [1.2, 3.5, 2.1, 7.8, 4.2, 9.1]
+                },
+                {
+                  "param_name": "window_size",
+                  "param_type": "int",
+                  "param_desc": "平滑窗口大小（奇数）",
+                  "example": 3
+                }
+              ],
+              "optional": []
+            },
+            "output": {
+              "param_name": "smoothed_data",
+              "param_type": "array",
+              "param_desc": "平滑后的数值序列",
+              "example": [2.2666666666666666, 3.533333333333333, 4.7, 5.7, 6.766666666666667]
+            }
+          },
+          {
+            "alg_id": "interpolation",
+            "alg_name": "插值计算",
+            "purpose": "对缺失数据点进行插值补全，生成连续数据序列",
+            "webservice": {
+              "endpoint": "/aggregation/interpolate",
+              "method": "POST",
+              "timeout": 5000
+            },
+            "input": {
+              "required": [
+                {
+                  "param_name": "x",
+                  "param_type": "array",
+                  "param_desc": "已知点x坐标",
+                  "example": [0, 2, 4, 6]
+                },
+                {
+                  "param_name": "y",
+                  "param_type": "array",
+                  "param_desc": "已知点y坐标（与x长度一致）",
+                  "example": [1.2, 3.5, 5.1, 7.8]
+                },
+                {
+                  "param_name": "x_new",
+                  "param_type": "array",
+                  "param_desc": "待插值的x坐标",
+                  "example": [1, 3, 5]
+                }
+              ],
+              "optional": [
+                {
+                  "param_name": "method",
+                  "param_type": "string",
+                  "param_desc": "插值方法，可选'linear'/'cubic'/'nearest'",
+                  "example": "linear"
+                }
+              ]
+            },
+            "output": {
+              "param_name": "y_new",
+              "param_type": "array",
+              "param_desc": "插值得到的y坐标",
+              "example": [2.35, 4.3, 6.45]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

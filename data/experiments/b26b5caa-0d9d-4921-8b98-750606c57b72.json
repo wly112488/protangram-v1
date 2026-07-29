@@ -1,0 +1,343 @@
+{
+  "id": "b26b5caa-0d9d-4921-8b98-750606c57b72",
+  "name": "航空活塞发",
+  "createTime": "2026-03-02 14:50:51",
+  "testObjects": [
+    "bom-0"
+  ],
+  "testObjectNames": [
+    "机身主体"
+  ],
+  "testSubjects": [
+    "tsub-0",
+    "tsub-1"
+  ],
+  "testSubjectNames": [
+    "高低温试验",
+    "温度冲击试验"
+  ],
+  "testGoal": "非他v打开V领看到回复大厦他v打开V领看到回复大厦他v打开V领看到回复大厦他v打开V领看到回复大厦他v打开V领看到回复大厦他v打开",
+  "testMethod": "单因子轮换法（OFAT）",
+  "objectDescription": "不发货实时",
+  "attachments": [
+    {
+      "fileName": "优化说明.docx",
+      "fileSize": 0,
+      "uploadTime": "2026-03-02 14:50:49",
+      "content": "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,"
+    }
+  ],
+  "hasOutline": true,
+  "outline": {
+    "method": "单因子轮换法（OFAT）",
+    "methodDescription": "单因子轮换法（One Factor At a Time）是一种经典的试验设计方法。每次仅改变一个因子的水平，其余因子保持不变，逐一考察各因子对响应变量的影响。优点是操作简便、结果直观；缺点是无法考察因子间的交互作用，试验效率较低。",
+    "basicParams": {
+      "factorCount": 6,
+      "centerPointCount": 2,
+      "levelCount": 2,
+      "blockCount": 1
+    },
+    "samplingRequirements": [
+      {
+        "id": "26424f30-698e-4384-823a-e9f46faefc4d",
+        "position": "传感器位置A",
+        "quantity": 10
+      },
+      {
+        "id": "08c04a5c-7ea7-4f52-8f35-522b0c159f57",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "6854daf7-b6e8-447f-bdaa-f867493eaf28",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "747a8782-94a2-4777-83c5-58ffb60900fa",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "39e41055-a5a0-4893-b7e7-c34f773a89ca",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "f06c427c-3042-44c0-989f-9b3e0b5bc822",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "e6f98bf9-6a0e-456e-bf91-a997de1732ab",
+        "position": "",
+        "quantity": 1
+      }
+    ],
+    "factors": [
+      {
+        "id": "5fbe03d6-ce8d-4ada-baaa-564e43854719",
+        "name": "发动机转速",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "9518391f-f1cf-45cf-a4e3-bc5df5f8e403",
+        "name": "飞行攻角",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "8f016571-11ec-474b-aace-57338d017592",
+        "name": "环境温度",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "a05c58e7-8186-4b8c-9ecd-441b768064c7",
+        "name": "航电工作电压",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "532baaaf-423f-4bf2-896a-3d453a987863",
+        "name": "",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "36e88435-3d36-491d-9899-d3ec27f5521e",
+        "name": "",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "e220c0f4-ef06-40f5-babd-16f9b7ec30c4",
+        "name": "",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      }
+    ],
+    "responseVariables": [
+      {
+        "id": "debfd140-80f7-4b03-8e79-7da8d32aaa47",
+        "name": "机身主体_响应",
+        "description": ""
+      },
+      {
+        "id": "a348270d-0880-4be9-a156-da0c75e36aa0",
+        "name": "",
+        "description": ""
+      },
+      {
+        "id": "a8506bfd-4551-47b3-9d70-9cc30c7c04d4",
+        "name": "",
+        "description": ""
+      },
+      {
+        "id": "5af41493-6afc-440f-896d-e0bc90398c22",
+        "name": "",
+        "description": ""
+      }
+    ],
+    "testPlan": [
+      {
+        "stdOrder": 1,
+        "runOrder": 1,
+        "centerPoint": 1,
+        "block": 1,
+        "temperature": "26.4",
+        "time": "11",
+        "concentration": "0.63",
+        "pressure": "104.2",
+        "vibration": "2.56"
+      },
+      {
+        "stdOrder": 2,
+        "runOrder": 2,
+        "centerPoint": 1,
+        "block": 1,
+        "temperature": "59.7",
+        "time": "46",
+        "concentration": "0.71",
+        "pressure": "133.8",
+        "vibration": "4.07"
+      },
+      {
+        "stdOrder": 3,
+        "runOrder": 3,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "72.5",
+        "time": "54",
+        "concentration": "0.43",
+        "pressure": "206.6",
+        "vibration": "4.80"
+      },
+      {
+        "stdOrder": 4,
+        "runOrder": 4,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "38.9",
+        "time": "35",
+        "concentration": "1.85",
+        "pressure": "219.2",
+        "vibration": "1.03"
+      },
+      {
+        "stdOrder": 5,
+        "runOrder": 5,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "23.9",
+        "time": "42",
+        "concentration": "0.66",
+        "pressure": "219.9",
+        "vibration": "3.05"
+      },
+      {
+        "stdOrder": 6,
+        "runOrder": 6,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "34.7",
+        "time": "21",
+        "concentration": "0.53",
+        "pressure": "178.0",
+        "vibration": "2.24"
+      },
+      {
+        "stdOrder": 7,
+        "runOrder": 7,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "28.5",
+        "time": "14",
+        "concentration": "1.84",
+        "pressure": "183.7",
+        "vibration": "4.16"
+      },
+      {
+        "stdOrder": 8,
+        "runOrder": 8,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "25.2",
+        "time": "57",
+        "concentration": "1.46",
+        "pressure": "214.6",
+        "vibration": "4.05"
+      },
+      {
+        "stdOrder": 9,
+        "runOrder": 9,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "31.2",
+        "time": "15",
+        "concentration": "1.35",
+        "pressure": "188.6",
+        "vibration": "5.46"
+      },
+      {
+        "stdOrder": 10,
+        "runOrder": 10,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "50.7",
+        "time": "55",
+        "concentration": "2.08",
+        "pressure": "293.5",
+        "vibration": "2.20"
+      },
+      {
+        "stdOrder": 11,
+        "runOrder": 11,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "78.2",
+        "time": "53",
+        "concentration": "1.78",
+        "pressure": "215.0",
+        "vibration": "0.74"
+      },
+      {
+        "stdOrder": 12,
+        "runOrder": 12,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "70.4",
+        "time": "43",
+        "concentration": "0.99",
+        "pressure": "278.2",
+        "vibration": "1.04"
+      },
+      {
+        "stdOrder": 13,
+        "runOrder": 13,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "68.2",
+        "time": "30",
+        "concentration": "0.66",
+        "pressure": "243.6",
+        "vibration": "3.49"
+      },
+      {
+        "stdOrder": 14,
+        "runOrder": 14,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "33.3",
+        "time": "24",
+        "concentration": "0.22",
+        "pressure": "240.8",
+        "vibration": "4.62"
+      }
+    ],
+    "currentStep": 4,
+    "stepStatus": [
+      "completed",
+      "completed",
+      "completed",
+      "completed",
+      "completed"
+    ]
+  }
+}

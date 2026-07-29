@@ -1,0 +1,219 @@
+{
+  "id": "2fedad95-110d-4e97-b7d3-7a63b424793a",
+  "name": "风电",
+  "createTime": "2026-05-05 09:34:14",
+  "testObjects": [],
+  "testObjectNames": [],
+  "testSubjects": [],
+  "testSubjectNames": [],
+  "testGoal": "范德萨",
+  "testMethod": "单因子轮换法（OFAT）",
+  "objectDescription": "法典化",
+  "attachments": [],
+  "hasOutline": true,
+  "outline": {
+    "method": "单因子轮换法（OFAT）",
+    "methodDescription": "单因子轮换法（One Factor At a Time）是一种经典的试验设计方法。每次仅改变一个因子的水平，其余因子保持不变，逐一考察各因子对响应变量的影响。优点是操作简便、结果直观；缺点是无法考察因子间的交互作用，试验效率较低。",
+    "basicParams": {
+      "factorCount": 4,
+      "centerPointCount": 2,
+      "levelCount": 2,
+      "blockCount": 1
+    },
+    "samplingRequirements": [
+      {
+        "id": "59ff0972-27a9-4763-a200-375493864035",
+        "position": "传感器位置A",
+        "quantity": 10
+      },
+      {
+        "id": "60827f1e-553b-40c2-bcba-8f32912fcbdf",
+        "position": "",
+        "quantity": 1
+      },
+      {
+        "id": "3af81a29-f892-4fc7-9276-7786ae077009",
+        "position": "",
+        "quantity": 1
+      }
+    ],
+    "factors": [
+      {
+        "id": "0fae1f13-6651-4079-9fc1-ea51c0f2583a",
+        "name": "发动机转速",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "c84b3447-6290-4bf6-857e-0aeb25c0fa7f",
+        "name": "飞行攻角",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "64043131-2724-45b7-9035-d90c9e8a02b2",
+        "name": "环境温度",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      },
+      {
+        "id": "4656fe57-6b33-45b5-8768-07e156dda0a3",
+        "name": "航电工作电压",
+        "level1": "",
+        "level2": "",
+        "dimension": "",
+        "measureMethod": "",
+        "precision": "",
+        "frequency": "",
+        "range": ""
+      }
+    ],
+    "responseVariables": [
+      {
+        "id": "ff390340-c413-411b-a57e-9004e746e4fc",
+        "name": "功能",
+        "description": ""
+      },
+      {
+        "id": "66b168f3-450e-447f-9f9c-b6e03aadbd6d",
+        "name": "",
+        "description": ""
+      }
+    ],
+    "testPlan": [
+      {
+        "stdOrder": 1,
+        "runOrder": 1,
+        "centerPoint": 1,
+        "block": 1,
+        "temperature": "29.2",
+        "time": "57",
+        "concentration": "0.14",
+        "pressure": "229.6",
+        "vibration": "0.80"
+      },
+      {
+        "stdOrder": 2,
+        "runOrder": 2,
+        "centerPoint": 1,
+        "block": 1,
+        "temperature": "24.2",
+        "time": "49",
+        "concentration": "0.83",
+        "pressure": "171.6",
+        "vibration": "5.19"
+      },
+      {
+        "stdOrder": 3,
+        "runOrder": 3,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "47.3",
+        "time": "18",
+        "concentration": "1.82",
+        "pressure": "288.8",
+        "vibration": "2.10"
+      },
+      {
+        "stdOrder": 4,
+        "runOrder": 4,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "56.4",
+        "time": "56",
+        "concentration": "0.99",
+        "pressure": "199.0",
+        "vibration": "1.78"
+      },
+      {
+        "stdOrder": 5,
+        "runOrder": 5,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "31.6",
+        "time": "60",
+        "concentration": "1.81",
+        "pressure": "122.5",
+        "vibration": "5.47"
+      },
+      {
+        "stdOrder": 6,
+        "runOrder": 6,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "56.3",
+        "time": "37",
+        "concentration": "1.89",
+        "pressure": "273.4",
+        "vibration": "3.95"
+      },
+      {
+        "stdOrder": 7,
+        "runOrder": 7,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "77.7",
+        "time": "35",
+        "concentration": "0.73",
+        "pressure": "162.4",
+        "vibration": "2.56"
+      },
+      {
+        "stdOrder": 8,
+        "runOrder": 8,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "20.9",
+        "time": "12",
+        "concentration": "1.89",
+        "pressure": "298.5",
+        "vibration": "4.13"
+      },
+      {
+        "stdOrder": 9,
+        "runOrder": 9,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "58.9",
+        "time": "25",
+        "concentration": "0.88",
+        "pressure": "194.5",
+        "vibration": "4.42"
+      },
+      {
+        "stdOrder": 10,
+        "runOrder": 10,
+        "centerPoint": 0,
+        "block": 1,
+        "temperature": "31.2",
+        "time": "40",
+        "concentration": "0.49",
+        "pressure": "222.4",
+        "vibration": "5.42"
+      }
+    ],
+    "currentStep": 4,
+    "stepStatus": [
+      "completed",
+      "completed",
+      "completed",
+      "completed",
+      "completed"
+    ]
+  }
+}

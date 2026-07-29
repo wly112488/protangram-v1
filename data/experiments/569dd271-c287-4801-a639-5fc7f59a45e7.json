@@ -1,0 +1,24 @@
+{
+  "id": "569dd271-c287-4801-a639-5fc7f59a45e7",
+  "name": "1222",
+  "createTime": "2026-06-15 14:22:16",
+  "testObjects": [
+    "bom-2",
+    "bom-0"
+  ],
+  "testObjectNames": [
+    "尾翼",
+    "机身主体"
+  ],
+  "testSubjects": [
+    "tsub-9"
+  ],
+  "testSubjectNames": [
+    "振动试验（正弦、随机、冲击响应谱）"
+  ],
+  "testGoal": "鹅鹅鹅饿",
+  "testMethod": "",
+  "objectDescription": "aaaa",
+  "attachments": [],
+  "hasOutline": false
+}

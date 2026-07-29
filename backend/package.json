@@ -1,0 +1,17 @@
+{
+  "name": "protangram-backend",
+  "version": "1.0.0",
+  "description": "ProTangram 工业试验数据数智化分析平台 - 后端服务",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "multer": "^2.0.0",
+    "sql.js": "^1.11.0",
+    "uuid": "^11.1.0"
+  }
+}

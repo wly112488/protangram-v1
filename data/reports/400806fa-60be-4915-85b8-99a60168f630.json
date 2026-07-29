@@ -1,0 +1,17 @@
+{
+  "id": "400806fa-60be-4915-85b8-99a60168f630",
+  "name": "航空活塞发_分析报告",
+  "experimentName": "航空活塞发",
+  "testGoal": "非他v打开V领看到回复大厦他v打开V领看到回复大厦他v打开V领看到回复大厦他v打开V领看到回复大厦他v打开V领看到回复大厦他v打开",
+  "testObject": "机身主体",
+  "testSubject": "高低温试验, 温度冲击试验",
+  "hasOutline": true,
+  "analysisProjectId": "3656f1f5-9cb0-4ad5-8a6d-57ba7c743fa5",
+  "reportTemplateId": "rt-2",
+  "tagBindings": {
+    "{{试验名称}}": "out-1",
+    "{{试验目的}}": "out-2"
+  },
+  "createTime": "2026-03-02 14:54:17",
+  "status": "generated"
+}

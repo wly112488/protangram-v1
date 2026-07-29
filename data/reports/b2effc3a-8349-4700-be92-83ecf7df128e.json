@@ -1,0 +1,16 @@
+{
+  "id": "b2effc3a-8349-4700-be92-83ecf7df128e",
+  "name": "航空活塞发动机防尘测试test1_分析报告",
+  "experimentName": "航空活塞发动机防尘测试test1",
+  "testGoal": "非他v打开V领看到回复大厦他v打开V领看到回",
+  "testObject": "机身主体, 机翼",
+  "testSubject": "高低温试验, 温度冲击试验",
+  "hasOutline": true,
+  "analysisProjectId": "06637f7b-730d-4182-a632-e1fac2c92021",
+  "reportTemplateId": "rt-1",
+  "tagBindings": {
+    "{{试验名称}}": "out-1"
+  },
+  "createTime": "2026-02-28 17:10:30",
+  "status": "generated"
+}

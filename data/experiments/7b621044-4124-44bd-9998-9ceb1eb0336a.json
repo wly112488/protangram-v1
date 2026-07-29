@@ -1,0 +1,22 @@
+{
+  "id": "7b621044-4124-44bd-9998-9ceb1eb0336a",
+  "name": "测试",
+  "createTime": "2026-06-11 09:08:34",
+  "testObjects": [
+    "bom-0"
+  ],
+  "testObjectNames": [
+    "机身主体"
+  ],
+  "testSubjects": [
+    "tsub-2"
+  ],
+  "testSubjectNames": [
+    "湿热试验"
+  ],
+  "testGoal": "振动",
+  "testMethod": "",
+  "objectDescription": "无",
+  "attachments": [],
+  "hasOutline": false
+}

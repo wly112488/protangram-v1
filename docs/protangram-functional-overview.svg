@@ -1,0 +1,118 @@
+<svg width="1600" height="980" viewBox="0 0 1600 980" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="headerGradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f0f7ff" />
+      <stop offset="100%" stop-color="#eefaf3" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#9db4cc" flood-opacity="0.22"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#5b8def" />
+    </marker>
+    <marker id="arrowGray" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#8a94a6" />
+    </marker>
+    <style>
+      .title { font: 700 34px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #1f2d3d; }
+      .subtitle { font: 400 17px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #5f6b7a; }
+      .panelTitle { font: 700 24px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #203040; }
+      .panelText { font: 400 16px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #415263; }
+      .smallText { font: 400 14px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #607086; }
+      .tag { font: 700 15px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #28415f; }
+      .stepTitle { font: 700 20px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #213547; }
+      .stepText { font: 400 15px 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif; fill: #4f6072; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="980" fill="#f8fbff" />
+  <rect x="38" y="28" width="1524" height="104" rx="24" fill="url(#headerGradient)" stroke="#d7e6f5" stroke-width="2"/>
+  <text x="72" y="82" class="title">ProTangram 工业试验数据数智化分析平台 - 功能总览</text>
+  <text x="72" y="116" class="subtitle">目标：打通“试验信息管理 → 试验设计 → 数据分析 → 报告生成”的完整业务闭环，并提供本地持久化与计算服务支撑</text>
+
+  <rect x="60" y="164" width="1480" height="96" rx="20" fill="#ffffff" stroke="#dbe7f3" stroke-width="2" filter="url(#shadow)"/>
+  <text x="88" y="200" class="stepTitle">核心业务流程</text>
+  <rect x="86" y="214" width="190" height="28" rx="14" fill="#e9f2ff" stroke="#b8d3ff"/>
+  <text x="111" y="233" class="tag">1. 信息管理</text>
+  <line x1="276" y1="228" x2="348" y2="228" stroke="#5b8def" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <rect x="356" y="214" width="190" height="28" rx="14" fill="#edf9ef" stroke="#b8e5c1"/>
+  <text x="381" y="233" class="tag">2. 试验设计</text>
+  <line x1="546" y1="228" x2="618" y2="228" stroke="#5b8def" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <rect x="626" y="214" width="190" height="28" rx="14" fill="#fff6e8" stroke="#ffd59f"/>
+  <text x="651" y="233" class="tag">3. 模板搭建</text>
+  <line x1="816" y1="228" x2="888" y2="228" stroke="#5b8def" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <rect x="896" y="214" width="190" height="28" rx="14" fill="#f2eeff" stroke="#cabdff"/>
+  <text x="921" y="233" class="tag">4. 数据分析执行</text>
+  <line x1="1086" y1="228" x2="1158" y2="228" stroke="#5b8def" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <rect x="1166" y="214" width="190" height="28" rx="14" fill="#ffeef1" stroke="#ffbfd0"/>
+  <text x="1191" y="233" class="tag">5. 报告生成</text>
+
+  <rect x="60" y="300" width="450" height="290" rx="24" fill="#ffffff" stroke="#bdd5f5" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="60" y="300" width="450" height="56" rx="24" fill="#eaf3ff"/>
+  <text x="88" y="336" class="panelTitle">一、试验管理</text>
+  <text x="88" y="388" class="panelText">1) 信息管理</text>
+  <text x="110" y="418" class="smallText">- 装备管理：BOM层级展示、上传、编辑</text>
+  <text x="110" y="445" class="smallText">- 试验科目管理：试验对象与条目维护</text>
+  <text x="110" y="472" class="smallText">- 试验设计方法：方法库维护与查看</text>
+  <text x="110" y="499" class="smallText">- 采样要求：预留入口，后续扩展</text>
+  <text x="88" y="541" class="panelText">2) 试验设计</text>
+  <text x="110" y="571" class="smallText">- 新建/编辑试验卡片</text>
+  <text x="110" y="598" class="smallText">- 大纲设计五步法：方法 → 参数 → 因子 → 响应 → 方案</text>
+
+  <rect x="575" y="300" width="450" height="290" rx="24" fill="#ffffff" stroke="#bfe6c8" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="575" y="300" width="450" height="56" rx="24" fill="#eefaf1"/>
+  <text x="603" y="336" class="panelTitle">二、数据分析</text>
+  <text x="603" y="388" class="panelText">1) 模块管理</text>
+  <text x="625" y="418" class="smallText">- 数据模块、计算模块、对比分析模块、绘图模块</text>
+  <text x="625" y="445" class="smallText">- 当前内置：5类计算能力、24种算法</text>
+  <text x="603" y="487" class="panelText">2) 模板管理</text>
+  <text x="625" y="517" class="smallText">- React Flow 画布拖拽搭建分析模板</text>
+  <text x="625" y="544" class="smallText">- 节点/连线配置、变量名设置、模板持久化</text>
+  <text x="603" y="586" class="panelText">3) 分析执行</text>
+  <text x="625" y="616" class="smallText">- CSV导入、流程高亮执行、对比分析</text>
+  <text x="625" y="643" class="smallText">- OUT输出节点支持全屏面板查看结果页面</text>
+
+  <rect x="1090" y="300" width="450" height="290" rx="24" fill="#ffffff" stroke="#d8c8f6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1090" y="300" width="450" height="56" rx="24" fill="#f4efff"/>
+  <text x="1118" y="336" class="panelTitle">三、报告生成</text>
+  <text x="1118" y="388" class="panelText">1) 报告模板管理</text>
+  <text x="1140" y="418" class="smallText">- 读取并展示 Word 模板库</text>
+  <text x="1140" y="445" class="smallText">- 当前内置约 8 种标准报告模板</text>
+  <text x="1118" y="487" class="panelText">2) 报告管理</text>
+  <text x="1140" y="517" class="smallText">- 新建报告、从分析项目顺延生成</text>
+  <text x="1140" y="544" class="smallText">- 维护报告列表与状态</text>
+  <text x="1118" y="586" class="panelText">3) 报告生成</text>
+  <text x="1140" y="616" class="smallText">- 标签解析、数据绑定、预览与导出</text>
+  <text x="1140" y="643" class="smallText">- 一键形成标准化试验分析报告</text>
+
+  <rect x="60" y="640" width="680" height="270" rx="24" fill="#ffffff" stroke="#d6e2ee" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="60" y="640" width="680" height="56" rx="24" fill="#f3f7fb"/>
+  <text x="88" y="676" class="panelTitle">四、平台支撑能力</text>
+  <text x="88" y="728" class="panelText">前端体验</text>
+  <text x="110" y="758" class="smallText">- 首页三大入口卡片、快捷按钮、工作流程指引</text>
+  <text x="110" y="785" class="smallText">- Chrome风格页签栏、右上角用户区、主题切换</text>
+  <text x="110" y="812" class="smallText">- 工业仿真深色主题 + 亮色主题双风格</text>
+  <text x="110" y="839" class="smallText">- 关键页面无滚动条、面板圆角、布局对齐优化</text>
+  <text x="88" y="881" class="panelText">数据持久化</text>
+  <text x="110" y="911" class="smallText">- 实验、模板、项目、报告以本地 JSON 持久化存储</text>
+
+  <rect x="795" y="640" width="745" height="270" rx="24" fill="#ffffff" stroke="#d6e2ee" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="795" y="640" width="745" height="56" rx="24" fill="#f3f7fb"/>
+  <text x="823" y="676" class="panelTitle">五、后端与数据层</text>
+  <text x="823" y="728" class="panelText">后端接口</text>
+  <text x="845" y="758" class="smallText">- CSV读取：BOM.csv / test.csv / testmethod.csv</text>
+  <text x="845" y="785" class="smallText">- CRUD接口：experiments / templates / projects / reports</text>
+  <text x="845" y="812" class="smallText">- Word模板列表接口：/api/report-templates</text>
+  <text x="845" y="839" class="smallText">- 大文件分块读取：/api/data/read-chunk</text>
+  <text x="845" y="866" class="smallText">- AI辅助接口预留：/api/ai/generate</text>
+  <text x="1106" y="728" class="panelText">计算与过程数据</text>
+  <text x="1128" y="758" class="smallText">- 统一计算代理：/api/compute/:moduleId/:algId</text>
+  <text x="1128" y="785" class="smallText">- 支持统计、归一化、极值、数学、聚合等计算</text>
+  <text x="1128" y="812" class="smallText">- 过程数据写入 process_data 目录，便于追溯</text>
+
+  <line x1="285" y1="590" x2="285" y2="632" stroke="#8a94a6" stroke-width="3" marker-end="url(#arrowGray)"/>
+  <line x1="800" y1="590" x2="800" y2="632" stroke="#8a94a6" stroke-width="3" marker-end="url(#arrowGray)"/>
+  <line x1="1315" y1="590" x2="1315" y2="632" stroke="#8a94a6" stroke-width="3" marker-end="url(#arrowGray)"/>
+
+  <text x="60" y="952" class="subtitle">说明：本图依据当前工程结构、路由、首页模块、后端接口与历史开发内容整理，采用白底配色，适合直接用于汇报或方案说明。</text>
+</svg>

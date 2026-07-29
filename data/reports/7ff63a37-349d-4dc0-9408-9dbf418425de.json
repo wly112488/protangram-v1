@@ -1,0 +1,18 @@
+{
+  "id": "7ff63a37-349d-4dc0-9408-9dbf418425de",
+  "name": "试验测试_分析报告",
+  "experimentName": "试验测试",
+  "testGoal": "大帅哥第三方海上风电就",
+  "testObject": "螺旋桨",
+  "testSubject": "盐雾试验",
+  "hasOutline": true,
+  "analysisProjectId": "8c0fab71-1258-4dd4-9a9c-f46a5417c8b0",
+  "reportTemplateId": "rt-1",
+  "tagBindings": {
+    "{{试验名称}}": "out-1",
+    "{{试验目的}}": "out-2",
+    "{{试验对象}}": "out-3"
+  },
+  "createTime": "2026-03-03 11:51:45",
+  "status": "generated"
+}

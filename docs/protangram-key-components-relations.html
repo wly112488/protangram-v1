@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProTangram 关键组件调用关系图</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background: linear-gradient(135deg, #f7fbff 0%, #fbfdff 100%);
+      color: #1f2d3d;
+    }
+    .page {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 32px 28px 40px;
+    }
+    .header {
+      background: #ffffff;
+      border: 1px solid #dbe7f3;
+      border-radius: 20px;
+      padding: 24px 28px;
+      box-shadow: 0 10px 28px rgba(112, 143, 176, 0.12);
+      margin-bottom: 24px;
+    }
+    .header h1 {
+      margin: 0 0 10px;
+      font-size: 32px;
+      line-height: 1.25;
+    }
+    .header p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.8;
+      color: #5d7288;
+    }
+    .panel {
+      background: #ffffff;
+      border: 1px solid #dbe7f3;
+      border-radius: 20px;
+      box-shadow: 0 10px 28px rgba(112, 143, 176, 0.12);
+      padding: 20px;
+      overflow: auto;
+    }
+    .tips {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #6f8093;
+      line-height: 1.8;
+    }
+    .mermaid {
+      min-width: 1500px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>ProTangram 关键组件与调用关系图</h1>
+      <p>该页面使用 Mermaid 独立渲染，不嵌入 Markdown。图中展示前端入口层、路由布局层、状态桥接层、核心业务页面、后端数据层以及核心业务对象之间的调用和依赖关系。</p>
+    </div>
+
+    <div class="panel">
+      <pre class="mermaid">
+flowchart LR
+    subgraph FE["前端入口与壳层"]
+        Main["main.tsx<br/>React 挂载入口"]
+        App["App.tsx<br/>根组件<br/>启动同步数据"]
+        ThemeProvider["ThemeProvider.tsx<br/>主题提供者"]
+        Router["router/index.tsx<br/>路由表"]
+        Layout["MainLayout.tsx<br/>导航 / 页签 / Outlet"]
+        ThemeToggle["ThemeToggle.tsx<br/>主题切换"]
+    end
+
+    subgraph SS["状态与桥接层"]
+        AppStore["useAppStore.ts<br/>全局业务状态"]
+        ThemeStore["useThemeStore.ts<br/>主题状态"]
+        Storage["storage.ts<br/>localStorage + 同步桥接"]
+        Api["services/api.ts<br/>统一 API 调用层"]
+    end
+
+    subgraph BP["核心业务页面"]
+        TemplatePage["TemplateCreate.tsx<br/>模板设计"]
+        ExecutePage["AnalysisExecution.tsx<br/>分析执行"]
+        Fullscreen["FullscreenPanel.tsx<br/>OUT 输出查看"]
+        ReportCreatePage["ReportCreate.tsx<br/>报告创建"]
+        ReportGeneratePage["ReportGenerate.tsx<br/>报告生成"]
+    end
+
+    subgraph BE["后端与数据层"]
+        Backend["backend/src/index.js<br/>Express 服务入口"]
+        JsonData["data/*/*.json<br/>本地持久化数据"]
+    end
+
+    subgraph DM["核心业务对象"]
+        Experiment["ExperimentCard<br/>试验卡片 / 试验大纲"]
+        TemplateModel["AnalysisTemplate<br/>模板节点与连线"]
+        Project["AnalysisProject<br/>绑定试验与模板<br/>保存执行状态"]
+        Report["AnalysisReport<br/>绑定标签并生成报告"]
+    end
+
+    Main -->|渲染| App
+    App -->|包裹| ThemeProvider
+    App -->|加载| Router
+    Router -->|主框架| Layout
+    Layout -->|使用| ThemeToggle
+    Layout -->|Outlet 分发| TemplatePage
+    Layout -->|Outlet 分发| ExecutePage
+    Layout -->|Outlet 分发| ReportCreatePage
+    Layout -->|Outlet 分发| ReportGeneratePage
+
+    App -->|启动同步| Storage
+    ThemeProvider -.读取主题.-> ThemeStore
+    ThemeToggle -.切换主题.-> ThemeStore
+
+    TemplatePage -.读写.-> AppStore
+    ExecutePage -.读写.-> AppStore
+    ReportCreatePage -.读写.-> AppStore
+    ReportGeneratePage -.读写.-> AppStore
+
+    TemplatePage -->|保存模板| Storage
+    ExecutePage -->|保存项目进度| Storage
+    ReportCreatePage -->|保存报告对象| Storage
+    ReportGeneratePage -->|保存绑定与状态| Storage
+    ExecutePage -->|OUT 结果展示| Fullscreen
+
+    Storage -->|调用| Api
+    Api -->|/api/*| Backend
+    Backend -->|落盘| JsonData
+
+    Experiment -->|提供试验上下文| Project
+    TemplateModel -->|提供分析流程| Project
+    Project -->|输出分析结果| Report
+
+    TemplatePage -.创建 / 编辑.-> TemplateModel
+    ExecutePage -.读取模板 / 更新项目.-> Project
+    ReportCreatePage -.新建报告.-> Report
+    ReportGeneratePage -.绑定 / 生成.-> Report
+
+    AppStore -.持有.-> Experiment
+    AppStore -.持有.-> TemplateModel
+    AppStore -.持有.-> Project
+    AppStore -.持有.-> Report
+
+    classDef entry fill:#eef5ff,stroke:#7aa6d8,color:#1f3b5b,stroke-width:1.5px;
+    classDef store fill:#f4efff,stroke:#9a83d7,color:#35275b,stroke-width:1.5px;
+    classDef page fill:#fff7ec,stroke:#e4ac57,color:#5a3b0e,stroke-width:1.5px;
+    classDef backend fill:#fff1f3,stroke:#d9829d,color:#60263c,stroke-width:1.5px;
+    classDef model fill:#edf6ff,stroke:#73a3d6,color:#1f3a58,stroke-width:1.5px;
+
+    class Main,App,ThemeProvider,Router,Layout,ThemeToggle entry;
+    class AppStore,ThemeStore,Storage,Api store;
+    class TemplatePage,ExecutePage,Fullscreen,ReportCreatePage,ReportGeneratePage page;
+    class Backend,JsonData backend;
+    class Experiment,TemplateModel,Project,Report model;
+      </pre>
+    </div>
+
+    <div class="tips">
+      提示：本页面依赖 Mermaid 浏览器渲染。如果你的环境无法访问 CDN，可直接打开同目录下的 <code>protangram-key-components-relations.mmd</code>，在支持 Mermaid 的 IDE 或插件中预览。
+    </div>
+  </div>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      securityLevel: 'loose',
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis'
+      },
+      themeVariables: {
+        background: '#ffffff',
+        primaryColor: '#eef5ff',
+        primaryTextColor: '#1f2d3d',
+        primaryBorderColor: '#7aa6d8',
+        lineColor: '#7187a2',
+        tertiaryColor: '#f8fbff',
+        fontFamily: 'Microsoft YaHei, PingFang SC, Arial, sans-serif'
+      }
+    });
+  </script>
+</body>
+</html>

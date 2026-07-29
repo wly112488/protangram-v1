@@ -1,0 +1,319 @@
+{
+  "id": "58693577-16ec-4e11-9fad-2ecce7b55644",
+  "name": "航空活塞发动机防尘测试test1",
+  "experimentName": "航空活塞发动机防尘测试test1",
+  "condition": "PM2.5",
+  "createDate": "2026-03-03",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "startNode",
+      "position": {
+        "x": -67.20508315821672,
+        "y": 187.6676732066548
+      },
+      "data": {
+        "label": "开始"
+      },
+      "width": 80,
+      "height": 42,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -67.20508315821672,
+        "y": 187.6676732066548
+      },
+      "dragging": false
+    },
+    {
+      "id": "end",
+      "type": "endNode",
+      "position": {
+        "x": 800,
+        "y": 200
+      },
+      "data": {
+        "label": "结束"
+      },
+      "width": 80,
+      "height": 42
+    },
+    {
+      "id": "32656520-8665-4d1e-954e-af6df2033adf",
+      "type": "compareNode",
+      "position": {
+        "x": 322.2376302982352,
+        "y": 136.23179061323998
+      },
+      "data": {
+        "label": "数据对比分析",
+        "moduleType": "compareNode",
+        "inputCount": 2,
+        "outputCount": 10
+      },
+      "width": 140,
+      "height": 216,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 322.2376302982352,
+        "y": 136.23179061323998
+      },
+      "dragging": false
+    },
+    {
+      "id": "6654696e-cbd6-4ad9-ab5b-94a8b79b046c",
+      "type": "dataNode",
+      "position": {
+        "x": 63.29654398616202,
+        "y": 100.91929821789847
+      },
+      "data": {
+        "label": "导入样本数据",
+        "moduleType": "dataNode"
+      },
+      "width": 128,
+      "height": 42,
+      "selected": true,
+      "positionAbsolute": {
+        "x": 63.29654398616202,
+        "y": 100.91929821789847
+      },
+      "dragging": false
+    },
+    {
+      "id": "0ca50ff7-7903-4d6a-9f2b-96666772a3c7",
+      "type": "dataNode",
+      "position": {
+        "x": 67.82552959707925,
+        "y": 266.296627540903
+      },
+      "data": {
+        "label": "导入仿真数据",
+        "moduleType": "dataNode"
+      },
+      "width": 128,
+      "height": 42,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 67.82552959707925,
+        "y": 266.296627540903
+      },
+      "dragging": false
+    },
+    {
+      "id": "b84c4783-6482-4d17-9e03-8f8e5352b53a",
+      "type": "outNode",
+      "position": {
+        "x": 608.5924534640312,
+        "y": 28.664846493054853
+      },
+      "data": {
+        "label": "OUT输出",
+        "moduleType": "outNode",
+        "varNames": [
+          "w"
+        ]
+      },
+      "width": 100,
+      "height": 62,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 608.5924534640312,
+        "y": 28.664846493054853
+      },
+      "dragging": false
+    },
+    {
+      "id": "0c9ebcf3-5776-4eb2-811e-28b664d4801a",
+      "type": "outNode",
+      "position": {
+        "x": 616.3204737892167,
+        "y": 280.09487670580756
+      },
+      "data": {
+        "label": "OUT输出",
+        "moduleType": "outNode",
+        "varNames": [
+          "c"
+        ]
+      },
+      "width": 100,
+      "height": 62,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 616.3204737892167,
+        "y": 280.09487670580756
+      },
+      "dragging": false
+    },
+    {
+      "id": "f7d3b5ee-d117-422e-adc1-ad67f5dc931a",
+      "type": "outNode",
+      "position": {
+        "x": 616.1904465955939,
+        "y": 200.01639936417405
+      },
+      "data": {
+        "label": "OUT输出",
+        "moduleType": "outNode",
+        "varNames": [
+          "b"
+        ]
+      },
+      "width": 100,
+      "height": 62,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 616.1904465955939,
+        "y": 200.01639936417405
+      },
+      "dragging": false
+    },
+    {
+      "id": "b70ff6db-9c36-4d54-b7d6-9dc262a05c13",
+      "type": "outNode",
+      "position": {
+        "x": 619.0326221663989,
+        "y": 355.39610122393356
+      },
+      "data": {
+        "label": "OUT输出",
+        "moduleType": "outNode",
+        "varNames": [
+          "d"
+        ]
+      },
+      "width": 100,
+      "height": 62,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 619.0326221663989,
+        "y": 355.39610122393356
+      }
+    },
+    {
+      "id": "8f5257fe-3521-4534-a4b0-c07d6858fdd8",
+      "type": "outNode",
+      "position": {
+        "x": 613.755260571073,
+        "y": 131.06734076421702
+      },
+      "data": {
+        "label": "OUT输出",
+        "moduleType": "outNode",
+        "varNames": [
+          "a"
+        ]
+      },
+      "width": 100,
+      "height": 62,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 613.755260571073,
+        "y": 131.06734076421702
+      },
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "start",
+      "sourceHandle": null,
+      "target": "6654696e-cbd6-4ad9-ab5b-94a8b79b046c",
+      "targetHandle": null,
+      "id": "reactflow__edge-start-6654696e-cbd6-4ad9-ab5b-94a8b79b046c"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "start",
+      "sourceHandle": null,
+      "target": "0ca50ff7-7903-4d6a-9f2b-96666772a3c7",
+      "targetHandle": null,
+      "id": "reactflow__edge-start-0ca50ff7-7903-4d6a-9f2b-96666772a3c7"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "6654696e-cbd6-4ad9-ab5b-94a8b79b046c",
+      "sourceHandle": null,
+      "target": "32656520-8665-4d1e-954e-af6df2033adf",
+      "targetHandle": "in-1",
+      "id": "reactflow__edge-6654696e-cbd6-4ad9-ab5b-94a8b79b046c-32656520-8665-4d1e-954e-af6df2033adfin-1"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "0ca50ff7-7903-4d6a-9f2b-96666772a3c7",
+      "sourceHandle": null,
+      "target": "32656520-8665-4d1e-954e-af6df2033adf",
+      "targetHandle": "in-2",
+      "id": "reactflow__edge-0ca50ff7-7903-4d6a-9f2b-96666772a3c7-32656520-8665-4d1e-954e-af6df2033adfin-2"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "32656520-8665-4d1e-954e-af6df2033adf",
+      "sourceHandle": "out-1",
+      "target": "b84c4783-6482-4d17-9e03-8f8e5352b53a",
+      "targetHandle": null,
+      "id": "reactflow__edge-32656520-8665-4d1e-954e-af6df2033adfout-1-b84c4783-6482-4d17-9e03-8f8e5352b53a"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "32656520-8665-4d1e-954e-af6df2033adf",
+      "sourceHandle": "out-2",
+      "target": "8f5257fe-3521-4534-a4b0-c07d6858fdd8",
+      "targetHandle": null,
+      "id": "reactflow__edge-32656520-8665-4d1e-954e-af6df2033adfout-2-8f5257fe-3521-4534-a4b0-c07d6858fdd8"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "32656520-8665-4d1e-954e-af6df2033adf",
+      "sourceHandle": "out-3",
+      "target": "f7d3b5ee-d117-422e-adc1-ad67f5dc931a",
+      "targetHandle": null,
+      "id": "reactflow__edge-32656520-8665-4d1e-954e-af6df2033adfout-3-f7d3b5ee-d117-422e-adc1-ad67f5dc931a"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "32656520-8665-4d1e-954e-af6df2033adf",
+      "sourceHandle": "out-4",
+      "target": "0c9ebcf3-5776-4eb2-811e-28b664d4801a",
+      "targetHandle": null,
+      "id": "reactflow__edge-32656520-8665-4d1e-954e-af6df2033adfout-4-0c9ebcf3-5776-4eb2-811e-28b664d4801a"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "32656520-8665-4d1e-954e-af6df2033adf",
+      "sourceHandle": "out-5",
+      "target": "b70ff6db-9c36-4d54-b7d6-9dc262a05c13",
+      "targetHandle": null,
+      "id": "reactflow__edge-32656520-8665-4d1e-954e-af6df2033adfout-5-b70ff6db-9c36-4d54-b7d6-9dc262a05c13"
+    }
+  ]
+}

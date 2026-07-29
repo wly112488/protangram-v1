@@ -1,0 +1,18 @@
+{
+  "id": "3656f1f5-9cb0-4ad5-8a6d-57ba7c743fa5",
+  "name": "航空活塞发动机防尘测试",
+  "experimentId": "b26b5caa-0d9d-4921-8b98-750606c57b72",
+  "experimentName": "航空活塞发",
+  "outlineSummary": "方法:单因子轮换法（OFAT） | 因子:6",
+  "templateId": "c4fc03fc-36ec-45dc-b121-6e76029cd66e",
+  "templateName": "航空活塞发动机防尘测试",
+  "createTime": "2026-03-02 14:52:53",
+  "status": "completed",
+  "completedNodes": [
+    "0f4806e7-5352-4d0e-9974-1aca4d20e412",
+    "cbc4695e-da7e-4198-9623-69ed9c79c4ae",
+    "28719956-0b72-4a4b-b820-4df80a07e220",
+    "d01575e2-2076-423c-989a-7e5b3461cfcf",
+    "e1dfb2e0-c0b7-45af-b9c7-a80a1cf770dc"
+  ]
+}

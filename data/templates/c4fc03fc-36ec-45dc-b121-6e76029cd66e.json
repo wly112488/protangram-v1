@@ -1,0 +1,222 @@
+{
+  "id": "c4fc03fc-36ec-45dc-b121-6e76029cd66e",
+  "name": "航空活塞发动机防尘测试",
+  "experimentName": "航空活塞发",
+  "condition": "PM2.5",
+  "createDate": "2026-03-02",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "startNode",
+      "position": {
+        "x": 46.15848527349226,
+        "y": 180.79242636746142
+      },
+      "data": {
+        "label": "开始"
+      },
+      "width": 80,
+      "height": 42,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 46.15848527349226,
+        "y": 180.79242636746142
+      },
+      "dragging": false
+    },
+    {
+      "id": "end",
+      "type": "endNode",
+      "position": {
+        "x": 800,
+        "y": 200
+      },
+      "data": {
+        "label": "结束"
+      },
+      "width": 80,
+      "height": 42
+    },
+    {
+      "id": "0f4806e7-5352-4d0e-9974-1aca4d20e412",
+      "type": "dataNode",
+      "position": {
+        "x": 221.14664847573,
+        "y": 79.78688670308668
+      },
+      "data": {
+        "label": "导入训练数据",
+        "moduleType": "dataNode"
+      },
+      "width": 128,
+      "height": 42,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 221.14664847573,
+        "y": 79.78688670308668
+      },
+      "dragging": false
+    },
+    {
+      "id": "cbc4695e-da7e-4198-9623-69ed9c79c4ae",
+      "type": "dataNode",
+      "position": {
+        "x": 223.87913110656638,
+        "y": 274.7212309484814
+      },
+      "data": {
+        "label": "导入仿真数据",
+        "moduleType": "dataNode"
+      },
+      "width": 128,
+      "height": 42,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 223.87913110656638,
+        "y": 274.7212309484814
+      },
+      "dragging": false
+    },
+    {
+      "id": "d01575e2-2076-423c-989a-7e5b3461cfcf",
+      "type": "calcNode",
+      "position": {
+        "x": 614.0534754984596,
+        "y": 127.59080956550173
+      },
+      "data": {
+        "label": "均值",
+        "moduleType": "calcNode"
+      },
+      "width": 120,
+      "height": 42,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 614.0534754984596,
+        "y": 127.59080956550173
+      },
+      "dragging": false
+    },
+    {
+      "id": "e1dfb2e0-c0b7-45af-b9c7-a80a1cf770dc",
+      "type": "outNode",
+      "position": {
+        "x": 661.1498191929838,
+        "y": 18.382029766411534
+      },
+      "data": {
+        "label": "OUT输出",
+        "moduleType": "outNode"
+      },
+      "width": 100,
+      "height": 42,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 661.1498191929838,
+        "y": 18.382029766411534
+      },
+      "dragging": false
+    },
+    {
+      "id": "28719956-0b72-4a4b-b820-4df80a07e220",
+      "type": "compareNode",
+      "position": {
+        "x": 392.0695597124834,
+        "y": 84.2586828584943
+      },
+      "data": {
+        "label": "数据对比分析",
+        "moduleType": "compareNode",
+        "inputCount": 2,
+        "outputCount": 7
+      },
+      "width": 140,
+      "height": 156,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 392.0695597124834,
+        "y": 84.2586828584943
+      },
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "start",
+      "sourceHandle": null,
+      "target": "0f4806e7-5352-4d0e-9974-1aca4d20e412",
+      "targetHandle": null,
+      "id": "reactflow__edge-start-0f4806e7-5352-4d0e-9974-1aca4d20e412"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "start",
+      "sourceHandle": null,
+      "target": "cbc4695e-da7e-4198-9623-69ed9c79c4ae",
+      "targetHandle": null,
+      "id": "reactflow__edge-start-cbc4695e-da7e-4198-9623-69ed9c79c4ae"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "0f4806e7-5352-4d0e-9974-1aca4d20e412",
+      "sourceHandle": null,
+      "target": "28719956-0b72-4a4b-b820-4df80a07e220",
+      "targetHandle": "in-1",
+      "id": "reactflow__edge-0f4806e7-5352-4d0e-9974-1aca4d20e412-28719956-0b72-4a4b-b820-4df80a07e220in-1"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "cbc4695e-da7e-4198-9623-69ed9c79c4ae",
+      "sourceHandle": null,
+      "target": "28719956-0b72-4a4b-b820-4df80a07e220",
+      "targetHandle": "in-2",
+      "id": "reactflow__edge-cbc4695e-da7e-4198-9623-69ed9c79c4ae-28719956-0b72-4a4b-b820-4df80a07e220in-2"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "28719956-0b72-4a4b-b820-4df80a07e220",
+      "sourceHandle": "out-1",
+      "target": "e1dfb2e0-c0b7-45af-b9c7-a80a1cf770dc",
+      "targetHandle": null,
+      "id": "reactflow__edge-28719956-0b72-4a4b-b820-4df80a07e220out-1-e1dfb2e0-c0b7-45af-b9c7-a80a1cf770dc"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "28719956-0b72-4a4b-b820-4df80a07e220",
+      "sourceHandle": "out-2",
+      "target": "d01575e2-2076-423c-989a-7e5b3461cfcf",
+      "targetHandle": null,
+      "id": "reactflow__edge-28719956-0b72-4a4b-b820-4df80a07e220out-2-d01575e2-2076-423c-989a-7e5b3461cfcf"
+    },
+    {
+      "style": {
+        "stroke": "#1890ff"
+      },
+      "animated": true,
+      "source": "d01575e2-2076-423c-989a-7e5b3461cfcf",
+      "sourceHandle": null,
+      "target": "end",
+      "targetHandle": null,
+      "id": "reactflow__edge-d01575e2-2076-423c-989a-7e5b3461cfcf-end"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Card, Typography, Button, Row, Col, Tag, Popconfirm, Empty, message, Space } from 'antd';
+import { Alert, Card, Typography, Button, Row, Col, Tag, Popconfirm, Empty, message, Space } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
@@ -10,7 +10,7 @@ import {
   AimOutlined,
   ExperimentOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
 import { loadExperiments, saveExperiments } from '@/utils/storage';
 
@@ -22,6 +22,8 @@ const { Title, Text, Paragraph } = Typography;
  */
 const ExperimentDesign: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const incoming = location.state as { source?: string; suggestedRange?: string; modelName?: string } | null;
   const { experiments, setExperiments, deleteExperiment } = useAppStore();
 
   useEffect(() => {
@@ -45,9 +47,8 @@ const ExperimentDesign: React.FC = () => {
   /**
    * 点击大纲（查看/设计）
    * @param id - 试验卡片ID
-   * @param hasOutline - 是否已有大纲
    */
-  const handleOutline = (id: string, hasOutline: boolean) => {
+  const handleOutline = (id: string) => {
     navigate(`/experiment/design/outline/${id}`);
   };
 
@@ -67,6 +68,7 @@ const ExperimentDesign: React.FC = () => {
           新建试验
         </Button>
       </div>
+      {incoming?.source === 'experiment-analysis' && <Alert type="info" showIcon title={`建议重点验证：${incoming.suggestedRange}`} description={`当前模型：${incoming.modelName}`} style={{ marginBottom: 16 }} />}
 
       {experiments.length === 0 ? (
         <Card style={{ marginTop: 32 }}>
@@ -166,7 +168,7 @@ const ExperimentDesign: React.FC = () => {
                         icon={<FileTextOutlined />}
                         size="small"
                         style={{ padding: 0 }}
-                        onClick={() => handleOutline(exp.id, true)}
+                        onClick={() => handleOutline(exp.id)}
                       >
                         查看试验大纲
                       </Button>
@@ -175,7 +177,7 @@ const ExperimentDesign: React.FC = () => {
                         type="dashed"
                         icon={<FileTextOutlined />}
                         size="small"
-                        onClick={() => handleOutline(exp.id, false)}
+                        onClick={() => handleOutline(exp.id)}
                       >
                         设计试验大纲
                       </Button>

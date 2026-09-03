@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, Typography, Button, Row, Col, Tag, Empty, Space } from 'antd';
 import {
   PlusOutlined, EyeOutlined, FileTextOutlined, CalendarOutlined,
@@ -6,6 +6,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisReports } from '@/utils/storage';
+import { loadBusinessReportItems } from '@/types/businessContext';
+import type { BusinessReportItem } from '@/types/businessContext';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -16,6 +18,7 @@ const { Title, Text, Paragraph } = Typography;
 const ReportList: React.FC = () => {
   const navigate = useNavigate();
   const { analysisReports, setAnalysisReports } = useAppStore();
+  const [businessResults] = useState<BusinessReportItem[]>(loadBusinessReportItems);
 
   useEffect(() => {
     const saved = loadAnalysisReports();
@@ -34,6 +37,13 @@ const ReportList: React.FC = () => {
           新建报告
         </Button>
       </div>
+
+      {businessResults.length > 0 && <Card title="业务分析结果" size="small" style={{ marginBottom: 16 }}>
+        {businessResults.map((item, index) => <div key={item.id} style={{ padding: '10px 0', borderBottom: index === businessResults.length - 1 ? 'none' : '1px solid #f0f0f0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}><Space><Tag color="blue">{item.source}</Tag><Text strong>{item.title}</Text></Space><Text type="secondary">{item.createdAt}</Text></div>
+          <Paragraph style={{ margin: '6px 0 0' }}>{item.summary}</Paragraph>
+        </div>)}
+      </Card>}
 
       {analysisReports.length === 0 ? (
         <Card style={{ marginTop: 32 }}>

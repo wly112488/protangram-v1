@@ -1,38 +1,38 @@
 import React, { useState } from 'react';
 import { Button, Form, Input, Modal, Popover, Select, Typography, message } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import EquipmentManagerWindow, { type ResearchObject } from './EquipmentManagerWindow';
 
 const { Text, Title } = Typography;
 
 const functionItems = [
   { key: 'experiment', label: '试验管理', groups: ['关联对象管理', '试验科目', '试验设计方法', '采样要求'] },
-  { key: 'doe', label: '试验设计（DOE）', groups: ['快速设计', '模板设计', '筛选', '因子', '响应曲面', '混料', '田口'] },
-  { key: 'analysis', label: '数据分析', groups: ['模块管理', '模板管理', '数据分析'] },
+  { key: 'doe', label: '试验设计（DOE）', groups: ['快速设计', '模板设计', '智能试验设计', '筛选', '因子', '响应曲面', '混料', '田口'] },
+  { key: 'analysis', label: '数据分析', groups: ['模块管理', '模板管理', '试验数据分析', '试验数字孪生', '虚拟工况扩展'] },
   { key: 'report', label: '报告生成', groups: ['报告模板管理', '分析报告管理', '报告生成'] },
 ];
-
-interface DesignEntry {
-  key: string;
-  title: string;
-  numberLabel: string;
-  description: string;
-  action: string;
-  type: 'factor' | 'screening';
-}
-
-type DetailOptionKind = 'category' | 'continuous' | 'mixed' | 'mixture';
-
-interface DetailOption {
-  kind: DetailOptionKind;
-  title: string;
-  description: string;
-}
 
 interface MethodRow {
   title: string;
   description: string;
   icon: string;
+  factorTypeMode: 'editable' | 'fixed';
+  fixedFactorType?: FactorType;
+  allowedFactorTypes?: FactorType[];
+  levelMode: 'two-level' | 'multi-level';
+  hasChangeType?: boolean;
+}
+
+type FactorType = '连续' | '类别' | '混料';
+
+interface MethodFactorRow {
+  name: string;
+  type: FactorType;
+  lowLevel: string;
+  highLevel: string;
+  changeType: string;
+  levels: string[];
 }
 
 interface DoeTemplate {
@@ -66,180 +66,67 @@ const saveDoeTemplates = (templates: DoeTemplate[]) => {
   localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
 };
 
-const designEntries: DesignEntry[] = [
+const getQuickMethodOptions = (): MethodRow[] => [
   {
-    key: 'two-factor',
-    title: '双因子设计',
-    numberLabel: '2',
-    description: '创建一个具有两个独立变量的试验，以探索因子的主效应和交互作用效应、优化响应、增强不可控噪声因子的稳健性或研究混料中的混合效应。',
-    action: '选择双因子设计',
-    type: 'factor',
+    title: '当各因子都具有两个水平时，估计主效应和交互作用效应',
+    description: '创建两水平因子设计',
+    icon: 'blue-grid',
+    factorTypeMode: 'editable',
+    allowedFactorTypes: ['连续', '类别'],
+    levelMode: 'two-level',
   },
   {
-    key: 'three-factor',
-    title: '三因子设计',
-    numberLabel: '3',
-    description: '创建一个具有三个独立变量的试验，以探索因子的主效应和交互作用效应、优化响应、增强不可控噪声因子的稳健性或研究混料中的混合效应。',
-    action: '选择三因子设计',
-    type: 'factor',
+    title: '当各因子都具有两个水平且一个因子难以改变时，估计主效应和交互作用效应',
+    description: '创建两水平裂区设计',
+    icon: 'green-grid',
+    factorTypeMode: 'editable',
+    allowedFactorTypes: ['连续', '类别'],
+    levelMode: 'two-level',
+    hasChangeType: true,
   },
   {
-    key: 'four-factor',
-    title: '四因子设计',
-    numberLabel: '4',
-    description: '创建一个具有四个独立变量的试验，以探索因子的主效应和交互作用效应、优化响应、增强不可控噪声因子的稳健性或研究混料中的混合效应。',
-    action: '选择四因子设计',
-    type: 'factor',
+    title: '当至少一个因子具有两个以上水平时，估计主效应和交互作用效应',
+    description: '创建一般全因子设计',
+    icon: 'red-grid',
+    factorTypeMode: 'editable',
+    allowedFactorTypes: ['连续', '类别'],
+    levelMode: 'multi-level',
   },
   {
-    key: 'five-factor',
-    title: '五因子设计',
-    numberLabel: '5',
-    description: '创建一个具有五个独立变量的试验，以探索因子的主效应和交互作用效应、优化响应、增强不可控噪声因子的稳健性或研究混料中的混合效应。',
-    action: '选择五因子设计',
-    type: 'factor',
+    title: '估计主效应、交互作用效应和二次效应',
+    description: '创建响应曲面设计',
+    icon: 'surface',
+    factorTypeMode: 'fixed',
+    fixedFactorType: '连续',
+    levelMode: 'two-level',
   },
   {
-    key: 'six-factor',
-    title: '六因子设计',
-    numberLabel: '6',
-    description: '创建一个具有六个独立变量的试验，以探索因子的主效应和交互作用效应、优化响应、增强不可控噪声因子的稳健性或研究混料中的混合效应。',
-    action: '选择六因子设计',
-    type: 'factor',
+    title: '查找最优因子设置，以实现不可控噪声的稳健性',
+    description: '创建田口设计',
+    icon: 'taguchi',
+    factorTypeMode: 'fixed',
+    fixedFactorType: '类别',
+    levelMode: 'multi-level',
   },
   {
-    key: 'screening',
-    title: '筛选设计',
-    numberLabel: '筛',
-    description: '为 7-48 个因子创建筛选设计，以高效识别许多潜在候选项中最显著的变量。',
-    action: '选择筛选设计',
-    type: 'screening',
+    title: '了解混料成分比例变化的影响',
+    description: '创建混料设计',
+    icon: 'mixture',
+    factorTypeMode: 'fixed',
+    fixedFactorType: '混料',
+    levelMode: 'two-level',
   },
 ];
 
-const countText: Record<string, string> = {
-  'two-factor': '两个',
-  'three-factor': '三个',
-  'four-factor': '四个',
-  'five-factor': '五个',
-  'six-factor': '六个',
-};
-
-const renderDesignIcon = (label: string) => (
-  <div className="doe-card-icon">
-    <span className="doe-icon-corner top-left" />
-    <span className="doe-icon-corner top-right" />
-    <span className="doe-icon-corner bottom-left" />
-    <span className="doe-icon-corner bottom-right" />
-    <span>{label}</span>
-  </div>
-);
-
-const getFactorOptions = (entry: DesignEntry) => {
-  const count = countText[entry.key] ?? entry.numberLabel;
-  return [
-    {
-      kind: 'category',
-      title: `创建一个具有${count}类别因子的试验`,
-      description: '当因子由可区分的组或类别组成时，估计效应。',
-    },
-    {
-      kind: 'continuous',
-      title: `创建一个具有${count}连续因子的试验`,
-      description: '当因子由数值范围组成时，估计效应。',
-    },
-    {
-      kind: 'mixed',
-      title: '创建一个具有一个类别因子和一个连续因子的试验',
-      description: '当一个因子由可区分的类别组成，而另一个因子由数值范围组成时，估计效应。',
-    },
-    {
-      kind: 'mixture',
-      title: `创建一个具有${count}混料分量的试验`,
-      description: '估计不同混料分量的比率发生变化时所产生的效应。',
-    },
-  ] satisfies DetailOption[];
-};
-
-const getThirdLevelContent = (option: DetailOption, design: DesignEntry) => {
-  const count = countText[design.key] ?? design.numberLabel;
-  if (option.kind === 'category') {
-    return {
-      description: '主效应显示单个因子对响应的影响，而交互作用效应体现多个因子对响应的综合影响。因子水平是指在试验中为因子设置的特定值。当一个因子从一个因子水平更改到下一个水平较为困难或成本较高时，该因子即被视为难以改变。',
-      rows: [
-        {
-          title: `当${count}因子都具有两个水平时，估计主效应和交互作用效应`,
-          description: '创建两水平因子设计',
-          icon: 'blue-grid',
-        },
-        {
-          title: `当${count}因子都具有两个水平且一个因子难以改变时，估计主效应和交互作用效应`,
-          description: '创建两水平裂区设计',
-          icon: 'green-grid',
-        },
-        {
-          title: '当至少一个因子具有两个以上水平时，估计主效应和交互作用效应',
-          description: '创建一般全因子设计',
-          icon: 'red-grid',
-        },
-        {
-          title: '查找最优因子设置，以实现不可控噪声的稳健性',
-          description: '创建田口设计',
-          icon: 'taguchi',
-        },
-      ],
-    };
-  }
-  if (option.kind === 'continuous') {
-    return {
-      description: '主效应显示单个因子对响应的影响，而交互作用效应体现多个因子对响应的综合影响，二次效应捕获因子与响应之间关系的曲率。当一个因子从一个因子水平更改到下一个水平较为困难或成本较高时，该因子即被视为难以改变。',
-      rows: [
-        {
-          title: '估计主效应和交互作用效应',
-          description: '创建两水平因子设计',
-          icon: 'blue-grid',
-        },
-        {
-          title: '当一个因子难以改变时，估计主效应和交互作用效应',
-          description: '创建两水平裂区设计',
-          icon: 'green-grid',
-        },
-        {
-          title: '估计主效应、交互作用效应和二次效应',
-          description: '创建响应曲面设计',
-          icon: 'surface',
-        },
-      ],
-    };
-  }
-  if (option.kind === 'mixed') {
-    return {
-      description: '主效应显示单个因子对响应的影响，而交互作用效应体现多个因子对响应的综合影响。当一个因子从一个因子水平更改到下一个水平较为困难或成本较高时，该因子即被视为难以改变。',
-      rows: [
-        {
-          title: '估计主效应和交互作用效应',
-          description: '创建两水平因子设计',
-          icon: 'blue-grid',
-        },
-        {
-          title: '当一个因子难以改变时，估计主效应和交互作用效应',
-          description: '创建两水平裂区设计',
-          icon: 'green-grid',
-        },
-      ],
-    };
-  }
-  return {
-    description: '分量是构成混料的各个成分或因子，可以通过更改它们的比率来研究它们对响应的效应。',
-    rows: [
-      {
-        title: '了解混料成分比例变化的影响',
-        description: '创建混料设计',
-        icon: 'mixture',
-      },
-    ],
-  };
-};
+const createMethodFactorRows = (factorCount: number, method: MethodRow, levelCount: number): MethodFactorRow[] =>
+  Array.from({ length: factorCount }, (_, index) => ({
+    name: String.fromCharCode(65 + index),
+    type: method.fixedFactorType ?? method.allowedFactorTypes?.[0] ?? '连续',
+    lowLevel: method.fixedFactorType === '类别' ? '低' : '0',
+    highLevel: method.fixedFactorType === '类别' ? '高' : '2',
+    changeType: index === 0 ? '难以改变' : '易于改变',
+    levels: Array.from({ length: levelCount }, (_, levelIndex) => levelIndex < 2 ? String(levelIndex) : ''),
+  }));
 
 interface FunctionBarProps {
   researchObjects: ResearchObject[];
@@ -260,13 +147,12 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   onMergeObjects,
   onImportExperiment,
 }) => {
+  const navigate = useNavigate();
   const [quickDesignOpen, setQuickDesignOpen] = useState(false);
   const [equipmentManagerOpen, setEquipmentManagerOpen] = useState(false);
-  const [selectedDesign, setSelectedDesign] = useState<DesignEntry | null>(null);
-  const [selectedDetailOption, setSelectedDetailOption] = useState<DetailOption | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<MethodRow | null>(null);
+  const [activeFactorCount, setActiveFactorCount] = useState(2);
   const [generalLevelCount, setGeneralLevelCount] = useState(4);
-  const [quickDesignTab, setQuickDesignTab] = useState<'new' | 'template'>('new');
   const [templates, setTemplates] = useState<DoeTemplate[]>(loadDoeTemplates);
   const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
   const [templateNameModalOpen, setTemplateNameModalOpen] = useState(false);
@@ -278,12 +164,23 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   const [templateHardReplicateCount, setTemplateHardReplicateCount] = useState(2);
   const [templateEasyReplicateCount, setTemplateEasyReplicateCount] = useState('无');
   const [methodResponseName, setMethodResponseName] = useState('');
-  const [methodFactorNames, setMethodFactorNames] = useState<string[]>([]);
+  const [methodFactorRows, setMethodFactorRows] = useState<MethodFactorRow[]>([]);
 
   const handleGroupClick = (group: string) => {
+    const analysisRoutes: Record<string, string> = {
+      模块管理: '/analysis/modules',
+      模板管理: '/analysis/templates',
+      试验数据分析: '/analysis/projects',
+      试验数字孪生: '/analysis/digital-twin',
+      虚拟工况扩展: '/analysis/virtual-condition',
+      智能试验设计: '/experiment/design/intelligent',
+    };
+    if (analysisRoutes[group]) {
+      navigate(analysisRoutes[group]);
+      return;
+    }
     if (group === '快速设计') {
       setQuickDesignOpen(true);
-      setQuickDesignTab('new');
     }
     if (group === '模板设计') {
       setTemplateLibraryOpen(true);
@@ -293,36 +190,78 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
     }
   };
 
-  const thirdLevelContent =
-    selectedDesign && selectedDetailOption ? getThirdLevelContent(selectedDetailOption, selectedDesign) : null;
-  const factorCount = selectedDesign?.type === 'factor' ? Number(selectedDesign.numberLabel) || 2 : 2;
-  const isSplitPlotMethod = selectedMethod?.description === '创建两水平裂区设计';
-  const isGeneralFactorialMethod = selectedMethod?.description === '创建一般全因子设计';
+  const quickMethodOptions = getQuickMethodOptions();
+  const factorCount = activeFactorCount;
+  const isSplitPlotMethod = Boolean(selectedMethod?.hasChangeType);
+  const isGeneralFactorialMethod = selectedMethod?.levelMode === 'multi-level';
   const methodModalWidth = isGeneralFactorialMethod
-    ? Math.max(620, 190 + (generalLevelCount + 1) * 115)
+    ? Math.max(740, 190 + (generalLevelCount + 2) * 115)
     : isSplitPlotMethod
-      ? 650
-      : 494;
-
-  const handleFlowConfirm = () => {
-    message.success('当前设计流程已完成');
-  };
+      ? 700
+      : 610;
 
   const handleMethodConfirm = () => {
     if (!selectedMethod) return;
     onDesignGenerated?.(selectedMethod.description);
     message.success('当前设计流程已完成');
     setSelectedMethod(null);
-    setSelectedDetailOption(null);
-    setSelectedDesign(null);
+    setQuickDesignOpen(false);
+  };
+
+  const openMethod = (method: MethodRow, nextFactorCount = factorCount) => {
+    setActiveFactorCount(nextFactorCount);
+    setSelectedMethod(method);
+    setMethodResponseName('');
+    setMethodFactorRows(createMethodFactorRows(nextFactorCount, method, generalLevelCount));
     setQuickDesignOpen(false);
   };
 
   const updateMethodFactorName = (index: number, value: string) => {
-    setMethodFactorNames((prev) => {
-      const next = [...prev];
-      next[index] = value;
-      return next;
+    setMethodFactorRows((prev) =>
+      prev.map((row, rowIndex) => (rowIndex === index ? { ...row, name: value } : row)),
+    );
+  };
+
+  const updateMethodFactorRow = (index: number, field: Exclude<keyof MethodFactorRow, 'levels'>, value: string) => {
+    setMethodFactorRows((prev) =>
+      prev.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row)),
+    );
+  };
+
+  const updateMethodFactorLevel = (rowIndex: number, levelIndex: number, value: string) => {
+    setMethodFactorRows((prev) =>
+      prev.map((row, index) => {
+        if (index !== rowIndex) return row;
+        const levels = [...row.levels];
+        levels[levelIndex] = value;
+        return { ...row, levels };
+      }),
+    );
+  };
+
+  const handleGeneralLevelCountChange = (value: number) => {
+    setGeneralLevelCount(value);
+    setMethodFactorRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        levels: Array.from({ length: value }, (_, index) => row.levels[index] ?? ''),
+      })),
+    );
+  };
+
+  const handleActiveFactorCountChange = (value: number) => {
+    setActiveFactorCount(value);
+    if (!selectedMethod) return;
+    setMethodFactorRows((prev) => {
+      const nextRows = prev.slice(0, value);
+      if (nextRows.length >= value) return nextRows;
+      const addedRows = createMethodFactorRows(value - nextRows.length, selectedMethod, generalLevelCount)
+        .map((row, index) => ({
+          ...row,
+          name: String.fromCharCode(65 + nextRows.length + index),
+          changeType: nextRows.length + index === 0 ? '难以改变' : '易于改变',
+        }));
+      return [...nextRows, ...addedRows];
     });
   };
 
@@ -340,7 +279,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       designMethod: selectedMethod.description,
       factorCount,
       factors: Array.from({ length: factorCount }, (_, index) =>
-        methodFactorNames[index]?.trim() || `因子${index + 1}`,
+        methodFactorRows[index]?.name?.trim() || `因子${index + 1}`,
       ),
       responses: [methodResponseName.trim() || '响应变量'],
     };
@@ -421,281 +360,42 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       />
 
       <Modal
-        title="快速设计中心"
+        title="快速设计"
         open={quickDesignOpen}
-        width={1100}
+        width={980}
         centered
         className="doe-modal"
         footer={<Button onClick={() => setQuickDesignOpen(false)}>取消</Button>}
         onCancel={() => setQuickDesignOpen(false)}
       >
         <div className="doe-modal-body">
-          <div className="doe-mode-tabs">
-            <button
-              type="button"
-              className={`doe-mode-tab ${quickDesignTab === 'new' ? 'active' : ''}`}
-              onClick={() => setQuickDesignTab('new')}
-            >
-              新建设计
-            </button>
-            <button
-              type="button"
-              className={`doe-mode-tab ${quickDesignTab === 'template' ? 'active' : ''}`}
-              onClick={() => setQuickDesignTab('template')}
-            >
-              从模板开始
-            </button>
-          </div>
-          {quickDesignTab === 'new' ? (
-            <div className="doe-quick-layout">
-              <aside className="doe-quick-sidebar">
-                {designEntries.map((entry) => (
-                  <button
-                    key={entry.key}
-                    type="button"
-                    className={`doe-quick-item ${selectedDesign?.key === entry.key ? 'active' : ''}`}
-                    onClick={() => setSelectedDesign(entry)}
-                  >
-                    <span className="doe-quick-item-title">{entry.title}</span>
-                    <span className="doe-quick-item-meta">{entry.numberLabel} 因子</span>
-                  </button>
-                ))}
-              </aside>
-              <section className="doe-quick-main">
-                <div className="doe-heading">
-                  <Title level={4}>{selectedDesign ? selectedDesign.title : '选择一种设计'}</Title>
-                  <Text type="secondary">
-                    {selectedDesign ? selectedDesign.description : '先从左侧选择因子数量和设计类型。'}
-                  </Text>
+          <div className="doe-option-list">
+            <div className="doe-heading">
+              <Title level={4}>选择设计方法</Title>
+            </div>
+            {quickMethodOptions.map((row) => (
+              <button
+                type="button"
+                className="doe-option-card"
+                key={row.title}
+                onClick={() => openMethod(row)}
+              >
+                <span className={`doe-small-icon ${row.icon}`} />
+                <div>
+                  <Title level={5}>{row.title}</Title>
+                  <Text type="secondary">{row.description}</Text>
                 </div>
-                {selectedDesign && (
-                  <div className="doe-quick-options">
-                    {selectedDesign.type === 'screening' ? (
-                      <button
-                        type="button"
-                        className="doe-option-card"
-                        onClick={() => setSelectedMethod({ title: '创建筛选设计', description: '创建定义筛选设计', icon: 'screen' })}
-                      >
-                        <div>
-                          <Title level={5}>创建一个具有 7-48 个因子的试验</Title>
-                          <Text type="secondary">创建定义筛选设计</Text>
-                        </div>
-                      </button>
-                    ) : (
-                      getFactorOptions(selectedDesign).map((option) => (
-                        <button
-                          type="button"
-                          className="doe-option-card"
-                          key={option.title}
-                          onClick={() => setSelectedDetailOption(option)}
-                        >
-                          <div>
-                            <Title level={5}>{option.title}</Title>
-                            <Text type="secondary">{option.description}</Text>
-                          </div>
-                          <InfoCircleOutlined className="doe-option-info" />
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </section>
+                <InfoCircleOutlined className="doe-option-info" />
+              </button>
+            ))}
             </div>
-          ) : (
-            <div className="doe-template-quick">
-              <div className="doe-template-quick-head">
-                <Text type="secondary">从已保存模板快速开始，只补因子水平。</Text>
-                <Button onClick={() => setTemplateLibraryOpen(true)}>打开模板库</Button>
-              </div>
-              <div className="doe-template-list">
-                {templates.slice(0, 4).map((template) => (
-                  <button
-                    className="doe-template-card"
-                    key={template.id}
-                    type="button"
-                    onClick={() => openTemplateDesign(template)}
-                  >
-                    <Text strong>{template.name}</Text>
-                    <Text type="secondary">{template.designMethod}</Text>
-                  </button>
-                ))}
-                {templates.length === 0 && <div className="doe-template-empty">暂无模板</div>}
-              </div>
-            </div>
-          )}
         </div>
-      </Modal>
-
-      <Modal
-        title={selectedDesign ? `试验设计: ${selectedDesign.title}` : '试验设计'}
-        open={Boolean(selectedDesign)}
-        width={1028}
-        centered
-        className="doe-detail-modal"
-        footer={
-          <div className="doe-detail-footer">
-            <Button onClick={() => setSelectedDesign(null)}>返回</Button>
-            <div className="doe-detail-footer-actions">
-              <Button type="primary" onClick={handleFlowConfirm}>确定</Button>
-              <Button onClick={() => setSelectedDesign(null)}>取消</Button>
-            </div>
-          </div>
-        }
-        onCancel={() => setSelectedDesign(null)}
-      >
-        {selectedDesign && (
-          <div className="doe-detail-body">
-            <div className="doe-heading">
-              <Title level={4}>{selectedDesign.title} <InfoCircleOutlined /></Title>
-              <Text type="secondary">手工定义因子结构，再选择本次实验采用的设计方法。</Text>
-            </div>
-            <div className="doe-structure-editor">
-              <section className="doe-structure-panel">
-                <div className="doe-method-section-title">因子结构</div>
-                <div className="doe-structure-grid">
-                  {Array.from({ length: factorCount }, (_, index) => (
-                    <div className="doe-factor-structure-card" key={index}>
-                      <div className="doe-factor-structure-head">因子 {String.fromCharCode(65 + index)}</div>
-                      <label>
-                        名称
-                        <Input
-                          value={methodFactorNames[index] ?? ''}
-                          onChange={(event) => updateMethodFactorName(index, event.target.value)}
-                          placeholder={`因子${index + 1}`}
-                        />
-                      </label>
-                      <label>
-                        类型
-                        <Select
-                          defaultValue={selectedDesign.type === 'screening' ? '筛选' : '连续'}
-                          options={['连续', '类别', '混料', '筛选'].map((value) => ({ value, label: value }))}
-                        />
-                      </label>
-                      <label>
-                        水平数
-                        <Select
-                          defaultValue={2}
-                          options={[2, 3, 4, 5].map((value) => ({ value, label: String(value) }))}
-                        />
-                      </label>
-                      <label>
-                        更改方式
-                        <Select
-                          defaultValue={index === 0 ? '难以改变' : '易于改变'}
-                          options={[
-                            { value: '易于改变', label: '易于改变' },
-                            { value: '难以改变', label: '难以改变' },
-                          ]}
-                        />
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </section>
-              <aside className="doe-structure-methods">
-                <div className="doe-method-section-title">设计方法</div>
-                {[
-                  { title: '两水平效应设计', description: '创建两水平因子设计', icon: 'blue-grid' },
-                  { title: '裂区效应设计', description: '创建两水平裂区设计', icon: 'green-grid' },
-                  { title: '响应曲面设计', description: '创建响应曲面设计', icon: 'surface' },
-                  { title: '一般全因子设计', description: '创建一般全因子设计', icon: 'red-grid' },
-                ].map((row) => (
-                  <button
-                    type="button"
-                    className="doe-method-chip"
-                    key={row.description}
-                    onClick={() => {
-                      setSelectedMethod(row);
-                      setMethodResponseName('');
-                    }}
-                  >
-                    <strong>{row.title}</strong>
-                    <span>{row.description}</span>
-                  </button>
-                ))}
-              </aside>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <Modal
-        title={selectedDetailOption ? `试验设计: ${selectedDetailOption.title}` : '试验设计'}
-        open={Boolean(selectedDetailOption)}
-        width={1028}
-        centered
-        className="doe-detail-modal"
-        footer={
-          <div className="doe-detail-footer">
-            <Button onClick={() => setSelectedDetailOption(null)}>返回</Button>
-            <div className="doe-detail-footer-actions">
-              <Button type="primary" onClick={handleFlowConfirm}>确定</Button>
-              <Button onClick={() => setSelectedDetailOption(null)}>取消</Button>
-            </div>
-          </div>
-        }
-        onCancel={() => setSelectedDetailOption(null)}
-      >
-        {selectedDetailOption && thirdLevelContent && (
-          <div className="doe-detail-body">
-            <div className="doe-heading">
-              <Title level={4}>设计方法设置 <InfoCircleOutlined /></Title>
-              <Text type="secondary">根据当前因子结构，手动选择效应目标和运行结构。</Text>
-            </div>
-            <div className="doe-method-composer">
-              <section className="doe-method-composer-main">
-                <div className="doe-method-section-title">目标效应</div>
-                <div className="doe-toggle-grid">
-                  <button type="button" className="doe-toggle-card active">主效应</button>
-                  <button type="button" className="doe-toggle-card active">交互作用</button>
-                  <button type="button" className="doe-toggle-card">二次效应</button>
-                  <button type="button" className="doe-toggle-card">稳健性</button>
-                </div>
-                <div className="doe-method-section-title">运行结构</div>
-                <div className="doe-run-structure-grid">
-                  <label>
-                    难以改变因子
-                    <Select
-                      defaultValue="A"
-                      options={Array.from({ length: factorCount }, (_, index) => ({
-                        value: String.fromCharCode(65 + index),
-                        label: String.fromCharCode(65 + index),
-                      }))}
-                    />
-                  </label>
-                  <label>
-                    仿行数
-                    <Select defaultValue={2} options={[1, 2, 3, 4, 5].map((value) => ({ value, label: String(value) }))} />
-                  </label>
-                </div>
-              </section>
-              <aside className="doe-structure-methods">
-                <div className="doe-method-section-title">方法类型</div>
-                {thirdLevelContent.rows.map((row) => (
-                  <button
-                    type="button"
-                    className="doe-method-chip"
-                    key={row.title}
-                    onClick={() => {
-                      setSelectedMethod(row);
-                      setMethodResponseName('');
-                      setMethodFactorNames([]);
-                    }}
-                  >
-                    <strong>{row.description}</strong>
-                    <span>{row.title}</span>
-                  </button>
-                ))}
-              </aside>
-            </div>
-          </div>
-        )}
       </Modal>
 
       <Modal
         title={selectedMethod ? selectedMethod.description : '试验设计'}
         open={Boolean(selectedMethod)}
-        width={Math.max(980, methodModalWidth)}
+        width={methodModalWidth}
         centered
         className="doe-method-modal"
         footer={
@@ -714,27 +414,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       >
         {selectedMethod && (
           <div className="doe-method-body">
-            <div className="doe-config-workbench">
-              <aside className="doe-config-steps">
-                <div className="doe-config-step active">
-                  <span>1</span>
-                  <strong>响应</strong>
-                </div>
-                <div className="doe-config-step active">
-                  <span>2</span>
-                  <strong>因子水平</strong>
-                </div>
-                <div className="doe-config-step active">
-                  <span>3</span>
-                  <strong>运行设置</strong>
-                </div>
-                <div className="doe-config-step">
-                  <span>4</span>
-                  <strong>方案预览</strong>
-                </div>
-              </aside>
-              <section className="doe-config-main">
-                <Form className="doe-method-form">
+            <Form className="doe-method-form">
               <div className="doe-method-section-title">响应</div>
               <div className="doe-method-row">
                 <label>请输入响应变量的名称:</label>
@@ -746,7 +426,15 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                 />
               </div>
 
-              <div className="doe-method-section-title">因子</div>
+              <div className="doe-factor-section-head">
+                <div className="doe-method-section-title">因子</div>
+                <Select
+                  className="doe-factor-count-select"
+                  value={activeFactorCount}
+                  onChange={handleActiveFactorCountChange}
+                  options={[2, 3, 4, 5, 6].map((value) => ({ value, label: `${value} 因子` }))}
+                />
+              </div>
               <Text>请输入因子名称和设置:</Text>
               {isGeneralFactorialMethod && (
                 <div className="doe-method-row max-level-row">
@@ -754,7 +442,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                   <Select
                     className="doe-max-level-select"
                     value={generalLevelCount}
-                    onChange={setGeneralLevelCount}
+                    onChange={handleGeneralLevelCountChange}
                     options={[3, 4, 5].map((value) => ({ value, label: String(value) }))}
                   />
                 </div>
@@ -764,21 +452,40 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                   <thead>
                     <tr>
                       <th>名称</th>
+                      <th>类型</th>
                       <th colSpan={generalLevelCount}>水平数</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.from({ length: factorCount }, (_, rowIndex) => (
+                    {methodFactorRows.map((row, rowIndex) => (
                       <tr key={rowIndex}>
                         <td>
                           <Input
                             variant="borderless"
-                            value={methodFactorNames[rowIndex] ?? ''}
+                            value={row.name}
                             onChange={(event) => updateMethodFactorName(rowIndex, event.target.value)}
                           />
                         </td>
+                        <td>
+                          {selectedMethod.factorTypeMode === 'editable' ? (
+                            <Select
+                              variant="borderless"
+                              value={row.type}
+                              onChange={(value) => updateMethodFactorRow(rowIndex, 'type', value)}
+                              options={(selectedMethod.allowedFactorTypes ?? ['连续', '类别']).map((value) => ({ value, label: value }))}
+                            />
+                          ) : (
+                            <span className="doe-factor-type-fixed">{row.type}</span>
+                          )}
+                        </td>
                         {Array.from({ length: generalLevelCount }, (_, levelIndex) => (
-                          <td key={levelIndex}><Input variant="borderless" /></td>
+                          <td key={levelIndex}>
+                            <Input
+                              variant="borderless"
+                              value={row.levels[levelIndex] ?? ''}
+                              onChange={(event) => updateMethodFactorLevel(rowIndex, levelIndex, event.target.value)}
+                            />
+                          </td>
                         ))}
                       </tr>
                     ))}
@@ -790,18 +497,20 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                     <tr>
                       {isSplitPlotMethod && <th>更改</th>}
                       <th>名称</th>
-                      <th>级别 1</th>
-                      <th>级别 2</th>
+                      <th>类型</th>
+                      <th>低</th>
+                      <th>高</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.from({ length: factorCount }, (_, index) => (
+                    {methodFactorRows.map((row, index) => (
                       <tr key={index}>
                         {isSplitPlotMethod && (
                           <td>
                             <Select
                               variant="borderless"
-                              defaultValue={index === 0 ? '难以改变' : '易于改变'}
+                              value={row.changeType}
+                              onChange={(value) => updateMethodFactorRow(index, 'changeType', value)}
                               options={[
                                 { value: '难以改变', label: '难以改变' },
                                 { value: '易于改变', label: '易于改变' },
@@ -812,12 +521,36 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                         <td>
                           <Input
                             variant="borderless"
-                            value={methodFactorNames[index] ?? ''}
+                            value={row.name}
                             onChange={(event) => updateMethodFactorName(index, event.target.value)}
                           />
                         </td>
-                        <td><Input variant="borderless" /></td>
-                        <td><Input variant="borderless" /></td>
+                        <td>
+                          {selectedMethod.factorTypeMode === 'editable' ? (
+                            <Select
+                              variant="borderless"
+                              value={row.type}
+                              onChange={(value) => updateMethodFactorRow(index, 'type', value)}
+                              options={(selectedMethod.allowedFactorTypes ?? ['连续', '类别']).map((value) => ({ value, label: value }))}
+                            />
+                          ) : (
+                            <span className="doe-factor-type-fixed">{row.type}</span>
+                          )}
+                        </td>
+                        <td>
+                          <Input
+                            variant="borderless"
+                            value={row.lowLevel}
+                            onChange={(event) => updateMethodFactorRow(index, 'lowLevel', event.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <Input
+                            variant="borderless"
+                            value={row.highLevel}
+                            onChange={(event) => updateMethodFactorRow(index, 'highLevel', event.target.value)}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -855,25 +588,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                   />
                 </div>
               )}
-                </Form>
-              </section>
-              <aside className="doe-config-preview">
-                <Text strong>方案预览</Text>
-                <div className="doe-config-preview-grid">
-                  <span>设计方法</span>
-                  <strong>{selectedMethod.description}</strong>
-                  <span>因子数</span>
-                  <strong>{factorCount}</strong>
-                  <span>响应</span>
-                  <strong>{methodResponseName || '响应变量'}</strong>
-                  <span>仿行</span>
-                  <strong>{isSplitPlotMethod ? '裂区仿行' : '2'}</strong>
-                </div>
-                <div className="doe-config-preview-note">
-                  当前为系统内置预览，确认后生成预设实验方案。
-                </div>
-              </aside>
-            </div>
+            </Form>
           </div>
         )}
       </Modal>

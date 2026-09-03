@@ -15,6 +15,7 @@ import SamplingRequirements from '@/pages/experiment/info/SamplingRequirements';
 import ExperimentDesign from '@/pages/experiment/design/ExperimentDesign';
 import ExperimentCreate from '@/pages/experiment/design/ExperimentCreate';
 import OutlineDesign from '@/pages/experiment/design/OutlineDesign';
+import IntelligentExperimentDesign, { ExperimentTaskResult } from '@/pages/experiment/design/IntelligentExperimentDesign';
 
 // 2.1 模块管理
 import ModuleManagement from '@/pages/analysis/modules/ModuleManagement';
@@ -27,6 +28,8 @@ import TemplateCreate from '@/pages/analysis/templates/TemplateCreate';
 import AnalysisProjects from '@/pages/analysis/projects/AnalysisProjects';
 import AnalysisProjectCreate from '@/pages/analysis/projects/AnalysisProjectCreate';
 import AnalysisExecution from '@/pages/analysis/projects/AnalysisExecution';
+import DigitalTwin from '@/pages/analysis/DigitalTwin';
+import VirtualConditionExtension from '@/pages/analysis/VirtualConditionExtension';
 
 // 3 报告
 import ReportTemplates from '@/pages/report/ReportTemplates';
@@ -54,6 +57,8 @@ const router = createBrowserRouter([
       { path: 'experiment/design/create', element: <ExperimentCreate /> },
       { path: 'experiment/design/edit/:id', element: <ExperimentCreate /> },
       { path: 'experiment/design/outline/:id', element: <OutlineDesign /> },
+      { path: 'experiment/design/intelligent', element: <IntelligentExperimentDesign /> },
+      { path: 'experiment/tasks', element: <ExperimentTaskResult /> },
       // 2.1 模块管理
       { path: 'analysis/modules', element: <ModuleManagement /> },
       // 2.2 模板管理
@@ -64,6 +69,8 @@ const router = createBrowserRouter([
       { path: 'analysis/projects', element: <AnalysisProjects /> },
       { path: 'analysis/projects/create', element: <AnalysisProjectCreate /> },
       { path: 'analysis/projects/execute/:id', element: <AnalysisExecution /> },
+      { path: 'analysis/digital-twin', element: <DigitalTwin /> },
+      { path: 'analysis/virtual-condition', element: <VirtualConditionExtension /> },
       // 3 报告
       { path: 'report/templates', element: <ReportTemplates /> },
       { path: 'report/list', element: <ReportList /> },

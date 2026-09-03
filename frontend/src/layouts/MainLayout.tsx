@@ -9,6 +9,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import ExperimentWorkbench from '@/workbench/ExperimentWorkbench';
+import TrialAIAssistant, { TrialAIAssistantProvider } from '@/components/TrialAIAssistant';
 
 const { Header } = Layout;
 const { Title, Text } = Typography;
@@ -87,7 +88,10 @@ const MainLayout: React.FC = () => {
         </Space>
       </Header>
 
-      <ExperimentWorkbench />
+      <TrialAIAssistantProvider>
+        <ExperimentWorkbench />
+        <TrialAIAssistant />
+      </TrialAIAssistantProvider>
     </Layout>
   );
 };

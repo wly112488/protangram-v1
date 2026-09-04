@@ -1,0 +1,119 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  addArtifactToProject,
+  buildProjectNavigation,
+  getProjectStats,
+  migrateLegacyExperiments,
+  removeArtifactFromProject,
+} from '../src/workspace/projectModel.ts';
+
+const legacyExperiment = {
+  id: 'experiment-1',
+  name: 'CE25A 高转速性能验证',
+  designName: '创建两水平因子设计',
+  designSummary: {
+    factorCount: 2,
+    runCount: 8,
+    blockCount: 1,
+    wholePlotCount: 0,
+    wholePlotRunCount: 0,
+    wholePlotReplicateCount: 2,
+    subPlotReplicateCount: 0,
+    hardToChangeFactor: 'A',
+    wholePlotGenerator: 'A',
+    note: '所有项均不混杂。',
+  },
+  worksheetData: {
+    '1-C1': 'Run',
+    '1-C2': '转速',
+    '2-C1': '1',
+    '2-C2': '8000',
+  },
+  extraItems: ['旧分析结果'],
+};
+
+test('migrates a legacy generated experiment into one unified project', () => {
+  const [project] = migrateLegacyExperiments([legacyExperiment], '2026-09-04T08:00:00.000Z');
+
+  assert.equal(project.id, 'experiment-1');
+  assert.equal(project.name, 'CE25A 高转速性能验证');
+  assert.equal(project.worksheet?.data['2-C2'], '8000');
+  assert.equal(project.artifacts.length, 1);
+  assert.equal(project.artifacts[0].type, 'design');
+  assert.deepEqual(project.legacyItems, ['旧分析结果']);
+});
+
+test('project navigation only exposes categories backed by real content', () => {
+  const [project] = migrateLegacyExperiments([legacyExperiment], '2026-09-04T08:00:00.000Z');
+  const withCalibration = addArtifactToProject(project, {
+    id: 'cal-1',
+    projectId: project.id,
+    type: 'calibration',
+    title: '模型校准 V2.1',
+    source: '试验数字孪生',
+    summary: '可信度 94.6%',
+    payload: { charts: [{ id: 'comparison', title: '结果对比' }] },
+    createdAt: '2026-09-04T09:00:00.000Z',
+    updatedAt: '2026-09-04T09:00:00.000Z',
+  });
+
+  assert.deepEqual(buildProjectNavigation(withCalibration).map((item) => item.view), [
+    'overview',
+    'worksheet',
+    'charts',
+    'calibration',
+    'design',
+  ]);
+});
+
+test('removing the final artifact of a category removes that navigation category', () => {
+  const [project] = migrateLegacyExperiments([legacyExperiment], '2026-09-04T08:00:00.000Z');
+  const withRootCause = addArtifactToProject(project, {
+    id: 'root-1',
+    projectId: project.id,
+    type: 'rootCause',
+    title: '高转速温度异常根因',
+    source: '试验数据分析',
+    summary: '冷却流量下降是主要候选根因',
+    payload: {},
+    createdAt: '2026-09-04T09:00:00.000Z',
+    updatedAt: '2026-09-04T09:00:00.000Z',
+  });
+
+  assert.equal(buildProjectNavigation(withRootCause).some((item) => item.view === 'rootCause'), true);
+  const removed = removeArtifactFromProject(withRootCause, 'root-1', '2026-09-04T10:00:00.000Z');
+  assert.equal(buildProjectNavigation(removed).some((item) => item.view === 'rootCause'), false);
+});
+
+test('project statistics are derived from persisted project content', () => {
+  const [project] = migrateLegacyExperiments([legacyExperiment], '2026-09-04T08:00:00.000Z');
+  const enriched = {
+    ...project,
+    datasets: [
+      { id: 'd1', name: '实测数据', kind: 'measured' },
+      { id: 'd2', name: '仿真数据', kind: 'simulation' },
+    ],
+    artifacts: [
+      ...project.artifacts,
+      {
+        id: 'analysis-1',
+        projectId: project.id,
+        type: 'analysis' as const,
+        title: '高转速分析',
+        source: '试验数据分析',
+        summary: '发现 3 个异常事件',
+        payload: { charts: [{ id: 'c1' }, { id: 'c2' }] },
+        createdAt: '2026-09-04T09:00:00.000Z',
+        updatedAt: '2026-09-04T09:00:00.000Z',
+      },
+    ],
+  };
+
+  assert.deepEqual(getProjectStats(enriched), {
+    datasetCount: 2,
+    worksheetRowCount: 2,
+    chartCount: 2,
+    artifactCount: 2,
+  });
+});

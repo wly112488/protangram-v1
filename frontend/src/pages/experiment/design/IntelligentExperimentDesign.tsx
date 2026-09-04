@@ -75,7 +75,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   const location = useLocation();
   const incoming = location.state as BusinessRouteState | null;
   const { setContext } = useTrialAIAssistant();
-  const { projects, session, targetProject } = useWorkspaceBusinessSession(incoming);
+  const { projects, targetProject } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);

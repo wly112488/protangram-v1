@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { normalizeBusinessSession } from '../src/workspace/businessSessionModel.ts';
 import {
   addArtifactToProject,
   buildProjectNavigation,
@@ -159,4 +160,10 @@ test('assistant primary presentation is an embedded workspace panel with a narro
   assert.match(source, /workspace-ai-panel/);
   assert.match(source, /workspace-ai-mobile-trigger/);
   assert.match(source, /试验 AI 助手/);
+});
+
+test('business session stays standalone unless the route explicitly supplies a valid project', () => {
+  assert.deepEqual(normalizeBusinessSession(undefined, ['project-a']), { mode: 'standalone' });
+  assert.deepEqual(normalizeBusinessSession({ mode: 'project', targetProjectId: 'project-a' }, ['project-a']), { mode: 'project', targetProjectId: 'project-a' });
+  assert.deepEqual(normalizeBusinessSession({ mode: 'project', targetProjectId: 'missing' }, ['project-a']), { mode: 'standalone' });
 });

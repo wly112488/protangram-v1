@@ -48,7 +48,6 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
       </button>
 
       <FunctionBar
-        variant="header"
         researchObjects={researchObjects}
         onResearchObjectsChange={onResearchObjectsChange}
         experiments={projects}

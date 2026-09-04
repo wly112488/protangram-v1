@@ -1,10 +1,11 @@
 import React from 'react';
 import { Avatar, Dropdown, Layout, Space, theme, Typography } from 'antd';
 import { HomeOutlined, LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import FunctionBar from '@/workbench/FunctionBar';
 import type { ResearchObject } from '@/workbench/EquipmentManagerWindow';
+import { getHeaderActiveKey } from './presentationModel';
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -25,7 +26,9 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   onDesignGenerated,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { token } = theme.useToken();
+  const activeKey = getHeaderActiveKey(location.pathname);
 
   const userMenuItems = [
     { key: 'settings', icon: <SettingOutlined />, label: '系统设置' },
@@ -35,7 +38,7 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   ];
 
   return (
-    <Header className="workspace-header">
+    <Header className={`workspace-header ${activeKey ? `workspace-active-${activeKey}` : ''}`}>
       <button type="button" className="workspace-brand" onClick={() => navigate('/')}>
         <svg width="30" height="30" viewBox="0 0 100 100" aria-hidden="true">
           <rect x="10" y="10" width="80" height="80" fill="none" stroke={token.colorPrimary} strokeWidth="4" rx="8" />

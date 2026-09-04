@@ -8,7 +8,7 @@ import {
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
-import ExperimentWorkbench from '@/workbench/ExperimentWorkbench';
+import ProjectWorkbench from '@/workbench/ProjectWorkbench';
 import TrialAIAssistant, { TrialAIAssistantProvider } from '@/components/TrialAIAssistant';
 
 const { Header } = Layout;
@@ -89,7 +89,7 @@ const MainLayout: React.FC = () => {
       </Header>
 
       <TrialAIAssistantProvider>
-        <ExperimentWorkbench />
+        <ProjectWorkbench />
         <TrialAIAssistant />
       </TrialAIAssistantProvider>
     </Layout>

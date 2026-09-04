@@ -1,0 +1,20 @@
+name: Verify Workspace Refactor
+
+on:
+  push:
+    branches:
+      - refactor/workbench-project-tree-ui
+
+jobs:
+  workspace-model:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Project workspace model tests
+        run: node --experimental-strip-types --test tests/projectWorkspaceModel.test.ts

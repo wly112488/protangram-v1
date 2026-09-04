@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Button, Modal, Select } from 'antd';
 import { useProjectStore } from './projectStore';
 
@@ -22,15 +22,18 @@ const ProjectSaveTargetModal: React.FC<ProjectSaveTargetModalProps> = ({
   onSkip,
 }) => {
   const projects = useProjectStore((state) => state.projects);
-  const [projectId, setProjectId] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const fallbackProjectId = defaultProjectId && projects.some((project) => project.id === defaultProjectId)
+    ? defaultProjectId
+    : projects[0]?.id ?? '';
+  const projectId = selectedProjectId && projects.some((project) => project.id === selectedProjectId)
+    ? selectedProjectId
+    : fallbackProjectId;
 
-  useEffect(() => {
-    if (!open) return;
-    const preferred = defaultProjectId && projects.some((project) => project.id === defaultProjectId)
-      ? defaultProjectId
-      : projects[0]?.id ?? '';
-    setProjectId(preferred);
-  }, [defaultProjectId, open, projects]);
+  const close = () => {
+    setSelectedProjectId('');
+    onCancel();
+  };
 
   return (
     <Modal
@@ -39,15 +42,19 @@ const ProjectSaveTargetModal: React.FC<ProjectSaveTargetModalProps> = ({
       okText="保存"
       cancelText="取消"
       okButtonProps={{ disabled: !projectId }}
-      onOk={() => projectId && onConfirm(projectId)}
-      onCancel={onCancel}
+      onOk={() => {
+        if (!projectId) return;
+        onConfirm(projectId);
+        setSelectedProjectId('');
+      }}
+      onCancel={close}
     >
       {projects.length > 0 ? (
         <Select
           style={{ width: '100%' }}
           placeholder="选择要保存到的项目"
           value={projectId || undefined}
-          onChange={setProjectId}
+          onChange={setSelectedProjectId}
           options={projects.map((project) => ({ value: project.id, label: project.name }))}
         />
       ) : (
@@ -55,7 +62,7 @@ const ProjectSaveTargetModal: React.FC<ProjectSaveTargetModalProps> = ({
       )}
       {onSkip && (
         <div style={{ marginTop: 12 }}>
-          <Button type="link" onClick={onSkip}>{skipText ?? '仅继续，不保存到项目'}</Button>
+          <Button type="link" onClick={() => { setSelectedProjectId(''); onSkip(); }}>{skipText ?? '仅继续，不保存到项目'}</Button>
         </div>
       )}
     </Modal>

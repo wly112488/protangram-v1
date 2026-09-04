@@ -3,6 +3,11 @@ import test from 'node:test';
 import {
   addArtifactToProject,
   buildProjectNavigation,
+  createAnalysisArtifactInput,
+  createCalibrationArtifactInput,
+  createDesignArtifactInput,
+  createRootCauseArtifactInput,
+  createVirtualConditionArtifactInput,
   getProjectStats,
   migrateLegacyExperiments,
   removeArtifactFromProject,
@@ -132,4 +137,44 @@ test('header active key follows the current business route', () => {
   assert.equal(getHeaderActiveKey('/analysis/digital-twin'), 'analysis');
   assert.equal(getHeaderActiveKey('/report/list'), 'report');
   assert.equal(getHeaderActiveKey('/'), null);
+});
+
+test('business artifact factories assign stable type, source and payload contracts', () => {
+  const calibration = createCalibrationArtifactInput({
+    title: '模型校准 V2.1',
+    summary: '综合拟合度 R² = 0.946',
+    payload: { modelVersion: 'V2.1', charts: [{ id: 'comparison' }] },
+  });
+  const design = createDesignArtifactInput({
+    title: '智能推荐方案 #01',
+    summary: '推荐 8 个试验工况',
+    payload: { plan: [{ order: 1 }] },
+  });
+  const analysis = createAnalysisArtifactInput({
+    title: '高转速试验分析',
+    summary: '分析流程已完成',
+    payload: { charts: [{ id: 'analysis-chart' }] },
+  });
+  const rootCause = createRootCauseArtifactInput({
+    title: '高转速异常根因',
+    summary: '冷却流量下降为主要候选根因',
+    payload: { evidence: ['7600rpm 后流量下降'] },
+  });
+  const virtual = createVirtualConditionArtifactInput({
+    title: '高转速虚拟工况预测',
+    summary: '完成 36 个虚拟工况预测',
+    payload: { highRiskCount: 6 },
+  });
+
+  assert.deepEqual(
+    [calibration.type, design.type, analysis.type, rootCause.type, virtual.type],
+    ['calibration', 'design', 'analysis', 'rootCause', 'virtualCondition'],
+  );
+  assert.deepEqual(
+    [calibration.source, design.source, analysis.source, rootCause.source, virtual.source],
+    ['试验数字孪生', '智能试验设计', '试验数据分析', '试验数据分析', '虚拟工况扩展'],
+  );
+  assert.equal((calibration.payload.charts as unknown[]).length, 1);
+  assert.equal((design.payload.plan as unknown[]).length, 1);
+  assert.equal(virtual.payload.highRiskCount, 6);
 });

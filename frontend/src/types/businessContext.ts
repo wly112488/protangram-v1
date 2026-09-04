@@ -58,6 +58,11 @@ export interface PlanCondition {
   reason: string;
 }
 
+export interface WorkspaceSessionState {
+  mode: 'project' | 'standalone';
+  targetProjectId?: string;
+}
+
 export interface BusinessRouteState {
   source: BusinessSource;
   task?: TaskContract;
@@ -67,6 +72,7 @@ export interface BusinessRouteState {
   validation?: ValidationContract;
   plan?: PlanCondition[];
   datasets?: string[];
+  workspaceSession?: WorkspaceSessionState;
 }
 
 export interface BusinessReportItem {

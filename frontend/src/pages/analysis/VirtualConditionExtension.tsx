@@ -238,7 +238,7 @@ const VirtualConditionExtension: React.FC = () => {
       saveBusinessReportItem({ source: '虚拟工况扩展', title: `${model.modelName} ${model.version}扩展结果`, summary: result.resultSummary });
       message.success('虚拟工况扩展结果已加入报告。');
     }
-  }, [boundProject, conditions, effectiveSession, incoming?.data, incoming?.task, model, navigate, persistedProjectId, predictionStatus]);
+  }, [boundProject, conditions, effectiveSession, incoming?.data, incoming?.task, model, navigate, persistedProjectId, persistVirtualResult, predictionStatus]);
 
   useEffect(() => {
     setContext({

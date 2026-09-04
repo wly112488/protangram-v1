@@ -332,11 +332,12 @@ const ProjectWorkbench: React.FC = () => {
           </div>
           {experiments.length > 0 ? (
             <Tree
+              key={experiments.map((experiment) => experiment.id).join('|') || 'empty-project-tree'}
               blockNode
               defaultExpandAll
               selectedKeys={activeTreeKey ? [activeTreeKey] : []}
               treeData={treeData}
-              onSelect={(keys) => {
+              onSelect={(keys: React.Key[]) => {
                 const key = String(keys[0] ?? '');
                 const selection = resolveProjectSelection(experiments, key);
                 if (!selection.experimentId) return;
@@ -368,7 +369,7 @@ const ProjectWorkbench: React.FC = () => {
                   style={{ height: 8, border: 0, background: 'transparent' }}
                   onMouseDown={startHorizontalResize}
                 />
-                <div className="layout-worksheet" style={{ height: worksheetHeight, borderTop: '1px solid #edf2f8' }}>
+                <div className="layout-worksheet" style={{ height: worksheetHeight, borderTop: 0 }}>
                   <div style={{ height: 34, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fbff', flexShrink: 0 }}>
                     <Text strong style={{ fontSize: 12 }}>试验工作表</Text>
                     <Text type="secondary" style={{ fontSize: 11 }}>{activeExperiment.name}</Text>

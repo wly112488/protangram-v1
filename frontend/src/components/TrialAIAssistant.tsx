@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import { Button, Card, Descriptions, Drawer, Input, Space, Tag, Typography } from 'antd';
+import { Button, Card, Descriptions, Drawer, Empty, Input, Space, Tag, Typography } from 'antd';
 import { ClearOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons';
 import type { BusinessAction } from '@/types/businessContext';
 
-const { Paragraph } = Typography;
+const { Paragraph, Text } = Typography;
 
 export type AIAssistantContext = {
   pageType: 'digitalTwin' | 'intelligentDesign' | 'dataAnalysis' | 'virtualCondition';
@@ -74,12 +74,19 @@ const getMockAnswer = (context: AIAssistantContext, prompt: string): ChatMessage
 
 const TrialAIAssistant: React.FC = () => {
   const { context } = useTrialAIAssistant();
-  const [open, setOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [input, setInput] = useState('');
   const [sessions, setSessions] = useState<Partial<Record<string, ChatMessage[]>>>({});
   const config = context ? pageConfig[context.pageType] : null;
-  const sessionKey = context ? `${context.pageType}-${context.resultReady ? 'ready' : 'pending'}` : '';
-  const messages = context ? sessions[sessionKey] ?? [{ role: 'assistant' as const, content: context.resultReady ? config?.welcome ?? '' : `已读取当前${context.pageName}上下文。当前业务尚未执行完成，我会先协助检查配置，不会提前给出最终结果。` }] : [];
+  const sessionKey = context ? `${context.pageType}-${context.resultReady ? 'ready' : 'pending'}` : 'workspace-idle';
+  const messages: ChatMessage[] = context && config
+    ? sessions[sessionKey] ?? [{
+        role: 'assistant',
+        content: context.resultReady
+          ? config.welcome
+          : `已读取当前${context.pageName}上下文。当前业务尚未执行完成，我会先协助检查配置，不会提前给出最终结果。`,
+      }]
+    : [];
 
   const contextItems = useMemo(() => {
     if (!context) return [];
@@ -93,43 +100,122 @@ const TrialAIAssistant: React.FC = () => {
     ].filter(Boolean) as Array<{ key: string; label: string; children: React.ReactNode }>;
   }, [context]);
 
-  if (!context || !config) return null;
+  const clearSession = () => {
+    setSessions((prev) => {
+      const next = { ...prev };
+      delete next[sessionKey];
+      return next;
+    });
+  };
 
   const appendConversation = (prompt: string) => {
-    if (!prompt.trim()) return;
-    const next = [...messages, { role: 'user' as const, content: prompt.trim() }, getMockAnswer(context, prompt.trim())];
+    if (!context || !config || !prompt.trim()) return;
+    const next = [
+      ...messages,
+      { role: 'user' as const, content: prompt.trim() },
+      getMockAnswer(context, prompt.trim()),
+    ];
     setSessions((prev) => ({ ...prev, [sessionKey]: next }));
     setInput('');
   };
 
   const handleBusinessAction = (action: string) => {
-    context.onBusinessAction?.(action as BusinessAction);
-    setOpen(false);
+    context?.onBusinessAction?.(action as BusinessAction);
+    setMobileOpen(false);
   };
 
-  return <>
-    <Button type="primary" shape="round" icon={<RobotOutlined />} onClick={() => setOpen(true)} style={{ position: 'fixed', right: 24, bottom: 88, zIndex: 50, boxShadow: '0 4px 14px rgba(24,144,255,.32)' }}>AI 助手</Button>
-    <Drawer
-      title="试验 AI 助手" placement="right" size={440} open={open} onClose={() => setOpen(false)}
-      extra={<Button type="text" size="small" icon={<ClearOutlined />} onClick={() => setSessions((prev) => { const next = { ...prev }; delete next[sessionKey]; return next; })}>清空会话</Button>}
-    >
-      <Card size="small" title="当前上下文" style={{ marginBottom: 12 }}><Descriptions size="small" column={1} items={contextItems} /></Card>
-      <Space wrap style={{ marginBottom: 16 }}>{config.quickActions.map((action) => <Button size="small" key={action} onClick={() => appendConversation(action)}>{action}</Button>)}</Space>
-      <div style={{ minHeight: 260, maxHeight: 'calc(100vh - 450px)', overflow: 'auto', marginBottom: 12 }}>
-        {messages.map((item, index) => <div key={`${item.role}-${index}`} style={{ marginBottom: 12, textAlign: item.role === 'user' ? 'right' : 'left' }}>
-          <Tag color={item.role === 'user' ? 'blue' : 'purple'}>{item.role === 'user' ? '用户' : 'AI'}</Tag>
-          <Card size="small" style={{ marginTop: 4, display: 'inline-block', maxWidth: '92%', textAlign: 'left' }}><Paragraph style={{ whiteSpace: 'pre-line', marginBottom: 0 }}>{item.content}</Paragraph></Card>
-          {item.role === 'assistant' && <div style={{ marginTop: 6 }}><Space wrap>
-            {(item.report ? ['加入报告'] : config.resultActions).map((action) => <Button type="link" size="small" key={action} onClick={() => handleBusinessAction(action)}>{action}</Button>)}
-          </Space></div>}
-        </div>)}
+  const assistantBody = () => {
+    if (!context || !config) {
+      return (
+        <div className="workspace-ai-empty">
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="打开业务功能后，AI 会自动读取当前上下文" />
+          <Text type="secondary">项目概览阶段不会伪造业务结果。</Text>
+        </div>
+      );
+    }
+
+    return (
+      <div className="workspace-ai-body">
+        <Card size="small" className="workspace-ai-context-card" title="当前上下文">
+          <Descriptions size="small" column={1} items={contextItems} />
+        </Card>
+
+        <div className="workspace-ai-quick-actions">
+          {config.quickActions.map((action) => (
+            <Button size="small" key={action} onClick={() => appendConversation(action)}>{action}</Button>
+          ))}
+        </div>
+
+        <div className="workspace-ai-messages">
+          {messages.map((item, index) => (
+            <div key={`${item.role}-${index}`} className={`workspace-ai-message ${item.role}`}>
+              <Tag color={item.role === 'user' ? 'blue' : 'purple'}>{item.role === 'user' ? '用户' : 'AI'}</Tag>
+              <Card size="small" className="workspace-ai-message-card">
+                <Paragraph style={{ whiteSpace: 'pre-line', marginBottom: 0 }}>{item.content}</Paragraph>
+              </Card>
+              {item.role === 'assistant' && (
+                <Space wrap size={[2, 2]}>
+                  {(item.report ? ['加入报告'] : config.resultActions).map((action) => (
+                    <Button type="link" size="small" key={action} onClick={() => handleBusinessAction(action)}>{action}</Button>
+                  ))}
+                </Space>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="workspace-ai-input">
+          <Input.TextArea
+            autoSize={{ minRows: 1, maxRows: 3 }}
+            placeholder="请输入问题……"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onPressEnter={(event) => {
+              if (!event.shiftKey) {
+                event.preventDefault();
+                appendConversation(input);
+              }
+            }}
+          />
+          <Button type="primary" icon={<SendOutlined />} disabled={!input.trim()} onClick={() => appendConversation(input)} />
+        </div>
       </div>
-      <Space.Compact style={{ width: '100%' }}>
-        <Input.TextArea autoSize={{ minRows: 1, maxRows: 3 }} placeholder="请输入问题……" value={input} onChange={(event) => setInput(event.target.value)} onPressEnter={(event) => { if (!event.shiftKey) { event.preventDefault(); appendConversation(input); } }} />
-        <Button type="primary" icon={<SendOutlined />} disabled={!input.trim()} onClick={() => appendConversation(input)}>发送</Button>
-      </Space.Compact>
-    </Drawer>
-  </>;
+    );
+  };
+
+  return (
+    <>
+      <aside className="workspace-ai-panel">
+        <div className="workspace-ai-panel-head">
+          <div className="workspace-ai-title"><RobotOutlined /><span><strong>试验 AI 助手</strong><small>随当前工作区同步</small></span></div>
+          <Button type="text" size="small" icon={<ClearOutlined />} disabled={!context} onClick={clearSession}>清空</Button>
+        </div>
+        {assistantBody()}
+      </aside>
+
+      <Button
+        type="primary"
+        shape="round"
+        icon={<RobotOutlined />}
+        className="workspace-ai-mobile-trigger"
+        onClick={() => setMobileOpen(true)}
+      >
+        AI 助手
+      </Button>
+
+      <Drawer
+        title="试验 AI 助手"
+        placement="right"
+        size={420}
+        className="workspace-ai-mobile-drawer"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        extra={<Button type="text" size="small" icon={<ClearOutlined />} disabled={!context} onClick={clearSession}>清空会话</Button>}
+      >
+        {assistantBody()}
+      </Drawer>
+    </>
+  );
 };
 
 export default TrialAIAssistant;

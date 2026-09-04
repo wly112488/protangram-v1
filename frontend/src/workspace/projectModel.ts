@@ -1,6 +1,7 @@
 import type {
   Project,
   ProjectArtifact,
+  ProjectArtifactType,
   ProjectNavigationItem,
   ProjectStats,
   ProjectView,
@@ -14,6 +15,46 @@ export interface LegacyGeneratedExperiment {
   worksheetData?: Record<string, string>;
   extraItems?: string[];
 }
+
+export interface ProjectArtifactInput {
+  id?: string;
+  type: ProjectArtifactType;
+  title: string;
+  source: string;
+  status?: string;
+  summary: string;
+  payload: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+type FactoryInput = Pick<ProjectArtifactInput, 'title' | 'summary' | 'payload'> &
+  Partial<Pick<ProjectArtifactInput, 'id' | 'status' | 'createdAt' | 'updatedAt'>>;
+
+const createArtifactInput = (
+  type: ProjectArtifactType,
+  source: string,
+  input: FactoryInput,
+): ProjectArtifactInput => ({
+  ...input,
+  type,
+  source,
+});
+
+export const createCalibrationArtifactInput = (input: FactoryInput): ProjectArtifactInput =>
+  createArtifactInput('calibration', '试验数字孪生', input);
+
+export const createDesignArtifactInput = (input: FactoryInput): ProjectArtifactInput =>
+  createArtifactInput('design', '智能试验设计', input);
+
+export const createAnalysisArtifactInput = (input: FactoryInput): ProjectArtifactInput =>
+  createArtifactInput('analysis', '试验数据分析', input);
+
+export const createRootCauseArtifactInput = (input: FactoryInput): ProjectArtifactInput =>
+  createArtifactInput('rootCause', '试验数据分析', input);
+
+export const createVirtualConditionArtifactInput = (input: FactoryInput): ProjectArtifactInput =>
+  createArtifactInput('virtualCondition', '虚拟工况扩展', input);
 
 const artifactViewLabels: Partial<Record<ProjectView, string>> = {
   design: '智能试验设计',

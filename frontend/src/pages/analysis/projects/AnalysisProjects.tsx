@@ -1,17 +1,21 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Checkbox, Col, Descriptions, Form, Modal, Progress, Row,
   Select, Space, Table, Tabs, Tag, Timeline, Typography, message,
 } from 'antd';
 import {
-  BarChartOutlined, DatabaseOutlined, ExperimentOutlined, FileTextOutlined,
-  ReloadOutlined, SettingOutlined,
+  BarChartOutlined, CheckCircleOutlined, DatabaseOutlined, ExperimentOutlined, FileTextOutlined,
+  ReloadOutlined, SaveOutlined, SettingOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import { saveBusinessReportItem } from '@/types/businessContext';
 import type { BusinessAction, BusinessRouteState, DataContract, ModelContract, TaskContract } from '@/types/businessContext';
+import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
+import { createAnalysisArtifactInput, createRootCauseArtifactInput } from '@/workspace/projectModel';
+import { useProjectStore } from '@/workspace/projectStore';
+import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -59,17 +63,29 @@ const ROOT_CAUSES: Record<string, Array<{ key: string; reason: string; relevance
   ],
 };
 
+const EVIDENCE = [
+  '13:21 冷却流量开始下降',
+  '13:23 进口压力出现波动',
+  '13:25 出口温度超过正常范围',
+  '13:27 推力开始下降',
+];
+
 const levelTag = (level: string) => <Tag color={level === '高' ? 'red' : level === '中' ? 'orange' : 'default'}>{level}</Tag>;
 
 const DEFAULT_MODEL: ModelContract = {
   modelId: 'engine-v2.1', modelName: '发动机模型', version: 'V2.1', trustedRange: '2000～8000 rpm', status: '已确认', calibratedAt: '2026-08-28',
 };
 
+type SaveKind = 'analysis' | 'rootCause';
+
 const AnalysisProjects: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { setContext } = useTrialAIAssistant();
   const incoming = location.state as BusinessRouteState | null;
+  const { projects, session, targetProject } = useWorkspaceBusinessSession(incoming);
+  const addArtifact = useProjectStore((state) => state.addArtifact);
+
   const routedTask = incoming?.task ? {
     id: incoming.task.taskId, name: incoming.task.taskName, source: incoming.task.source, status: incoming.task.status,
     experimentFile: incoming.data?.dataName ?? `${incoming.task.taskId}.csv`, environmentFile: `environment_${incoming.task.taskId}.csv`,
@@ -80,6 +96,7 @@ const AnalysisProjects: React.FC = () => {
   const initialTask = routedTask ?? TASKS[0];
   const initialData = { experimentFile: incoming?.data?.dataName ?? initialTask.experimentFile, environmentFile: initialTask.environmentFile, controlFile: initialTask.controlFile, modelData: initialTask.modelData };
   const activeModel = incoming?.model ?? DEFAULT_MODEL;
+
   const [task, setTask] = useState(initialTask);
   const [data, setData] = useState(initialData);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
@@ -89,11 +106,22 @@ const AnalysisProjects: React.FC = () => {
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [dataModalOpen, setDataModalOpen] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [saveTargetOpen, setSaveTargetOpen] = useState(false);
+  const [pendingSaveKind, setPendingSaveKind] = useState<SaveKind>('analysis');
+  const [savedProjectId, setSavedProjectId] = useState<string | undefined>(session.targetProjectId);
+  const [savedAnalysisProjectId, setSavedAnalysisProjectId] = useState<string | null>(null);
+  const [savedRootCauseProjectId, setSavedRootCauseProjectId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
   const [activeTab, setActiveTab] = useState('trend');
   const [selectedAnomaly, setSelectedAnomaly] = useState(ANOMALIES[0]);
   const timer = useRef<number | null>(null);
+
+  const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
+  const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
+    () => boundProject ? { mode: 'project', targetProjectId: boundProject.id } : { mode: 'standalone' },
+    [boundProject],
+  );
 
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
 
@@ -101,6 +129,8 @@ const AnalysisProjects: React.FC = () => {
     setAnalyzed(false);
     setActiveTab('trend');
     setSelectedAnomaly(ANOMALIES[0]);
+    setSavedAnalysisProjectId(null);
+    setSavedRootCauseProjectId(null);
   };
 
   const selectTask = () => {
@@ -115,6 +145,8 @@ const AnalysisProjects: React.FC = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
     setAnalyzing(true);
     setAnalyzed(false);
+    setSavedAnalysisProjectId(null);
+    setSavedRootCauseProjectId(null);
     timer.current = window.setTimeout(() => {
       setAnalyzing(false);
       setAnalyzed(true);
@@ -128,12 +160,10 @@ const AnalysisProjects: React.FC = () => {
   const reset = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = null;
-    const defaultTask = initialTask;
-    const defaultData = initialData;
-    setTask(defaultTask);
-    setData(defaultData);
-    setDraftData(defaultData);
-    setDraftTaskId(defaultTask.id);
+    setTask(initialTask);
+    setData(initialData);
+    setDraftData(initialData);
+    setDraftTaskId(initialTask.id);
     setConfig(DEFAULT_CONFIG);
     setDraftConfig(DEFAULT_CONFIG);
     setAnalyzing(false);
@@ -141,12 +171,67 @@ const AnalysisProjects: React.FC = () => {
     message.success('已恢复默认分析状态');
   };
 
+  const rootCauseRows = ROOT_CAUSES[selectedAnomaly.key] ?? ROOT_CAUSES.temperature;
+  const primaryRootCause = rootCauseRows[0];
+
+  const persistResult = (projectId: string, kind: SaveKind) => {
+    if (!analyzed) return false;
+    const project = projects.find((item) => item.id === projectId);
+    if (!project) return false;
+
+    const artifactInput = kind === 'analysis'
+      ? createAnalysisArtifactInput({
+          title: `${task.name} · 分析结果`,
+          summary: '发现 3 个异常事件，高转速区域温度异常，建议重新校准模型',
+          payload: {
+            task,
+            data,
+            config,
+            model: activeModel,
+            anomalies: ANOMALIES,
+            abnormalRange: '7600～8000 rpm',
+            conclusion: '高转速区域温度异常，当前模型在该区域预测偏差明显增大。',
+            charts: [{ id: 'analysis-trend', title: `${selectedAnomaly.event}趋势与模型对比` }],
+          },
+        })
+      : createRootCauseArtifactInput({
+          title: `${selectedAnomaly.event} · 根因结论`,
+          summary: `${primaryRootCause.reason}与${selectedAnomaly.event}具有${primaryRootCause.relevance}关联`,
+          payload: {
+            anomaly: selectedAnomaly,
+            confirmedRootCause: primaryRootCause,
+            candidates: rootCauseRows,
+            evidence: EVIDENCE,
+            affectedRange: '7600～8000 rpm',
+          },
+        });
+
+    const artifact = addArtifact(projectId, artifactInput);
+    if (!artifact) return false;
+    setSavedProjectId(projectId);
+    if (kind === 'analysis') setSavedAnalysisProjectId(projectId);
+    else setSavedRootCauseProjectId(projectId);
+    setSaveTargetOpen(false);
+    message.success(`${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
+    return true;
+  };
+
+  const requestSave = (kind: SaveKind) => {
+    if (!analyzed) return message.warning('请先完成试验数据分析');
+    if (boundProject) {
+      persistResult(boundProject.id, kind);
+      return;
+    }
+    setPendingSaveKind(kind);
+    setSaveTargetOpen(true);
+  };
+
   const handleBusinessAction = useCallback((action: BusinessAction) => {
     if (!analyzed) return message.warning('请先完成试验数据分析');
     const taskContract: TaskContract = { taskId: task.id, taskName: task.name, taskType: '已执行试验', source: task.source, status: '已完成' };
     const dataContract: DataContract = { dataId: `data-${task.id}`, dataName: data.experimentFile, dataType: '试验实测数据', source: '试验数据分析', taskId: task.id };
     const result = { resultType: '试验数据分析', resultSummary: '发现 3 个异常事件，高转速区域温度异常，建议重新校准模型', abnormalRange: '7600～8000 rpm', metrics: config.metrics };
-    const base: BusinessRouteState = { source: 'dataAnalysis', task: taskContract, data: dataContract, model: activeModel, result };
+    const base: BusinessRouteState = { source: 'dataAnalysis', task: taskContract, data: dataContract, model: activeModel, result, workspaceSession: effectiveSession };
     if (action === '用于模型校准') navigate('/analysis/digital-twin', { state: base });
     if (action === '虚拟工况扩展') navigate('/analysis/virtual-condition', { state: { ...base, validation: { goal: '扩展高转速异常区域', suggestedRange: '7600～8200 rpm', metrics: ['出口温度', '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
     if (action === '生成补充试验') navigate('/experiment/design/intelligent', { state: { ...base, validation: { goal: `验证${selectedAnomaly.event}及主要根因`, suggestedRange: '7600～8200 rpm', metrics: [selectedAnomaly.event, '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
@@ -154,16 +239,22 @@ const AnalysisProjects: React.FC = () => {
       saveBusinessReportItem({ source: '试验数据分析', title: `${task.name}分析结论`, summary: result.resultSummary });
       message.success('分析结果已加入报告。');
     }
-  }, [activeModel, analyzed, config.metrics, data.experimentFile, navigate, selectedAnomaly.event, task]);
+  }, [activeModel, analyzed, config.metrics, data.experimentFile, effectiveSession, navigate, selectedAnomaly.event, task]);
 
   useEffect(() => {
     setContext({
-      pageType: 'dataAnalysis', pageName: '试验数据分析', projectName: '发动机性能验证', taskName: task.name,
-      modelName: `${activeModel.modelName} ${activeModel.version}`, dataName: data.experimentFile,
-      resultSummary: analyzed ? '发现 3 个异常事件' : '等待开始分析', resultReady: analyzed, onBusinessAction: handleBusinessAction,
+      pageType: 'dataAnalysis',
+      pageName: '试验数据分析',
+      projectName: boundProject?.name,
+      taskName: task.name,
+      modelName: `${activeModel.modelName} ${activeModel.version}`,
+      dataName: data.experimentFile,
+      resultSummary: analyzed ? '发现 3 个异常事件' : '等待开始分析',
+      resultReady: analyzed,
+      onBusinessAction: handleBusinessAction,
     });
     return () => setContext(null);
-  }, [activeModel.modelName, activeModel.version, analyzed, data.experimentFile, handleBusinessAction, setContext, task.name]);
+  }, [activeModel.modelName, activeModel.version, analyzed, boundProject?.name, data.experimentFile, handleBusinessAction, setContext, task.name]);
 
   const trendOption = {
     tooltip: { trigger: 'axis' }, legend: { data: ['实测值', '模型预测'] },
@@ -178,7 +269,6 @@ const AnalysisProjects: React.FC = () => {
     ],
   };
 
-  const rootCauseRows = ROOT_CAUSES[selectedAnomaly.key] ?? ROOT_CAUSES.temperature;
   const tabs = [
     {
       key: 'trend', label: '趋势与异常', children: <>
@@ -196,17 +286,14 @@ const AnalysisProjects: React.FC = () => {
       key: 'root', label: '根因分析', children: <>
         <Alert type="warning" showIcon title={`异常事件：${selectedAnomaly.event}`} style={{ marginBottom: 16 }} />
         <Table size="small" pagination={false} dataSource={rootCauseRows} columns={[
-          { title: '排序', render: (_value, _record, index) => index + 1, width: 80 },
+          { title: '排序', render: (_value: unknown, _record: unknown, index: number) => index + 1, width: 80 },
           { title: '可能原因', dataIndex: 'reason' }, { title: '关联程度', dataIndex: 'relevance', render: levelTag },
         ]} />
       </>,
     },
     {
       key: 'evidence', label: '证据链', children: <>
-        <Timeline items={[
-          { children: '13:21　冷却流量开始下降' }, { children: '13:23　进口压力出现波动' },
-          { color: 'red', children: '13:25　出口温度超过正常范围' }, { children: '13:27　推力开始下降' },
-        ]} />
+        <Timeline items={EVIDENCE.map((item, index) => ({ color: index === 2 ? 'red' : undefined, children: item }))} />
         <Row gutter={16}>
           <Col span={8}><Card size="small" title="历史相似事件"><Text>发现 2 次相似高转速温升事件，均伴随冷却流量下降。</Text></Card></Col>
           <Col span={8}><Card size="small" title="模型预测偏差"><Text>工况07预测偏差由 1.8% 上升至 4.6%。</Text></Card></Col>
@@ -217,19 +304,22 @@ const AnalysisProjects: React.FC = () => {
     {
       key: 'conclusion', label: '分析结论', children: <Card size="small">
         <Paragraph><Text strong>主要异常：</Text>出口温度在高转速工况下明显升高。</Paragraph>
-        <Paragraph><Text strong>主要根因：</Text>冷却流量下降与温度异常具有较强关联。</Paragraph>
+        <Paragraph><Text strong>主要根因候选：</Text>冷却流量下降与温度异常具有较强关联。</Paragraph>
         <Paragraph><Text strong>影响范围：</Text>主要出现在 7600～8000 rpm 区域。</Paragraph>
         <Paragraph><Text strong>模型表现：</Text>当前数字孪生模型在该区域预测偏差明显增大。</Paragraph>
-        <Text strong>建议：</Text><ol><li>对高转速区域补充验证试验。</li><li>使用本次数据重新校准数字孪生模型。</li></ol>
+        <Text strong>建议：</Text><ol><li>确认根因后对高转速区域补充验证试验。</li><li>使用本次数据重新校准数字孪生模型。</li></ol>
       </Card>,
     },
   ];
 
   return (
-    <div style={{ width: '100%', padding: 16, overflow: 'auto' }}>
-      <div style={{ marginBottom: 16 }}><Title level={4} style={{ margin: 0 }}>试验数据分析</Title><Text type="secondary">加载试验关联数据，识别异常并形成根因、证据与分析结论</Text></div>
+    <div className="workspace-business-page">
+      <div className="workspace-business-heading">
+        <div><Title level={4} style={{ margin: 0 }}>试验数据分析</Title><Text type="secondary">加载试验关联数据，识别异常并形成根因、证据与分析结论</Text></div>
+        <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
+      </div>
 
-      <Card size="small" style={{ marginBottom: 16 }}><Space wrap>
+      <Card size="small" className="workspace-business-card"><Space wrap>
         <Button icon={<ExperimentOutlined />} onClick={() => { setDraftTaskId(task.id); setTaskModalOpen(true); }}>选择试验任务</Button>
         <Button icon={<DatabaseOutlined />} onClick={() => { setDraftData(data); setDataModalOpen(true); }}>选择数据</Button>
         <Button icon={<SettingOutlined />} onClick={() => { setDraftConfig(config); setConfigModalOpen(true); }}>分析配置</Button>
@@ -237,7 +327,7 @@ const AnalysisProjects: React.FC = () => {
         <Button icon={<ReloadOutlined />} onClick={reset}>重置</Button>
       </Space></Card>
 
-      <Card title="当前任务与数据" size="small" style={{ marginBottom: 16 }}>
+      <Card title="当前任务与数据" size="small" className="workspace-business-card">
         <Descriptions size="small" column={3} items={[
           { key: 'task', label: '当前任务', children: task.name }, { key: 'source', label: '来源方案', children: task.source },
           { key: 'status', label: '执行状态', children: <Tag color="green">{task.status}</Tag> }, { key: 'file', label: '试验数据', children: data.experimentFile },
@@ -246,18 +336,24 @@ const AnalysisProjects: React.FC = () => {
         ]} />
       </Card>
 
-      <Card title="分析结果" size="small">
-        {analyzing ? <div style={{ padding: '48px 12%' }}><Progress percent={72} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在执行趋势、异常与根因分析...</Paragraph></div>
-          : analyzed ? <><Alert type="warning" showIcon title="分析完成，发现 3 个异常事件" style={{ marginBottom: 16 }} /><Tabs activeKey={activeTab} onChange={setActiveTab} items={tabs} /></>
-            : <Alert type="info" showIcon title="当前任务数据已就绪，点击“开始分析”生成分析结果" />}
+      <Card id="business-result" title="分析结果" size="small" className="workspace-business-card">
+        {analyzing ? (
+          <div style={{ padding: '48px 12%' }}><Progress percent={72} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在执行趋势、异常与根因分析...</Paragraph></div>
+        ) : analyzed ? (
+          <><Alert type="warning" showIcon title="分析完成，发现 3 个异常事件" style={{ marginBottom: 16 }} /><Tabs activeKey={activeTab} onChange={setActiveTab} items={tabs} />
+            <div className="workspace-result-actions"><Space wrap>
+              <Button icon={<SaveOutlined />} onClick={() => requestSave('analysis')}>{savedAnalysisProjectId ? '分析结果已保存' : '保存分析结果'}</Button>
+              <Button icon={<CheckCircleOutlined />} onClick={() => requestSave('rootCause')}>{savedRootCauseProjectId ? '根因已确认' : `确认根因：${primaryRootCause.reason}`}</Button>
+              <Button onClick={() => handleBusinessAction('用于模型校准')}>用于模型校准</Button>
+              <Button onClick={() => handleBusinessAction('虚拟工况扩展')}>虚拟工况扩展</Button>
+              <Button onClick={() => handleBusinessAction('生成补充试验')}>生成补充试验</Button>
+              <Button type="primary" icon={<FileTextOutlined />} onClick={() => handleBusinessAction('加入报告')}>加入报告</Button>
+            </Space></div>
+          </>
+        ) : (
+          <Alert type="info" showIcon title="当前任务数据已就绪，点击“开始分析”生成分析结果" />
+        )}
       </Card>
-
-      {analyzed && <Card size="small" style={{ marginTop: 16 }}><div style={{ display: 'flex', justifyContent: 'flex-end' }}><Space wrap>
-        <Button onClick={() => handleBusinessAction('用于模型校准')}>用于模型校准</Button>
-        <Button onClick={() => handleBusinessAction('虚拟工况扩展')}>虚拟工况扩展</Button>
-        <Button onClick={() => handleBusinessAction('生成补充试验')}>生成补充试验</Button>
-        <Button type="primary" icon={<FileTextOutlined />} onClick={() => handleBusinessAction('加入报告')}>加入报告</Button>
-      </Space></div></Card>}
 
       <Modal title="选择试验任务" open={taskModalOpen} onCancel={() => setTaskModalOpen(false)} onOk={selectTask}>
         <Select style={{ width: '100%' }} value={draftTaskId} onChange={setDraftTaskId} options={availableTasks.map((item) => ({ value: item.id, label: `${item.name}（${item.status}）` }))} />
@@ -279,6 +375,7 @@ const AnalysisProjects: React.FC = () => {
           <Form.Item label="异常敏感度"><Select value={draftConfig.sensitivity} onChange={(value) => setDraftConfig({ ...draftConfig, sensitivity: value })} options={['低', '中', '高'].map((value) => ({ value }))} /></Form.Item>
         </Form>
       </Modal>
+      <ProjectSaveTargetModal open={saveTargetOpen} title={pendingSaveKind === 'analysis' ? '保存分析结果到项目' : '确认根因并保存到项目'} defaultProjectId={boundProject?.id} onCancel={() => setSaveTargetOpen(false)} onConfirm={(projectId) => persistResult(projectId, pendingSaveKind)} />
     </div>
   );
 };

@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { addArtifactToProject, migrateLegacyExperiments, removeArtifactFromProject } from './projectModel';
+import {
+  addArtifactToProject,
+  migrateLegacyExperiments,
+  removeArtifactFromProject,
+  type LegacyGeneratedExperiment,
+} from './projectModel';
 import type {
   Project,
   ProjectArtifact,
@@ -10,8 +15,8 @@ import type {
   ProjectWorksheet,
 } from './types';
 
-const WORKSPACE_STORAGE_KEY = 'protangram-project-workspace-v1';
-const LEGACY_EXPERIMENT_STORAGE_KEY = 'protangram-generated-experiments';
+export const WORKSPACE_STORAGE_KEY = 'protangram-project-workspace-v1';
+export const LEGACY_EXPERIMENT_STORAGE_KEY = 'protangram-generated-experiments';
 
 interface CreateProjectInput {
   id?: string;
@@ -48,13 +53,16 @@ interface ProjectWorkspaceState {
   setActiveView: (view: ProjectView) => void;
   createProject: (input: CreateProjectInput) => string;
   createProjectFromDesign: (input: CreateProjectFromDesignInput) => string;
+  importLegacyExperiment: (experiment: LegacyGeneratedExperiment) => string;
   setWorksheet: (projectId: string, worksheet: ProjectWorksheet) => void;
   addArtifact: (projectId: string, input: AddArtifactInput) => ProjectArtifact | null;
   removeArtifact: (projectId: string, artifactId: string) => void;
 }
 
 const newId = (prefix: string) => {
-  const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return `${prefix}-${uuid}`;
 };
 
@@ -156,6 +164,21 @@ export const useProjectStore = create<ProjectWorkspaceState>()(
           activeView: 'overview',
         }));
         return id;
+      },
+
+      importLegacyExperiment: (experiment) => {
+        const existing = get().projects.find((project) => project.id === experiment.id);
+        if (existing) {
+          set({ activeProjectId: existing.id, activeView: 'overview' });
+          return existing.id;
+        }
+        const [project] = migrateLegacyExperiments([experiment]);
+        set((state) => ({
+          projects: [...state.projects, project],
+          activeProjectId: project.id,
+          activeView: 'overview',
+        }));
+        return project.id;
       },
 
       setWorksheet: (projectId, worksheet) => set((state) => ({

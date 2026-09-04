@@ -6,6 +6,7 @@ import ProjectContent from './ProjectContent';
 import ProjectSidebar from './ProjectSidebar';
 import WorkspaceHeader from './WorkspaceHeader';
 import { useProjectStore } from './projectStore';
+import './workspace.css';
 
 const RESEARCH_OBJECT_STORAGE_KEY = 'protangram-research-objects';
 

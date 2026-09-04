@@ -7,6 +7,7 @@ import {
   migrateLegacyExperiments,
   removeArtifactFromProject,
 } from '../src/workspace/projectModel.ts';
+import { filterProjectsBySearch, getHeaderActiveKey } from '../src/workspace/presentationModel.ts';
 
 const legacyExperiment = {
   id: 'experiment-1',
@@ -116,4 +117,19 @@ test('project statistics are derived from persisted project content', () => {
     chartCount: 2,
     artifactCount: 2,
   });
+});
+
+test('project search filters only by top-level project name', () => {
+  const [project] = migrateLegacyExperiments([legacyExperiment], '2026-09-04T08:00:00.000Z');
+  const second = { ...project, id: 'experiment-2', name: '电机热性能验证' };
+
+  assert.deepEqual(filterProjectsBySearch([project, second], 'CE25').map((item) => item.id), ['experiment-1']);
+  assert.deepEqual(filterProjectsBySearch([project, second], '根因分析').map((item) => item.id), []);
+});
+
+test('header active key follows the current business route', () => {
+  assert.equal(getHeaderActiveKey('/experiment/design/intelligent'), 'doe');
+  assert.equal(getHeaderActiveKey('/analysis/digital-twin'), 'analysis');
+  assert.equal(getHeaderActiveKey('/report/list'), 'report');
+  assert.equal(getHeaderActiveKey('/'), null);
 });

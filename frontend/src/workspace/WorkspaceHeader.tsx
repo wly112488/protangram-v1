@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import FunctionBar from '@/workbench/FunctionBar';
 import type { ResearchObject } from '@/workbench/EquipmentManagerWindow';
+import comacLogo from '@/assets/comac_logo.png';
 import { getHeaderActiveKey } from './presentationModel';
 
 const { Header } = Layout;
@@ -39,11 +40,8 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
 
   return (
     <Header className={`workspace-header ${activeKey ? `workspace-active-${activeKey}` : ''}`}>
-      <button type="button" className="workspace-brand" onClick={() => navigate('/')}>
-        <svg width="30" height="30" viewBox="0 0 100 100" aria-hidden="true">
-          <rect x="10" y="10" width="80" height="80" fill="none" stroke={token.colorPrimary} strokeWidth="4" rx="8" />
-          <path d="M10 10 L50 50 L90 10 M10 90 L50 50 L90 90 M50 10 L50 90 M10 50 L90 50" fill="none" stroke={token.colorPrimary} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+      <button type="button" className="workspace-brand" onClick={() => navigate('/')} aria-label="返回平台首页">
+        <img className="workspace-brand-logo" src={comacLogo} alt="中国商飞 COMAC" />
         <span>
           <strong>实验敏捷迭代智能管理平台</strong>
           <small>ProTangram</small>

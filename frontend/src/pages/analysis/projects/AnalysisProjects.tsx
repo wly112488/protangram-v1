@@ -35,7 +35,7 @@ const TASKS = [
   {
     id: 'vibration', name: '结构振动特性试验', source: '两水平因子设计方案 #07', status: '已完成',
     experimentFile: 'vibration_07.csv', environmentFile: 'vibration_environment_07.csv',
-    controlFile: 'vibration_07.csv', modelData: 'digital_twin_structure_v1', conditions: 10, dataCount: 15400,
+    controlFile: 'vibration_control_07.csv', modelData: 'digital_twin_structure_v1', conditions: 10, dataCount: 15400,
   },
 ];
 
@@ -78,7 +78,7 @@ const MEASUREMENT_POINTS = [
   { id: '2', label: '叶轮前测点', station: 'Rotor inlet', x: 53.8, y: 47, pressure: '96.4 kPa', velocity: '38.9 m/s', temperature: '25.1 ℃', deviation: '+2.1%', status: '关注', related: '压力下降 / 流速提升' },
   { id: '3', label: '叶轮后测点', station: 'Rotor outlet', x: 59.2, y: 47, pressure: '103.7 kPa', velocity: '46.8 m/s', temperature: '31.6 ℃', deviation: '+4.6%', status: '异常', related: '出口温度异常 / 压力波动' },
   { id: '4', label: '出口测点', station: 'Exit', x: 77.6, y: 47, pressure: '102.1 kPa', velocity: '43.2 m/s', temperature: '29.8 ℃', deviation: '+1.7%', status: '关注', related: '出口恢复与推力表现' },
-] as const;
+];
 
 const levelTag = (level: string) => <Tag color={level === '高' ? 'red' : level === '中' ? 'orange' : 'default'}>{level}</Tag>;
 const pointStatusColor = (status: string) => status === '异常' ? 'red' : status === '关注' ? 'orange' : 'green';

@@ -1,0 +1,173 @@
+.workspace-header .workspace-brand {
+  min-width: 318px;
+  gap: 12px;
+}
+
+.workspace-header .workspace-brand-logo {
+  width: 62px;
+  height: 48px;
+  flex: 0 0 62px;
+  object-fit: contain;
+  display: block;
+}
+
+.analysis-model-card .ant-card-head {
+  min-height: 46px;
+}
+
+.analysis-structure-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(250px, 0.75fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.analysis-structure-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 300px;
+  overflow: hidden;
+  border: 1px solid #dfe8f4;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8fd 100%);
+}
+
+.analysis-structure-canvas > img {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  display: block;
+  object-fit: contain;
+}
+
+.analysis-hotspot {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 2px solid #2f80ff;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: #216ed8;
+  box-shadow: 0 4px 12px rgba(47, 128, 255, 0.22);
+  cursor: pointer;
+  z-index: 4;
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.analysis-hotspot::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border: 1px solid rgba(47, 128, 255, 0.28);
+  border-radius: 50%;
+}
+
+.analysis-hotspot:hover,
+.analysis-hotspot:focus-visible {
+  transform: translate(-50%, -50%) scale(1.08);
+  outline: none;
+  box-shadow: 0 6px 18px rgba(47, 128, 255, 0.32);
+}
+
+.analysis-hotspot.active {
+  border-color: #0f6adf;
+  background: #2f80ff;
+  color: #fff;
+}
+
+.analysis-hotspot.active::after {
+  border-color: rgba(47, 128, 255, 0.5);
+  box-shadow: 0 0 0 5px rgba(47, 128, 255, 0.1);
+}
+
+.analysis-hotspot > span {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.analysis-point-panel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #dfe8f4;
+  border-radius: 14px;
+  background: #f8fbff;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.analysis-point-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e4ebf5;
+}
+
+.analysis-point-head h5.ant-typography {
+  margin: 2px 0 0;
+  color: #0d2043;
+}
+
+.analysis-point-descriptions .ant-descriptions-item {
+  padding-bottom: 5px;
+}
+
+.analysis-point-descriptions .ant-descriptions-item-label {
+  width: 86px;
+  color: #74829c;
+}
+
+.analysis-point-descriptions .ant-descriptions-item-content {
+  color: #203451;
+  font-weight: 600;
+}
+
+.analysis-point-footnote {
+  margin-top: auto;
+  padding: 10px 11px;
+  border-radius: 10px;
+  color: #607089;
+  background: #eef5fd;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1540px) {
+  .workspace-header .workspace-brand {
+    min-width: 274px;
+  }
+
+  .workspace-header .workspace-brand-logo {
+    width: 54px;
+    height: 42px;
+    flex-basis: 54px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .analysis-structure-view {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-point-panel {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1180px) {
+  .workspace-header .workspace-brand {
+    min-width: 232px;
+    gap: 8px;
+  }
+
+  .workspace-header .workspace-brand-logo {
+    width: 46px;
+    height: 36px;
+    flex-basis: 46px;
+  }
+}

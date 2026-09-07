@@ -167,3 +167,15 @@ test('business session stays standalone unless the route explicitly supplies a v
   assert.deepEqual(normalizeBusinessSession({ mode: 'project', targetProjectId: 'project-a' }, ['project-a']), { mode: 'project', targetProjectId: 'project-a' });
   assert.deepEqual(normalizeBusinessSession({ mode: 'project', targetProjectId: 'missing' }, ['project-a']), { mode: 'standalone' });
 });
+
+test('workspace header and data analysis integrate the approved COMAC visual assets and interactive measurement view', () => {
+  const headerSource = readFileSync(new URL('../src/workspace/WorkspaceHeader.tsx', import.meta.url), 'utf8');
+  const analysisSource = readFileSync(new URL('../src/pages/analysis/projects/AnalysisProjects.tsx', import.meta.url), 'utf8');
+
+  assert.match(headerSource, /comac_logo\.png/);
+  assert.match(headerSource, /workspace-brand-logo/);
+  assert.match(analysisSource, /duct_flow_diagram\.png/);
+  assert.match(analysisSource, /analysis-structure-view/);
+  assert.match(analysisSource, /analysis-hotspot/);
+  assert.match(analysisSource, /selectedMeasurementPoint/);
+});

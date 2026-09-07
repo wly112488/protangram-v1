@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
+import ductFlowDiagram from '@/assets/duct_flow_diagram.png';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import { saveBusinessReportItem } from '@/types/businessContext';
 import type { BusinessAction, BusinessRouteState, DataContract, ModelContract, TaskContract } from '@/types/businessContext';
@@ -16,6 +17,7 @@ import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createAnalysisArtifactInput, createRootCauseArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
+import '@/workspace/visualIntegrations.css';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -33,7 +35,7 @@ const TASKS = [
   {
     id: 'vibration', name: '结构振动特性试验', source: '两水平因子设计方案 #07', status: '已完成',
     experimentFile: 'vibration_07.csv', environmentFile: 'vibration_environment_07.csv',
-    controlFile: 'vibration_control_07.csv', modelData: 'digital_twin_structure_v1', conditions: 10, dataCount: 15400,
+    controlFile: 'vibration_07.csv', modelData: 'digital_twin_structure_v1', conditions: 10, dataCount: 15400,
   },
 ];
 
@@ -70,7 +72,16 @@ const EVIDENCE = [
   '13:27 推力开始下降',
 ];
 
+const MEASUREMENT_POINTS = [
+  { id: '0', label: '自由来流', station: '上游来流区', x: 4, y: 47, pressure: '101.3 kPa', velocity: '24.8 m/s', temperature: '24.1 ℃', deviation: '+0.2%', status: '稳定', related: '来流基准状态' },
+  { id: '1', label: '入口测点', station: 'Inlet / Rotor 前缘上游', x: 46.5, y: 47, pressure: '100.8 kPa', velocity: '31.6 m/s', temperature: '24.4 ℃', deviation: '+0.8%', status: '稳定', related: '入口压力与流量' },
+  { id: '2', label: '叶轮前测点', station: 'Rotor inlet', x: 53.8, y: 47, pressure: '96.4 kPa', velocity: '38.9 m/s', temperature: '25.1 ℃', deviation: '+2.1%', status: '关注', related: '压力下降 / 流速提升' },
+  { id: '3', label: '叶轮后测点', station: 'Rotor outlet', x: 59.2, y: 47, pressure: '103.7 kPa', velocity: '46.8 m/s', temperature: '31.6 ℃', deviation: '+4.6%', status: '异常', related: '出口温度异常 / 压力波动' },
+  { id: '4', label: '出口测点', station: 'Exit', x: 77.6, y: 47, pressure: '102.1 kPa', velocity: '43.2 m/s', temperature: '29.8 ℃', deviation: '+1.7%', status: '关注', related: '出口恢复与推力表现' },
+] as const;
+
 const levelTag = (level: string) => <Tag color={level === '高' ? 'red' : level === '中' ? 'orange' : 'default'}>{level}</Tag>;
+const pointStatusColor = (status: string) => status === '异常' ? 'red' : status === '关注' ? 'orange' : 'green';
 
 const DEFAULT_MODEL: ModelContract = {
   modelId: 'engine-v2.1', modelName: '发动机模型', version: 'V2.1', trustedRange: '2000～8000 rpm', status: '已确认', calibratedAt: '2026-08-28',
@@ -115,6 +126,7 @@ const AnalysisProjects: React.FC = () => {
   const [analyzed, setAnalyzed] = useState(false);
   const [activeTab, setActiveTab] = useState('trend');
   const [selectedAnomaly, setSelectedAnomaly] = useState(ANOMALIES[0]);
+  const [selectedMeasurementPoint, setSelectedMeasurementPoint] = useState(MEASUREMENT_POINTS[3]);
   const timer = useRef<number | null>(null);
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
@@ -152,6 +164,7 @@ const AnalysisProjects: React.FC = () => {
       setAnalyzed(true);
       setActiveTab('trend');
       setSelectedAnomaly(ANOMALIES[0]);
+      setSelectedMeasurementPoint(MEASUREMENT_POINTS[3]);
       timer.current = null;
       message.success('分析完成，发现 3 个异常事件');
     }, 900);
@@ -166,6 +179,7 @@ const AnalysisProjects: React.FC = () => {
     setDraftTaskId(initialTask.id);
     setConfig(DEFAULT_CONFIG);
     setDraftConfig(DEFAULT_CONFIG);
+    setSelectedMeasurementPoint(MEASUREMENT_POINTS[3]);
     setAnalyzing(false);
     invalidateResult();
     message.success('已恢复默认分析状态');
@@ -189,6 +203,7 @@ const AnalysisProjects: React.FC = () => {
             config,
             model: activeModel,
             anomalies: ANOMALIES,
+            measurementPoint: selectedMeasurementPoint,
             abnormalRange: '7600～8000 rpm',
             conclusion: '高转速区域温度异常，当前模型在该区域预测偏差明显增大。',
             charts: [{ id: 'analysis-trend', title: `${selectedAnomaly.event}趋势与模型对比` }],
@@ -334,6 +349,58 @@ const AnalysisProjects: React.FC = () => {
           { key: 'conditions', label: '工况数量', children: `${task.conditions} 组` }, { key: 'count', label: '数据量', children: `${task.dataCount.toLocaleString()} 条` },
           { key: 'metrics', label: '分析指标', span: 3, children: config.metrics.join('、') },
         ]} />
+      </Card>
+
+      <Card
+        title={<Space size={8}><span>设备交互模型 · 剖面测点</span><Tag color="blue">0–4 点位联动</Tag></Space>}
+        extra={<Text type="secondary">点击模型测点查看当前工况数据</Text>}
+        size="small"
+        className="workspace-business-card analysis-model-card"
+      >
+        <div className="analysis-structure-view">
+          <div className="analysis-structure-canvas">
+            <img src={ductFlowDiagram} alt="涵道风扇剖面与流场测点示意" />
+            {MEASUREMENT_POINTS.map((point) => (
+              <button
+                type="button"
+                key={point.id}
+                className={`analysis-hotspot ${selectedMeasurementPoint.id === point.id ? 'active' : ''}`}
+                style={{ left: `${point.x}%`, top: `${point.y}%` }}
+                aria-label={`查看${point.id}号测点 ${point.label}`}
+                title={`${point.id}号测点 · ${point.label}`}
+                onClick={() => setSelectedMeasurementPoint(point)}
+              >
+                <span>{point.id}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="analysis-point-panel">
+            <div className="analysis-point-head">
+              <div>
+                <Text type="secondary">当前测点</Text>
+                <Title level={5}>{selectedMeasurementPoint.id} · {selectedMeasurementPoint.label}</Title>
+                <Text type="secondary">{selectedMeasurementPoint.station}</Text>
+              </div>
+              <Tag color={pointStatusColor(selectedMeasurementPoint.status)}>{selectedMeasurementPoint.status}</Tag>
+            </div>
+            <Descriptions
+              size="small"
+              column={1}
+              className="analysis-point-descriptions"
+              items={[
+                { key: 'pressure', label: '静压', children: selectedMeasurementPoint.pressure },
+                { key: 'velocity', label: '流速', children: selectedMeasurementPoint.velocity },
+                { key: 'temperature', label: '温度', children: selectedMeasurementPoint.temperature },
+                { key: 'deviation', label: '模型偏差', children: <Text type={selectedMeasurementPoint.status === '异常' ? 'danger' : undefined}>{selectedMeasurementPoint.deviation}</Text> },
+                { key: 'related', label: '关联结果', children: selectedMeasurementPoint.related },
+              ]}
+            />
+            <div className="analysis-point-footnote">
+              当前关联：<strong>工况07 · 7600 rpm</strong>。切换测点不会修改原始试验数据，仅切换分析视图。
+            </div>
+          </div>
+        </div>
       </Card>
 
       <Card id="business-result" title="分析结果" size="small" className="workspace-business-card">

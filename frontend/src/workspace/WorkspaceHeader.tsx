@@ -7,6 +7,7 @@ import FunctionBar from '@/workbench/FunctionBar';
 import type { ResearchObject } from '@/workbench/EquipmentManagerWindow';
 import comacLogo from '@/assets/comac_logo.png';
 import { getHeaderActiveKey } from './presentationModel';
+import './visualIntegrations.css';
 
 const { Header } = Layout;
 const { Text } = Typography;

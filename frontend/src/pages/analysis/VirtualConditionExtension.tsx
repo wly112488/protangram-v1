@@ -4,8 +4,7 @@ import {
   Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message,
 } from 'antd';
 import {
-  ApiOutlined, ExperimentOutlined, PlayCircleOutlined, ReloadOutlined, SaveOutlined,
-  SafetyCertificateOutlined, SettingOutlined,
+  ExperimentOutlined, PlayCircleOutlined, ReloadOutlined, SaveOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -337,16 +336,12 @@ const VirtualConditionExtension: React.FC = () => {
           { key: 'config', label: '工况配置', value: `${config.speedMin}～${config.speedMax} rpm / ${config.count} 组`, confirmed: confirmed.config, onClick: openConfig },
           { key: 'constraints', label: '约束设置', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints },
         ]}
+        actions={<Space size={6}>
+          <Button type={preparationReady && generationStatus !== 'generated' ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} onClick={generateConditions}>生成虚拟工况</Button>
+          <Button type={generationStatus === 'generated' ? 'primary' : 'default'} icon={<PlayCircleOutlined />} disabled={generationStatus !== 'generated'} loading={predictionStatus === 'loading'} onClick={startPrediction}>开始预测</Button>
+          <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
+        </Space>}
       />
-
-      <Card size="small" className="workspace-business-card"><Space wrap>
-        <Button icon={<ApiOutlined />} onClick={openModel}>选择可信模型</Button>
-        <Button icon={<SettingOutlined />} onClick={openConfig}>工况配置</Button>
-        <Button icon={<SafetyCertificateOutlined />} onClick={openConstraints}>约束设置</Button>
-        <Button type={preparationReady && generationStatus !== 'generated' ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} onClick={generateConditions}>生成虚拟工况</Button>
-        <Button type={generationStatus === 'generated' ? 'primary' : 'default'} icon={<PlayCircleOutlined />} disabled={generationStatus !== 'generated'} loading={predictionStatus === 'loading'} onClick={startPrediction}>开始预测</Button>
-        <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
-      </Space></Card>
 
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
         { key: 'model', label: '当前模型', children: `${model.modelName} ${model.version}` },

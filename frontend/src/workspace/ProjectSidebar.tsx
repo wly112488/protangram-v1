@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Dropdown, Empty, Input, List, Modal, Tree, Typography, message } from 'antd';
-import { FolderOpenOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Empty, Input, List, Modal, Popconfirm, Tree, Typography, message } from 'antd';
+import { DeleteOutlined, FolderOpenOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import { useNavigate } from 'react-router-dom';
 import { buildProjectNavigation, type LegacyGeneratedExperiment } from './projectModel';
@@ -31,6 +31,7 @@ const ProjectSidebar: React.FC = () => {
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const setActiveView = useProjectStore((state) => state.setActiveView);
   const createProject = useProjectStore((state) => state.createProject);
+  const deleteProject = useProjectStore((state) => state.deleteProject);
   const importLegacyExperiment = useProjectStore((state) => state.importLegacyExperiment);
 
   const [search, setSearch] = useState('');
@@ -46,13 +47,39 @@ const ProjectSidebar: React.FC = () => {
 
   const treeData = useMemo<DataNode[]>(() => visibleProjects.map((project) => ({
     key: project.id,
-    title: <span className="workspace-project-title"><FolderOpenOutlined />{project.name}</span>,
+    title: (
+      <span className="workspace-project-title">
+        <span className="workspace-project-title-main"><FolderOpenOutlined />{project.name}</span>
+        <Popconfirm
+          title={`确认删除项目“${project.name}”？`}
+          description="项目下已保存的分析、设计和模型结果也会一并删除。"
+          okText="删除"
+          cancelText="取消"
+          okButtonProps={{ danger: true }}
+          onConfirm={() => {
+            deleteProject(project.id);
+            message.success(`项目“${project.name}”已删除`);
+            navigate('/');
+          }}
+        >
+          <Button
+            type="text"
+            size="small"
+            danger
+            className="workspace-project-delete"
+            icon={<DeleteOutlined />}
+            aria-label={`删除项目${project.name}`}
+            onClick={(event) => event.stopPropagation()}
+          />
+        </Popconfirm>
+      </span>
+    ),
     children: buildProjectNavigation(project).map((item) => ({
       key: item.key,
       title: item.title,
       isLeaf: true,
     })),
-  })), [visibleProjects]);
+  })), [deleteProject, navigate, visibleProjects]);
 
   const selectProjectView = (projectId: string, view: ProjectView) => {
     setActiveProject(projectId);

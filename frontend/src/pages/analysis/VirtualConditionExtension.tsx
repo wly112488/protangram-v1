@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import { saveBusinessReportItem } from '@/types/businessContext';
 import type { BusinessAction, BusinessRouteState, ModelContract } from '@/types/businessContext';
+import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createVirtualConditionArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
@@ -27,6 +28,7 @@ const MODELS: ModelContract[] = [
 
 const DEFAULT_CONFIG = { method: '范围扩展', speedMin: 8000, speedMax: 10000, temperatureMin: 80, temperatureMax: 120, pressureMin: 1.5, pressureMax: 2.2, count: 36, sampling: '自动生成' };
 const DEFAULT_CONSTRAINTS = { speedMax: 10000, temperatureMax: 120, pressureMin: 1.5, pressureMax: 2.2, withinScope: true, excludeAbnormal: true, markOutsideTrusted: true };
+const EMPTY_CONFIRMATION = { model: false, config: false, constraints: false };
 
 type ConditionConfig = typeof DEFAULT_CONFIG;
 type ConstraintConfig = typeof DEFAULT_CONSTRAINTS;
@@ -87,7 +89,9 @@ const VirtualConditionExtension: React.FC = () => {
   const [activeTab, setActiveTab] = useState('prediction');
   const [filter, setFilter] = useState('全部');
   const [selectedCondition, setSelectedCondition] = useState<VirtualCondition | null>(null);
+  const [confirmed, setConfirmed] = useState(EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
+  const preparationReady = Object.values(confirmed).every(Boolean);
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
@@ -110,6 +114,7 @@ const VirtualConditionExtension: React.FC = () => {
   };
 
   const generateConditions = () => {
+    if (!preparationReady) return message.warning('请先确认全部工况扩展准备项');
     const count = Math.max(1, Math.min(100, Number.isFinite(config.count) ? config.count : DEFAULT_CONFIG.count));
     if (config.speedMin > config.speedMax || config.temperatureMin > config.temperatureMax || config.pressureMin > config.pressureMax) {
       message.warning('工况范围的最小值不能大于最大值');
@@ -166,6 +171,7 @@ const VirtualConditionExtension: React.FC = () => {
     setDraftModelId(initialModel.modelId);
     setDraftConfig(initialConfig);
     setDraftConstraints(DEFAULT_CONSTRAINTS);
+    setConfirmed(EMPTY_CONFIRMATION);
     invalidate();
     message.success('已恢复默认扩展配置');
   };
@@ -311,6 +317,9 @@ const VirtualConditionExtension: React.FC = () => {
     ? `试验数据分析${incoming.task ? ` / ${incoming.task.taskName}` : ''}`
     : incoming?.source === 'digitalTwin' ? '试验数字孪生' : '';
   const modelOptions = [model, ...MODELS].filter((item, index, rows) => rows.findIndex((row) => row.modelId === item.modelId) === index);
+  const openModel = () => { setDraftModelId(model.modelId); setModelOpen(true); };
+  const openConfig = () => { setDraftConfig(config); setConfigOpen(true); };
+  const openConstraints = () => { setDraftConstraints(constraints); setConstraintsOpen(true); };
 
   return (
     <div className="workspace-business-page">
@@ -321,13 +330,22 @@ const VirtualConditionExtension: React.FC = () => {
 
       {sourceName && <Alert type="success" showIcon title={`来源：${sourceName}`} description={`${incoming?.validation ? `待验证区间：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}；` : ''}已携带可信模型：${model.modelName} ${model.version}`} />}
 
+      <PreparationChecklist
+        title="工况扩展准备"
+        items={[
+          { key: 'model', label: '可信模型', value: `${model.modelName} ${model.version}`, confirmed: confirmed.model, onClick: openModel },
+          { key: 'config', label: '工况配置', value: `${config.speedMin}～${config.speedMax} rpm / ${config.count} 组`, confirmed: confirmed.config, onClick: openConfig },
+          { key: 'constraints', label: '约束设置', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints },
+        ]}
+      />
+
       <Card size="small" className="workspace-business-card"><Space wrap>
-        <Button icon={<ApiOutlined />} onClick={() => { setDraftModelId(model.modelId); setModelOpen(true); }}>选择可信模型</Button>
-        <Button icon={<SettingOutlined />} onClick={() => { setDraftConfig(config); setConfigOpen(true); }}>工况配置</Button>
-        <Button icon={<SafetyCertificateOutlined />} onClick={() => { setDraftConstraints(constraints); setConstraintsOpen(true); }}>约束设置</Button>
-        <Button icon={<ExperimentOutlined />} onClick={generateConditions}>生成虚拟工况</Button>
-        <Button type="primary" icon={<PlayCircleOutlined />} disabled={generationStatus !== 'generated'} loading={predictionStatus === 'loading'} onClick={startPrediction}>开始预测</Button>
-        <Button icon={<ReloadOutlined />} onClick={reset}>重置</Button>
+        <Button icon={<ApiOutlined />} onClick={openModel}>选择可信模型</Button>
+        <Button icon={<SettingOutlined />} onClick={openConfig}>工况配置</Button>
+        <Button icon={<SafetyCertificateOutlined />} onClick={openConstraints}>约束设置</Button>
+        <Button type={preparationReady && generationStatus !== 'generated' ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} onClick={generateConditions}>生成虚拟工况</Button>
+        <Button type={generationStatus === 'generated' ? 'primary' : 'default'} icon={<PlayCircleOutlined />} disabled={generationStatus !== 'generated'} loading={predictionStatus === 'loading'} onClick={startPrediction}>开始预测</Button>
+        <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
       </Space></Card>
 
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
@@ -356,16 +374,16 @@ const VirtualConditionExtension: React.FC = () => {
         </Space></div>}
       </Card>
 
-      <Modal title="选择可信模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { const next = modelOptions.find((item) => item.modelId === draftModelId); if (!next || next.status === '待确认') return message.warning('只能选择已校准或已确认的模型'); setModel(next); setModelOpen(false); invalidate(); }}>
+      <Modal title="选择可信模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { const next = modelOptions.find((item) => item.modelId === draftModelId); if (!next || next.status === '待确认') return message.warning('只能选择已校准或已确认的模型'); setModel(next); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
         <Select style={{ width: '100%' }} value={draftModelId} onChange={setDraftModelId} options={modelOptions.map((item) => ({ value: item.modelId, disabled: item.status === '待确认', label: `${item.modelName} ${item.version}｜${item.status}｜${item.measuredRange ?? item.trustedRange}｜${item.calibratedAt ?? '本次校准'}` }))} />
       </Modal>
-      <Modal title="工况配置" width={650} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 6 }} wrapperCol={{ span: 17 }}>
+      <Modal title="工况配置" width={650} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 6 }} wrapperCol={{ span: 17 }}>
         <Form.Item label="扩展方式"><Select value={draftConfig.method} onChange={(value) => setDraftConfig({ ...draftConfig, method: value })} options={['范围扩展', '指定区域扩展'].map((value) => ({ value }))} /></Form.Item>
         {[[ '转速（rpm）', 'speedMin', 'speedMax' ], [ '温度（℃）', 'temperatureMin', 'temperatureMax' ], [ '压力（MPa）', 'pressureMin', 'pressureMax' ]].map(([label, minKey, maxKey]) => <Form.Item label={label} key={label}><Space><InputNumber value={draftConfig[minKey as keyof ConditionConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [minKey]: value ?? 0 })} /><Text>～</Text><InputNumber value={draftConfig[maxKey as keyof ConditionConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [maxKey]: value ?? 0 })} /></Space></Form.Item>)}
         <Form.Item label="生成数量"><InputNumber min={1} max={100} value={draftConfig.count} onChange={(value) => setDraftConfig({ ...draftConfig, count: value ?? 36 })} /></Form.Item>
         <Form.Item label="采样方式"><Select value={draftConfig.sampling} onChange={(value) => setDraftConfig({ ...draftConfig, sampling: value })} options={['自动生成', '均匀采样'].map((value) => ({ value }))} /></Form.Item>
       </Form></Modal>
-      <Modal title="约束设置" width={620} open={constraintsOpen} onCancel={() => setConstraintsOpen(false)} onOk={() => { setConstraints(draftConstraints); setConstraintsOpen(false); invalidate(); }}><Form labelCol={{ span: 9 }} wrapperCol={{ span: 14 }}>
+      <Modal title="约束设置" width={620} open={constraintsOpen} onCancel={() => setConstraintsOpen(false)} onOk={() => { setConstraints(draftConstraints); setConfirmed((prev) => ({ ...prev, constraints: true })); setConstraintsOpen(false); invalidate(); }}><Form labelCol={{ span: 9 }} wrapperCol={{ span: 14 }}>
         <Form.Item label="最大转速（rpm）"><InputNumber value={draftConstraints.speedMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, speedMax: value ?? 10000 })} /></Form.Item>
         <Form.Item label="最大温度（℃）"><InputNumber value={draftConstraints.temperatureMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, temperatureMax: value ?? 120 })} /></Form.Item>
         <Form.Item label="压力范围"><Space><InputNumber value={draftConstraints.pressureMin} onChange={(value) => setDraftConstraints({ ...draftConstraints, pressureMin: value ?? 1.5 })} /><Text>～</Text><InputNumber value={draftConstraints.pressureMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, pressureMax: value ?? 2.2 })} /></Space></Form.Item>

@@ -180,9 +180,33 @@ export const getProjectStats = (project: Project): ProjectStats => {
   };
 };
 
+const getArtifactModelBasicInfo = (artifact: ProjectArtifact) => {
+  const model = artifact.payload.model;
+  if (!model || typeof model !== 'object' || Array.isArray(model)) return {};
+
+  const record = model as Record<string, unknown>;
+  const modelName = typeof record.modelName === 'string' ? record.modelName.trim() : '';
+  const version = typeof record.version === 'string' ? record.version.trim() : '';
+  const explicitTestObject = typeof record.testObject === 'string' ? record.testObject.trim() : '';
+  const inferredTestObject = modelName
+    .replace(/(?:数字孪生|热力学|有限元|响应)?模型.*$/, '')
+    .trim();
+
+  return {
+    ...(modelName ? { currentModel: `${modelName}${version ? ` ${version}` : ''}` } : {}),
+    ...(explicitTestObject || inferredTestObject
+      ? { testObject: explicitTestObject || inferredTestObject }
+      : {}),
+  };
+};
+
 export const addArtifactToProject = (project: Project, artifact: ProjectArtifact): Project => ({
   ...project,
   updatedAt: artifact.updatedAt,
+  basicInfo: {
+    ...project.basicInfo,
+    ...getArtifactModelBasicInfo(artifact),
+  },
   artifacts: [...project.artifacts, artifact],
 });
 

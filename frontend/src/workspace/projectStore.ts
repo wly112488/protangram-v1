@@ -52,6 +52,7 @@ interface ProjectWorkspaceState {
   setActiveProject: (projectId: string | null) => void;
   setActiveView: (view: ProjectView) => void;
   createProject: (input: CreateProjectInput) => string;
+  deleteProject: (projectId: string) => void;
   createProjectFromDesign: (input: CreateProjectFromDesignInput) => string;
   importLegacyExperiment: (experiment: LegacyGeneratedExperiment) => string;
   setWorksheet: (projectId: string, worksheet: ProjectWorksheet) => void;
@@ -126,6 +127,16 @@ export const useProjectStore = create<ProjectWorkspaceState>()(
         }));
         return id;
       },
+
+      deleteProject: (projectId) => set((state) => {
+        const projects = state.projects.filter((project) => project.id !== projectId);
+        const deletingActiveProject = state.activeProjectId === projectId;
+        return {
+          projects,
+          activeProjectId: deletingActiveProject ? projects[0]?.id ?? null : state.activeProjectId,
+          activeView: deletingActiveProject ? 'overview' : state.activeView,
+        };
+      }),
 
       createProjectFromDesign: (input) => {
         const now = new Date().toISOString();

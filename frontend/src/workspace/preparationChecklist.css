@@ -79,6 +79,15 @@ button.workspace-preparation-item:hover {
   white-space: nowrap;
 }
 
+.workspace-preparation-actions {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #edf1f6;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
 .workspace-reset-action.ant-btn {
   height: 26px;
   padding-inline: 6px;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Avatar, Dropdown, Layout, Space, theme, Typography } from 'antd';
 import { HomeOutlined, LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -20,6 +20,13 @@ interface WorkspaceHeaderProps {
   onDesignGenerated: (designName: string) => void;
 }
 
+const sectionByLabel: Record<string, 'experiment' | 'doe' | 'analysis' | 'report'> = {
+  试验管理: 'experiment',
+  '试验设计（DOE）': 'doe',
+  数据分析: 'analysis',
+  报告生成: 'report',
+};
+
 const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   researchObjects,
   onResearchObjectsChange,
@@ -31,6 +38,19 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   const location = useLocation();
   const { token } = theme.useToken();
   const activeKey = getHeaderActiveKey(location.pathname);
+  const [selectedSection, setSelectedSection] = useState(activeKey);
+
+  useEffect(() => {
+    setSelectedSection(activeKey);
+  }, [activeKey]);
+
+  const handleSectionClickCapture = (event: React.MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    const button = target.closest<HTMLElement>('.layout-function-item');
+    if (!button) return;
+    const nextSection = sectionByLabel[button.textContent?.trim() ?? ''];
+    if (nextSection) setSelectedSection(nextSection);
+  };
 
   const userMenuItems = [
     { key: 'settings', icon: <SettingOutlined />, label: '系统设置' },
@@ -40,7 +60,10 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   ];
 
   return (
-    <Header className={`workspace-header ${activeKey ? `workspace-active-${activeKey}` : ''}`}>
+    <Header
+      className={`workspace-header ${selectedSection ? `workspace-active-${selectedSection}` : ''}`}
+      onClickCapture={handleSectionClickCapture}
+    >
       <button type="button" className="workspace-brand" onClick={() => navigate('/')} aria-label="返回平台首页">
         <img className="workspace-brand-logo" src={comacLogo} alt="中国商飞 COMAC" />
         <span>

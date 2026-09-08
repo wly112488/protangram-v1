@@ -13,6 +13,7 @@ import ductFlowDiagram from '@/assets/duct_flow_diagram.png';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import { saveBusinessReportItem } from '@/types/businessContext';
 import type { BusinessAction, BusinessRouteState, DataContract, ModelContract, TaskContract } from '@/types/businessContext';
+import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createAnalysisArtifactInput, createRootCauseArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
@@ -43,6 +44,7 @@ const DEFAULT_CONFIG = {
   metrics: ['出口温度', '推力', '压力', '振动'], scope: '全部工况', comparison: '实测数据与模型预测',
   contents: ['趋势分析', '异常检测', '根因分析'], sensitivity: '中',
 };
+const EMPTY_CONFIRMATION = { task: false, data: false, config: false, model: false };
 
 const ANOMALIES = [
   { key: 'temperature', event: '出口温度异常', condition: '工况07', time: '13:25', level: '高' },
@@ -127,7 +129,9 @@ const AnalysisProjects: React.FC = () => {
   const [activeTab, setActiveTab] = useState('trend');
   const [selectedAnomaly, setSelectedAnomaly] = useState(ANOMALIES[0]);
   const [selectedMeasurementPoint, setSelectedMeasurementPoint] = useState(MEASUREMENT_POINTS[3]);
+  const [confirmed, setConfirmed] = useState(EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
+  const preparationReady = Object.values(confirmed).every(Boolean);
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
@@ -149,11 +153,13 @@ const AnalysisProjects: React.FC = () => {
     const next = availableTasks.find((item) => item.id === draftTaskId) ?? initialTask;
     setTask(next);
     setData({ experimentFile: next.experimentFile, environmentFile: next.environmentFile, controlFile: next.controlFile, modelData: next.modelData });
+    setConfirmed((prev) => ({ ...prev, task: true, data: false, model: false }));
     setTaskModalOpen(false);
     invalidateResult();
   };
 
   const startAnalysis = () => {
+    if (!preparationReady) return message.warning('请先确认全部分析准备项');
     if (timer.current !== null) window.clearTimeout(timer.current);
     setAnalyzing(true);
     setAnalyzed(false);
@@ -179,6 +185,7 @@ const AnalysisProjects: React.FC = () => {
     setDraftTaskId(initialTask.id);
     setConfig(DEFAULT_CONFIG);
     setDraftConfig(DEFAULT_CONFIG);
+    setConfirmed(EMPTY_CONFIRMATION);
     setSelectedMeasurementPoint(MEASUREMENT_POINTS[3]);
     setAnalyzing(false);
     invalidateResult();
@@ -327,6 +334,10 @@ const AnalysisProjects: React.FC = () => {
     },
   ];
 
+  const openTask = () => { setDraftTaskId(task.id); setTaskModalOpen(true); };
+  const openData = () => { setDraftData(data); setDataModalOpen(true); };
+  const openConfig = () => { setDraftConfig(config); setConfigModalOpen(true); };
+
   return (
     <div className="workspace-business-page">
       <div className="workspace-business-heading">
@@ -334,12 +345,22 @@ const AnalysisProjects: React.FC = () => {
         <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
 
+      <PreparationChecklist
+        title="分析准备"
+        items={[
+          { key: 'task', label: '试验任务', value: task.name, confirmed: confirmed.task, onClick: openTask },
+          { key: 'data', label: '关联数据', value: data.experimentFile, confirmed: confirmed.data, onClick: openData },
+          { key: 'config', label: '分析配置', value: `${config.scope} / ${config.sensitivity}敏感度`, confirmed: confirmed.config, onClick: openConfig },
+          { key: 'model', label: '对比模型', value: `${activeModel.modelName} ${activeModel.version}`, confirmed: confirmed.model, onClick: () => setConfirmed((prev) => ({ ...prev, model: true })) },
+        ]}
+      />
+
       <Card size="small" className="workspace-business-card"><Space wrap>
-        <Button icon={<ExperimentOutlined />} onClick={() => { setDraftTaskId(task.id); setTaskModalOpen(true); }}>选择试验任务</Button>
-        <Button icon={<DatabaseOutlined />} onClick={() => { setDraftData(data); setDataModalOpen(true); }}>选择数据</Button>
-        <Button icon={<SettingOutlined />} onClick={() => { setDraftConfig(config); setConfigModalOpen(true); }}>分析配置</Button>
-        <Button type="primary" icon={<BarChartOutlined />} loading={analyzing} onClick={startAnalysis}>开始分析</Button>
-        <Button icon={<ReloadOutlined />} onClick={reset}>重置</Button>
+        <Button icon={<ExperimentOutlined />} onClick={openTask}>选择试验任务</Button>
+        <Button icon={<DatabaseOutlined />} onClick={openData}>确认关联数据</Button>
+        <Button icon={<SettingOutlined />} onClick={openConfig}>分析配置</Button>
+        <Button type={preparationReady ? 'primary' : 'default'} icon={<BarChartOutlined />} disabled={!preparationReady} loading={analyzing} onClick={startAnalysis}>开始分析</Button>
+        <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
       </Space></Card>
 
       <Card title="当前任务与数据" size="small" className="workspace-business-card">
@@ -425,7 +446,7 @@ const AnalysisProjects: React.FC = () => {
       <Modal title="选择试验任务" open={taskModalOpen} onCancel={() => setTaskModalOpen(false)} onOk={selectTask}>
         <Select style={{ width: '100%' }} value={draftTaskId} onChange={setDraftTaskId} options={availableTasks.map((item) => ({ value: item.id, label: `${item.name}（${item.status}）` }))} />
       </Modal>
-      <Modal title="选择关联数据" open={dataModalOpen} onCancel={() => setDataModalOpen(false)} onOk={() => { setData(draftData); setDataModalOpen(false); invalidateResult(); }}>
+      <Modal title="确认关联数据" open={dataModalOpen} onCancel={() => setDataModalOpen(false)} onOk={() => { setData(draftData); setConfirmed((prev) => ({ ...prev, data: true })); setDataModalOpen(false); invalidateResult(); }}>
         <Form labelCol={{ span: 7 }} wrapperCol={{ span: 16 }}>
           <Form.Item label="试验数据"><Select value={draftData.experimentFile} onChange={(value) => setDraftData({ ...draftData, experimentFile: value })} options={[task.experimentFile, 'experiment_01.csv', 'experiment_backup.csv'].map((value) => ({ value }))} /></Form.Item>
           <Form.Item label="环境数据"><Select value={draftData.environmentFile} onChange={(value) => setDraftData({ ...draftData, environmentFile: value })} options={[task.environmentFile, 'environment_01.csv'].map((value) => ({ value }))} /></Form.Item>
@@ -433,7 +454,7 @@ const AnalysisProjects: React.FC = () => {
           <Form.Item label="模型预测数据"><Select value={draftData.modelData} onChange={(value) => setDraftData({ ...draftData, modelData: value })} options={[task.modelData, 'digital_twin_v2'].map((value) => ({ value }))} /></Form.Item>
         </Form>
       </Modal>
-      <Modal title="分析配置" open={configModalOpen} width={620} onCancel={() => setConfigModalOpen(false)} onOk={() => { setConfig(draftConfig); setConfigModalOpen(false); invalidateResult(); }}>
+      <Modal title="分析配置" open={configModalOpen} width={620} onCancel={() => setConfigModalOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigModalOpen(false); invalidateResult(); }}>
         <Form labelCol={{ span: 5 }} wrapperCol={{ span: 18 }}>
           <Form.Item label="分析指标"><Checkbox.Group value={draftConfig.metrics} options={['出口温度', '推力', '压力', '振动']} onChange={(value) => setDraftConfig({ ...draftConfig, metrics: value as string[] })} /></Form.Item>
           <Form.Item label="分析范围"><Select value={draftConfig.scope} onChange={(value) => setDraftConfig({ ...draftConfig, scope: value })} options={['全部工况', ...Array.from({ length: 8 }, (_, index) => `工况${String(index + 1).padStart(2, '0')}`)].map((value) => ({ value }))} /></Form.Item>

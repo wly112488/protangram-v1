@@ -35,7 +35,7 @@ const TASKS = [
   {
     id: 'vibration', name: '结构振动特性试验', source: '两水平因子设计方案 #07', status: '已完成',
     experimentFile: 'vibration_07.csv', environmentFile: 'vibration_environment_07.csv',
-    controlFile: 'vibration_07.csv', modelData: 'digital_twin_structure_v1', conditions: 10, dataCount: 15400,
+    controlFile: 'vibration_control_07.csv', modelData: 'digital_twin_structure_v1', conditions: 10, dataCount: 15400,
   },
 ];
 

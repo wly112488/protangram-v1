@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Col, Descriptions, Form, InputNumber, Modal, Progress, Row,
-  Select, Space, Statistic, Table, Tabs, Tag, Typography, Upload, message,
+  Select, Space, Statistic, Table, Tabs, Tag, Typography, message,
 } from 'antd';
 import {
-  ApiOutlined, BarChartOutlined, DownloadOutlined, ExperimentOutlined,
-  ReloadOutlined, SaveOutlined, SettingOutlined, UploadOutlined,
+  BarChartOutlined, DownloadOutlined, ExperimentOutlined, ReloadOutlined, SaveOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -68,6 +67,8 @@ const DigitalTwin: React.FC = () => {
   const [calibrated, setCalibrated] = useState(false);
   const [confirmed, setConfirmed] = useState(EMPTY_CONFIRMATION);
   const calibrationTimer = useRef<number | null>(null);
+  const simulationInputRef = useRef<HTMLInputElement | null>(null);
+  const measuredInputRef = useRef<HTMLInputElement | null>(null);
   const activeModel = model ?? incoming?.model ?? (incoming?.source === 'dataAnalysis' ? MODELS[0] : null);
   const activeSimulationFile = simulationFile || (incoming?.source === 'dataAnalysis' ? 'digital_twin_baseline.json' : '');
   const activeMeasuredFile = measuredFile || incoming?.data?.dataName || '';
@@ -210,9 +211,21 @@ const DigitalTwin: React.FC = () => {
     ]} /> },
   ];
 
-  const confirmExistingData = (key: 'simulationData' | 'measuredData', available: boolean) => {
-    if (!available) return message.info(key === 'simulationData' ? '请先导入仿真数据' : '请先导入实测数据');
+  const confirmOrChooseData = (key: 'simulationData' | 'measuredData', available: boolean) => {
+    if (available && !confirmed[key]) {
+      setConfirmed((prev) => ({ ...prev, [key]: true }));
+      return;
+    }
+    if (key === 'simulationData') simulationInputRef.current?.click();
+    else measuredInputRef.current?.click();
+  };
+
+  const handleDataFile = (key: 'simulationData' | 'measuredData', file?: File) => {
+    if (!file) return;
+    if (key === 'simulationData') setSimulationFile(file.name);
+    else setMeasuredFile(file.name);
     setConfirmed((prev) => ({ ...prev, [key]: true }));
+    setCalibrated(false);
   };
 
   return (
@@ -227,20 +240,17 @@ const DigitalTwin: React.FC = () => {
         title="校准准备"
         items={[
           { key: 'model', label: '模型', value: activeModel ? `${activeModel.modelName} ${activeModel.version}` : '未选择', confirmed: confirmed.model, onClick: () => setModelModalOpen(true) },
-          { key: 'simulation', label: '仿真数据', value: activeSimulationFile || '未导入', confirmed: confirmed.simulationData, onClick: () => confirmExistingData('simulationData', Boolean(activeSimulationFile)) },
-          { key: 'measured', label: '实测数据', value: activeMeasuredFile || '未导入', confirmed: confirmed.measuredData, onClick: () => confirmExistingData('measuredData', Boolean(activeMeasuredFile)) },
+          { key: 'simulation', label: '仿真数据', value: activeSimulationFile || '未导入', confirmed: confirmed.simulationData, onClick: () => confirmOrChooseData('simulationData', Boolean(activeSimulationFile)) },
+          { key: 'measured', label: '实测数据', value: activeMeasuredFile || '未导入', confirmed: confirmed.measuredData, onClick: () => confirmOrChooseData('measuredData', Boolean(activeMeasuredFile)) },
           { key: 'params', label: '参数配置', value: `温度 ${params.temperature}℃ / 转速 ${params.speed}`, confirmed: confirmed.params, onClick: () => { setDraftParams(params); setParamsModalOpen(true); } },
         ]}
+        actions={<Space size={6}>
+          <Button type={preparationReady ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} loading={calibrating} onClick={startCalibration}>开始校准</Button>
+          <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
+        </Space>}
       />
-
-      <Card size="small" className="workspace-business-card"><Space wrap>
-        <Button icon={<ApiOutlined />} onClick={() => setModelModalOpen(true)}>选择模型</Button>
-        <Upload showUploadList={false} beforeUpload={(file) => { setSimulationFile(file.name); setConfirmed((prev) => ({ ...prev, simulationData: true })); setCalibrated(false); return false; }}><Button icon={<UploadOutlined />}>导入仿真数据</Button></Upload>
-        <Upload showUploadList={false} beforeUpload={(file) => { setMeasuredFile(file.name); setConfirmed((prev) => ({ ...prev, measuredData: true })); setCalibrated(false); return false; }}><Button icon={<UploadOutlined />}>导入实测数据</Button></Upload>
-        <Button icon={<SettingOutlined />} onClick={() => { setDraftParams(params); setParamsModalOpen(true); }}>参数配置</Button>
-        <Button type={preparationReady ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} loading={calibrating} onClick={startCalibration}>开始校准</Button>
-        <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
-      </Space></Card>
+      <input ref={simulationInputRef} type="file" hidden onChange={(event) => { handleDataFile('simulationData', event.target.files?.[0]); event.currentTarget.value = ''; }} />
+      <input ref={measuredInputRef} type="file" hidden onChange={(event) => { handleDataFile('measuredData', event.target.files?.[0]); event.currentTarget.value = ''; }} />
 
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions column={2} size="small" items={[
         { key: 'model', label: '当前模型', children: activeModel ? `${activeModel.modelName} ${activeModel.version}` : <Text type="secondary">未选择</Text> },

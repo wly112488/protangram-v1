@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Button, Modal, Select } from 'antd';
 import { useProjectStore } from './projectStore';
 
@@ -22,10 +22,20 @@ const ProjectSaveTargetModal: React.FC<ProjectSaveTargetModalProps> = ({
   onSkip,
 }) => {
   const projects = useProjectStore((state) => state.projects);
+  const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const [selectedProjectId, setSelectedProjectId] = useState('');
+
+  const orderedProjects = useMemo(() => [...projects].sort((left, right) => {
+    if (left.id === activeProjectId) return -1;
+    if (right.id === activeProjectId) return 1;
+    return Date.parse(right.createdAt) - Date.parse(left.createdAt);
+  }), [activeProjectId, projects]);
+
   const fallbackProjectId = defaultProjectId && projects.some((project) => project.id === defaultProjectId)
     ? defaultProjectId
-    : projects[0]?.id ?? '';
+    : activeProjectId && projects.some((project) => project.id === activeProjectId)
+      ? activeProjectId
+      : orderedProjects[0]?.id ?? '';
   const projectId = selectedProjectId && projects.some((project) => project.id === selectedProjectId)
     ? selectedProjectId
     : fallbackProjectId;
@@ -51,11 +61,13 @@ const ProjectSaveTargetModal: React.FC<ProjectSaveTargetModalProps> = ({
     >
       {projects.length > 0 ? (
         <Select
+          showSearch
+          optionFilterProp="label"
           style={{ width: '100%' }}
           placeholder="选择要保存到的项目"
           value={projectId || undefined}
           onChange={setSelectedProjectId}
-          options={projects.map((project) => ({ value: project.id, label: project.name }))}
+          options={orderedProjects.map((project) => ({ value: project.id, label: project.name }))}
         />
       ) : (
         <Alert type="warning" showIcon title="当前没有可保存的项目，请先在左侧新建项目。" />

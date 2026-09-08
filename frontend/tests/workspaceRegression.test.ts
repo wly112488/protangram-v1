@@ -49,3 +49,20 @@ test('virtual-condition page keeps its persistence callback stable to avoid assi
   assert.match(source, /const persistVirtualResult = useCallback\(/);
   assert.doesNotMatch(source, /\[boundProject, conditions, effectiveSession, incoming\?\.data, incoming\?\.task, model, navigate, persistedProjectId, persistVirtualResult, predictionStatus\]/);
 });
+
+test('project sidebar exposes a guarded delete action backed by the project store', () => {
+  const storeSource = readFileSync(new URL('../src/workspace/projectStore.ts', import.meta.url), 'utf8');
+  const sidebarSource = readFileSync(new URL('../src/workspace/ProjectSidebar.tsx', import.meta.url), 'utf8');
+
+  assert.match(storeSource, /deleteProject:/);
+  assert.match(sidebarSource, /Popconfirm/);
+  assert.match(sidebarSource, /deleteProject\(project\.id\)/);
+});
+
+test('save target defaults to the active project and makes newly created projects easy to find', () => {
+  const source = readFileSync(new URL('../src/workspace/ProjectSaveTargetModal.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /activeProjectId/);
+  assert.match(source, /showSearch/);
+  assert.match(source, /orderedProjects/);
+});

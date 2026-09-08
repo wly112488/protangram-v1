@@ -110,7 +110,11 @@ const VirtualConditionExtension: React.FC = () => {
   };
 
   const generateConditions = () => {
-    const count = Math.max(1, config.count);
+    const count = Math.max(1, Math.min(100, Number.isFinite(config.count) ? config.count : DEFAULT_CONFIG.count));
+    if (config.speedMin > config.speedMax || config.temperatureMin > config.temperatureMax || config.pressureMin > config.pressureMax) {
+      message.warning('工况范围的最小值不能大于最大值');
+      return;
+    }
     const next = Array.from({ length: count }, (_, index) => {
       const ratio = count === 1 ? 0 : index / (count - 1);
       return {
@@ -166,7 +170,7 @@ const VirtualConditionExtension: React.FC = () => {
     message.success('已恢复默认扩展配置');
   };
 
-  const persistVirtualResult = (projectId: string, notify = true) => {
+  const persistVirtualResult = useCallback((projectId: string, notify = true) => {
     if (predictionStatus !== 'completed') return false;
     if (persistedProjectId === projectId) return true;
     const project = projects.find((item) => item.id === projectId);
@@ -194,7 +198,7 @@ const VirtualConditionExtension: React.FC = () => {
     setSaveTargetOpen(false);
     if (notify) message.success(`预测结果已保存到项目“${project.name}”`);
     return true;
-  };
+  }, [addArtifact, conditions, config, constraints, model, persistedProjectId, predictionStatus, projects]);
 
   const requestSave = () => {
     if (predictionStatus !== 'completed') return message.warning('请先完成虚拟工况预测');
@@ -238,7 +242,7 @@ const VirtualConditionExtension: React.FC = () => {
       saveBusinessReportItem({ source: '虚拟工况扩展', title: `${model.modelName} ${model.version}扩展结果`, summary: result.resultSummary });
       message.success('虚拟工况扩展结果已加入报告。');
     }
-  }, [boundProject, conditions, effectiveSession, incoming?.data, incoming?.task, model, navigate, persistedProjectId, persistVirtualResult, predictionStatus]);
+  }, [boundProject, conditions, effectiveSession, incoming?.data, incoming?.task, model, navigate, persistVirtualResult, predictionStatus]);
 
   useEffect(() => {
     setContext({

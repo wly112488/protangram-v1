@@ -66,3 +66,33 @@ test('save target defaults to the active project and makes newly created project
   assert.match(source, /showSearch/);
   assert.match(source, /orderedProjects/);
 });
+
+test('core business pages require explicit user confirmation before enabling the primary action', () => {
+  const sources = [
+    '../src/pages/analysis/DigitalTwin.tsx',
+    '../src/pages/experiment/design/IntelligentExperimentDesign.tsx',
+    '../src/pages/analysis/projects/AnalysisProjects.tsx',
+    '../src/pages/analysis/VirtualConditionExtension.tsx',
+  ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'));
+
+  for (const source of sources) {
+    assert.match(source, /PreparationChecklist/);
+    assert.match(source, /preparationReady/);
+    assert.match(source, /confirmed/);
+  }
+});
+
+test('reset is visually subordinate to preparation and primary actions', () => {
+  const sources = [
+    '../src/pages/analysis/DigitalTwin.tsx',
+    '../src/pages/experiment/design/IntelligentExperimentDesign.tsx',
+    '../src/pages/analysis/projects/AnalysisProjects.tsx',
+    '../src/pages/analysis/VirtualConditionExtension.tsx',
+  ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'));
+
+  for (const source of sources) {
+    assert.match(source, /workspace-reset-action/);
+    assert.match(source, /size="small"/);
+    assert.match(source, /type="text"/);
+  }
+});

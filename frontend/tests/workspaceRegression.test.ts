@@ -96,3 +96,28 @@ test('reset is visually subordinate to preparation and primary actions', () => {
     assert.match(source, /type="text"/);
   }
 });
+
+test('preparation cards own workflow actions instead of duplicating configuration controls below', () => {
+  const checklistSource = readFileSync(new URL('../src/workspace/PreparationChecklist.tsx', import.meta.url), 'utf8');
+  const businessSources = [
+    '../src/pages/analysis/DigitalTwin.tsx',
+    '../src/pages/experiment/design/IntelligentExperimentDesign.tsx',
+    '../src/pages/analysis/projects/AnalysisProjects.tsx',
+    '../src/pages/analysis/VirtualConditionExtension.tsx',
+  ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'));
+
+  assert.match(checklistSource, /actions\?: React\.ReactNode/);
+  assert.match(checklistSource, /workspace-preparation-actions/);
+  for (const source of businessSources) {
+    assert.match(source, /actions=\{/);
+    assert.doesNotMatch(source, /<Card size="small" className="workspace-business-card"><Space wrap>/);
+  }
+});
+
+test('data analysis readiness contains only user-confirmed analysis inputs, without an invented comparison-model gate', () => {
+  const source = readFileSync(new URL('../src/pages/analysis/projects/AnalysisProjects.tsx', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(source, /label: '对比模型'/);
+  assert.doesNotMatch(source, /model: false/);
+  assert.doesNotMatch(source, /confirmed\.model/);
+});

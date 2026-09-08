@@ -4,8 +4,7 @@ import {
   Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message,
 } from 'antd';
 import {
-  ApiOutlined, ArrowDownOutlined, ArrowUpOutlined, DatabaseOutlined, DeleteOutlined,
-  ExperimentOutlined, ReloadOutlined, SafetyCertificateOutlined, SettingOutlined,
+  ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, ExperimentOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
@@ -299,16 +298,11 @@ const IntelligentExperimentDesign: React.FC = () => {
           { key: 'config', label: '试验配置', value: `${config.target} / 最多 ${config.maxRuns} 次`, confirmed: confirmed.config, onClick: openConfig },
           { key: 'constraints', label: '约束', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints },
         ]}
+        actions={<Space size={6}>
+          <Button type={preparationReady ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} loading={generating} onClick={generatePlan}>生成推荐方案</Button>
+          <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
+        </Space>}
       />
-
-      <Card size="small" className="workspace-business-card"><Space wrap>
-        <Button icon={<ApiOutlined />} onClick={openModel}>选择可信模型</Button>
-        <Button icon={<DatabaseOutlined />} onClick={openData}>选择历史数据</Button>
-        <Button icon={<SettingOutlined />} onClick={openConfig}>试验配置</Button>
-        <Button icon={<SafetyCertificateOutlined />} onClick={openConstraints}>约束设置</Button>
-        <Button type={preparationReady ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} loading={generating} onClick={generatePlan}>生成推荐方案</Button>
-        <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
-      </Space></Card>
 
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
         { key: 'target', label: '当前目标', children: config.target },

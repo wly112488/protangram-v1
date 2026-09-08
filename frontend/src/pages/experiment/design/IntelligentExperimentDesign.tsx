@@ -10,6 +10,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import type { BusinessAction, BusinessRouteState, ModelContract, PlanCondition, TaskContract } from '@/types/businessContext';
+import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createDesignArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
@@ -33,6 +34,7 @@ const DEFAULT_CONSTRAINTS = {
   speedMax: 8000, temperatureMax: 120, pressureMin: 1,
   safety: true, excludeAbnormal: true,
 };
+const EMPTY_CONFIRMATION = { model: false, data: false, config: false, constraints: false };
 const DEFAULT_PLAN: PlanCondition[] = [
   { key: '01', order: 1, speed: 7200, temperature: 85, pressure: 1.8, recommendation: '高', risk: '低', reason: '历史覆盖不足，预计信息增益高' },
   { key: '02', order: 2, speed: 7600, temperature: 90, pressure: 1.9, recommendation: '高', risk: '中', reason: '接近性能最优区域，需关注安全边界' },
@@ -109,7 +111,9 @@ const IntelligentExperimentDesign: React.FC = () => {
   const [generated, setGenerated] = useState(false);
   const [activeTab, setActiveTab] = useState('plan');
   const [plan, setPlan] = useState<PlanRow[]>(createPlan(initialConfig));
+  const [confirmed, setConfirmed] = useState(EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
+  const preparationReady = Object.values(confirmed).every(Boolean);
 
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
 
@@ -119,6 +123,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   };
 
   const generatePlan = () => {
+    if (!preparationReady) return message.warning('请先确认全部方案生成准备项');
     if (timer.current !== null) window.clearTimeout(timer.current);
     setGenerating(true);
     setGenerated(false);
@@ -140,6 +145,7 @@ const IntelligentExperimentDesign: React.FC = () => {
     setDatasets(incoming?.datasets ?? [DATASETS[0]]);
     setConfig(initialConfig);
     setConstraints(initialConstraints);
+    setConfirmed(EMPTY_CONFIRMATION);
     setPlan(createPlan(initialConfig));
     setGenerating(false);
     invalidate();
@@ -264,6 +270,11 @@ const IntelligentExperimentDesign: React.FC = () => {
     ]} /> },
   ];
 
+  const openModel = () => { setDraftModelId(model.modelId); setModelOpen(true); };
+  const openData = () => { setDraftDatasets(datasets); setDataOpen(true); };
+  const openConfig = () => { setDraftConfig(config); setConfigOpen(true); };
+  const openConstraints = () => { setDraftConstraints(constraints); setConstraintsOpen(true); };
+
   return (
     <div className="workspace-business-page">
       <div className="workspace-business-heading">
@@ -280,13 +291,23 @@ const IntelligentExperimentDesign: React.FC = () => {
         />
       )}
 
+      <PreparationChecklist
+        title="方案生成准备"
+        items={[
+          { key: 'model', label: '可信模型', value: `${model.modelName} ${model.version}`, confirmed: confirmed.model, onClick: openModel },
+          { key: 'data', label: '历史数据', value: datasets.join('、'), confirmed: confirmed.data, onClick: openData },
+          { key: 'config', label: '试验配置', value: `${config.target} / 最多 ${config.maxRuns} 次`, confirmed: confirmed.config, onClick: openConfig },
+          { key: 'constraints', label: '约束', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints },
+        ]}
+      />
+
       <Card size="small" className="workspace-business-card"><Space wrap>
-        <Button icon={<ApiOutlined />} onClick={() => { setDraftModelId(model.modelId); setModelOpen(true); }}>选择可信模型</Button>
-        <Button icon={<DatabaseOutlined />} onClick={() => { setDraftDatasets(datasets); setDataOpen(true); }}>选择历史数据</Button>
-        <Button icon={<SettingOutlined />} onClick={() => { setDraftConfig(config); setConfigOpen(true); }}>试验配置</Button>
-        <Button icon={<SafetyCertificateOutlined />} onClick={() => { setDraftConstraints(constraints); setConstraintsOpen(true); }}>约束设置</Button>
-        <Button type="primary" icon={<ExperimentOutlined />} loading={generating} onClick={generatePlan}>生成推荐方案</Button>
-        <Button icon={<ReloadOutlined />} onClick={reset}>重置</Button>
+        <Button icon={<ApiOutlined />} onClick={openModel}>选择可信模型</Button>
+        <Button icon={<DatabaseOutlined />} onClick={openData}>选择历史数据</Button>
+        <Button icon={<SettingOutlined />} onClick={openConfig}>试验配置</Button>
+        <Button icon={<SafetyCertificateOutlined />} onClick={openConstraints}>约束设置</Button>
+        <Button type={preparationReady ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} loading={generating} onClick={generatePlan}>生成推荐方案</Button>
+        <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
       </Space></Card>
 
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
@@ -320,19 +341,19 @@ const IntelligentExperimentDesign: React.FC = () => {
         )}
       </Card>
 
-      <Modal title="选择可信模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { setModel(modelOptions.find((item) => item.modelId === draftModelId) ?? MODELS[0]); setModelOpen(false); invalidate(); }}>
+      <Modal title="选择可信模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { setModel(modelOptions.find((item) => item.modelId === draftModelId) ?? MODELS[0]); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
         <Select style={{ width: '100%' }} value={draftModelId} onChange={setDraftModelId} options={modelOptions.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version}｜${item.trustedRange}｜${item.calibratedAt ?? '本次校准'}` }))} />
       </Modal>
-      <Modal title="选择历史数据" open={dataOpen} onCancel={() => setDataOpen(false)} onOk={() => { setDatasets(draftDatasets); setDataOpen(false); invalidate(); }}>
+      <Modal title="选择历史数据" open={dataOpen} onCancel={() => setDataOpen(false)} onOk={() => { setDatasets(draftDatasets); setConfirmed((prev) => ({ ...prev, data: true })); setDataOpen(false); invalidate(); }}>
         <Select mode="multiple" style={{ width: '100%' }} value={draftDatasets} onChange={setDraftDatasets} options={DATASETS.map((value) => ({ value }))} />
       </Modal>
-      <Modal title="试验配置" width={680} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 5 }} wrapperCol={{ span: 18 }}>
+      <Modal title="试验配置" width={680} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 5 }} wrapperCol={{ span: 18 }}>
         <Form.Item label="试验目标"><Select value={draftConfig.target} onChange={(value) => setDraftConfig({ ...draftConfig, target: value })} options={[draftConfig.target, '最大化性能', '最小化能耗', '提高稳定性'].filter((value, index, rows) => rows.indexOf(value) === index).map((value) => ({ value }))} /></Form.Item>
         {[['转速', 'speedMin', 'speedMax'], ['温度', 'temperatureMin', 'temperatureMax'], ['压力', 'pressureMin', 'pressureMax']].map(([label, minKey, maxKey]) => <Form.Item label={label} key={label}><Space><InputNumber value={draftConfig[minKey as keyof typeof draftConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [minKey]: value ?? 0 })} /><Text>～</Text><InputNumber value={draftConfig[maxKey as keyof typeof draftConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [maxKey]: value ?? 0 })} /></Space></Form.Item>)}
         <Form.Item label="最大试验次数"><InputNumber min={1} max={30} value={draftConfig.maxRuns} onChange={(value) => setDraftConfig({ ...draftConfig, maxRuns: value ?? 10 })} /></Form.Item>
         <Form.Item label="优化策略"><Select value={draftConfig.strategy} onChange={(value) => setDraftConfig({ ...draftConfig, strategy: value })} options={['自动推荐', '单目标优化', '多目标优化', '安全优化'].map((value) => ({ value }))} /></Form.Item>
       </Form></Modal>
-      <Modal title="约束设置" open={constraintsOpen} onCancel={() => setConstraintsOpen(false)} onOk={() => { setConstraints(draftConstraints); setConstraintsOpen(false); invalidate(); }}><Form labelCol={{ span: 8 }} wrapperCol={{ span: 14 }}>
+      <Modal title="约束设置" open={constraintsOpen} onCancel={() => setConstraintsOpen(false)} onOk={() => { setConstraints(draftConstraints); setConfirmed((prev) => ({ ...prev, constraints: true })); setConstraintsOpen(false); invalidate(); }}><Form labelCol={{ span: 8 }} wrapperCol={{ span: 14 }}>
         <Form.Item label="转速上限（rpm）"><InputNumber value={draftConstraints.speedMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, speedMax: value ?? 8000 })} /></Form.Item>
         <Form.Item label="温度上限（℃）"><InputNumber value={draftConstraints.temperatureMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, temperatureMax: value ?? 120 })} /></Form.Item>
         <Form.Item label="最低压力（MPa）"><InputNumber value={draftConstraints.pressureMin} onChange={(value) => setDraftConstraints({ ...draftConstraints, pressureMin: value ?? 1 })} /></Form.Item>

@@ -11,12 +11,11 @@ const legacyExperiment = {
 };
 
 test('clicking a top-level business section can update the header selection immediately', () => {
-  const functionBarSource = readFileSync(new URL('../src/workbench/FunctionBar.tsx', import.meta.url), 'utf8');
   const headerSource = readFileSync(new URL('../src/workspace/WorkspaceHeader.tsx', import.meta.url), 'utf8');
 
-  assert.match(functionBarSource, /onSectionSelect\?:/);
-  assert.match(functionBarSource, /onSectionSelect\?\.\(item\.key\)/);
   assert.match(headerSource, /selectedSection/);
+  assert.match(headerSource, /onClickCapture/);
+  assert.match(headerSource, /layout-function-item/);
 });
 
 test('saving a business artifact refreshes project test object and current model', () => {
@@ -34,7 +33,6 @@ test('saving a business artifact refreshes project test object and current model
         modelName: '发动机数字孪生模型',
         version: 'V2.1',
         trustedRange: '2000～8800 rpm',
-        testObject: '发动机',
       },
     },
     createdAt: '2026-09-08T01:00:00.000Z',

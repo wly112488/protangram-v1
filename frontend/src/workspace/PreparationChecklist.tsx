@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { Card } from 'antd';
+import './preparationChecklist.css';
 
 export interface PreparationItem {
   key: string;

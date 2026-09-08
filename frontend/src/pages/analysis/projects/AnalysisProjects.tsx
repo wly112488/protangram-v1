@@ -4,8 +4,7 @@ import {
   Select, Space, Table, Tabs, Tag, Timeline, Typography, message,
 } from 'antd';
 import {
-  BarChartOutlined, CheckCircleOutlined, DatabaseOutlined, ExperimentOutlined, FileTextOutlined,
-  ReloadOutlined, SaveOutlined, SettingOutlined,
+  BarChartOutlined, CheckCircleOutlined, FileTextOutlined, ReloadOutlined, SaveOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
@@ -36,7 +35,7 @@ const TASKS = [
   {
     id: 'vibration', name: '结构振动特性试验', source: '两水平因子设计方案 #07', status: '已完成',
     experimentFile: 'vibration_07.csv', environmentFile: 'vibration_environment_07.csv',
-    controlFile: 'vibration_control_07.csv', modelData: 'digital_twin_structure_v1', conditions: 10, dataCount: 15400,
+    controlFile: 'vibration_07.csv', modelData: 'digital_twin_structure_v1', conditions: 10, dataCount: 15400,
   },
 ];
 
@@ -44,7 +43,7 @@ const DEFAULT_CONFIG = {
   metrics: ['出口温度', '推力', '压力', '振动'], scope: '全部工况', comparison: '实测数据与模型预测',
   contents: ['趋势分析', '异常检测', '根因分析'], sensitivity: '中',
 };
-const EMPTY_CONFIRMATION = { task: false, data: false, config: false, model: false };
+const EMPTY_CONFIRMATION = { task: false, data: false, config: false };
 
 const ANOMALIES = [
   { key: 'temperature', event: '出口温度异常', condition: '工况07', time: '13:25', level: '高' },
@@ -153,7 +152,7 @@ const AnalysisProjects: React.FC = () => {
     const next = availableTasks.find((item) => item.id === draftTaskId) ?? initialTask;
     setTask(next);
     setData({ experimentFile: next.experimentFile, environmentFile: next.environmentFile, controlFile: next.controlFile, modelData: next.modelData });
-    setConfirmed((prev) => ({ ...prev, task: true, data: false, model: false }));
+    setConfirmed((prev) => ({ ...prev, task: true, data: false }));
     setTaskModalOpen(false);
     invalidateResult();
   };
@@ -351,17 +350,12 @@ const AnalysisProjects: React.FC = () => {
           { key: 'task', label: '试验任务', value: task.name, confirmed: confirmed.task, onClick: openTask },
           { key: 'data', label: '关联数据', value: data.experimentFile, confirmed: confirmed.data, onClick: openData },
           { key: 'config', label: '分析配置', value: `${config.scope} / ${config.sensitivity}敏感度`, confirmed: confirmed.config, onClick: openConfig },
-          { key: 'model', label: '对比模型', value: `${activeModel.modelName} ${activeModel.version}`, confirmed: confirmed.model, onClick: () => setConfirmed((prev) => ({ ...prev, model: true })) },
         ]}
+        actions={<Space size={6}>
+          <Button type={preparationReady ? 'primary' : 'default'} icon={<BarChartOutlined />} disabled={!preparationReady} loading={analyzing} onClick={startAnalysis}>开始分析</Button>
+          <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
+        </Space>}
       />
-
-      <Card size="small" className="workspace-business-card"><Space wrap>
-        <Button icon={<ExperimentOutlined />} onClick={openTask}>选择试验任务</Button>
-        <Button icon={<DatabaseOutlined />} onClick={openData}>确认关联数据</Button>
-        <Button icon={<SettingOutlined />} onClick={openConfig}>分析配置</Button>
-        <Button type={preparationReady ? 'primary' : 'default'} icon={<BarChartOutlined />} disabled={!preparationReady} loading={analyzing} onClick={startAnalysis}>开始分析</Button>
-        <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
-      </Space></Card>
 
       <Card title="当前任务与数据" size="small" className="workspace-business-card">
         <Descriptions size="small" column={3} items={[

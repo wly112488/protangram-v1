@@ -14,9 +14,10 @@ export interface PreparationItem {
 interface PreparationChecklistProps {
   title?: string;
   items: PreparationItem[];
+  actions?: React.ReactNode;
 }
 
-const PreparationChecklist: React.FC<PreparationChecklistProps> = ({ title = '准备状态', items }) => (
+const PreparationChecklist: React.FC<PreparationChecklistProps> = ({ title = '准备状态', items, actions }) => (
   <Card size="small" className="workspace-business-card workspace-preparation-card" title={title}>
     <div className="workspace-preparation-grid">
       {items.map((item) => {
@@ -43,6 +44,7 @@ const PreparationChecklist: React.FC<PreparationChecklistProps> = ({ title = '�
         );
       })}
     </div>
+    {actions && <div className="workspace-preparation-actions">{actions}</div>}
   </Card>
 );
 

@@ -11,8 +11,10 @@ import dayjs from 'dayjs';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisProjects, loadExperiments, loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
+import { useTaskStore } from '@/workspace/taskStore';
 import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js';
 import type { AnalysisProject, AnalysisReport } from '@/types';
+import type { ProjectArtifact } from '@/workspace/types';
 import type { BusinessRouteState } from '@/types/businessContext';
 
 const { Title, Text } = Typography;
@@ -31,6 +33,8 @@ const REPORT_TEMPLATE_OPTIONS = [
 type ReportRecord = AnalysisReport & {
   workspaceProjectId?: string;
   artifactIds?: string[];
+  taskId?: string;
+  taskItemId?: string;
 };
 
 const ReportCreate: React.FC = () => {
@@ -38,7 +42,15 @@ const ReportCreate: React.FC = () => {
   const location = useLocation();
   const { projectId: legacyRouteProjectId } = useParams<{ projectId: string }>();
   const routeState = location.state as BusinessRouteState | null;
-  const routeProjectId = routeState?.workspaceSession?.targetProjectId || legacyRouteProjectId;
+  const taskId = routeState?.workspaceSession?.mode === 'task'
+    ? routeState.workspaceSession.taskId
+    : new URLSearchParams(location.search).get('taskId') ?? undefined;
+  const taskItemId = routeState?.workspaceSession?.mode === 'task'
+    ? routeState.workspaceSession.taskItemId
+    : new URLSearchParams(location.search).get('taskItemId') ?? undefined;
+  const task = useTaskStore((state) => state.tasks.find((item) => item.id === taskId));
+  const setTaskRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const routeProjectId = routeState?.workspaceSession?.targetProjectId || task?.projectId || legacyRouteProjectId;
   const [form] = Form.useForm();
   const {
     setAnalysisProjects, setExperiments, addAnalysisReport,
@@ -66,7 +78,9 @@ const ReportCreate: React.FC = () => {
     const availableArtifactIds = initialProject
       ? getReportableArtifacts(initialProject.artifacts).map((artifact) => artifact.id)
       : [];
-    const requestedArtifactIds = routeState?.artifactIds;
+    const requestedArtifactIds = routeState?.artifactIds ?? task?.reportDraft.sections.flatMap((section) => section.artifactRefs
+      .filter((reference) => reference.projectId === initialProjectId)
+      .map((reference) => reference.artifactId));
     setSelectedArtifactIds(requestedArtifactIds && routeProjectId === initialProjectId
       ? requestedArtifactIds.filter((id) => availableArtifactIds.includes(id))
       : availableArtifactIds);
@@ -106,15 +120,25 @@ const ReportCreate: React.FC = () => {
         status: 'draft',
         workspaceProjectId: project?.id,
         artifactIds: project ? selectedArtifactIds : [],
+        taskId: task?.id,
+        taskItemId,
+        reportContent: task ? task.reportDraft.sections.map((section) => {
+          const linkedArtifacts = section.artifactRefs
+            .map((reference) => projects.find((candidate) => candidate.id === reference.projectId)?.artifacts.find((artifact) => artifact.id === reference.artifactId))
+            .filter((artifact): artifact is ProjectArtifact => artifact !== undefined)
+            .map((artifact) => `成果：${artifact.title}\n${artifact.summary}`);
+          return `## ${section.title}\n${section.body}${linkedArtifacts.length > 0 ? `\n\n${linkedArtifacts.join('\n\n')}` : ''}`;
+        }).join('\n\n') : undefined,
       };
 
       addAnalysisReport(report);
+      if (task?.id && taskItemId) setTaskRequirementStatus(task.id, taskItemId, '进行中');
       const all = loadAnalysisReports().filter((item) => item.id !== report.id);
       all.push(report);
       saveAnalysisReports(all);
 
       message.success('报告已创建');
-      navigate(`/report/generate/${report.id}`);
+      navigate(`/report/generate/${report.id}${task ? `?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}` : ''}`);
     } catch {
       message.error('请选择项目和报告模板');
     }
@@ -126,13 +150,13 @@ const ReportCreate: React.FC = () => {
   ];
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, gap: 12 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/report/list')}>返回</Button>
+    <div className="workspace-simple-page workspace-report-create-page">
+      <div className="workspace-page-heading">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(task ? `/tasks/${task.id}` : '/report/list')}>返回</Button>
         <Title level={4} style={{ margin: 0 }}>新建分析报告</Title>
       </div>
 
-      <div style={{ maxWidth: 850, margin: '0 auto' }}>
+      <div className="workspace-report-form-content" style={{ maxWidth: 850, margin: '0 auto' }}>
         <Card title="报告配置" style={{ marginBottom: 16 }}>
           <Form form={form} layout="vertical" initialValues={{ analysisProjectId: selectedProjectId }}>
             <Form.Item label="选择项目" name="analysisProjectId"
@@ -181,6 +205,15 @@ const ReportCreate: React.FC = () => {
           </Card>
         )}
 
+        {task && (
+          <Card title={`任务报告草稿 · ${task.title}`} style={{ marginBottom: 16 }}>
+            <Text type="secondary">已将 {task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项任务成果与各章节正文带入正式报告配置。</Text>
+            <div style={{ marginTop: 12, maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap' }}>
+              {task.reportDraft.sections.map((section) => `【${section.title}】\n${section.body}`).join('\n\n') || '报告草稿暂时为空。'}
+            </div>
+          </Card>
+        )}
+
         {selectedLegacyProject && (
           <Card title="兼容旧分析项目" style={{ marginBottom: 16 }}>
             <Descriptions column={2} size="small">
@@ -192,7 +225,7 @@ const ReportCreate: React.FC = () => {
           </Card>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: 24 }}>
+        <div className="workspace-form-actions" style={{ textAlign: 'center', marginTop: 24 }}>
           <Space size="large">
             <Button size="large" onClick={() => navigate('/report/list')}>取消</Button>
             <Button type="primary" size="large" icon={<FileSyncOutlined />} onClick={handleGenerate}>

@@ -13,8 +13,9 @@ import type { BusinessAction, BusinessRouteState, ModelContract } from '@/types/
 import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createVirtualConditionArtifactInput } from '@/workspace/projectModel';
-import { createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
+import { createTaskContextSearch, createTaskReturnPath, createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import { useProjectStore } from '@/workspace/projectStore';
+import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 
 const { Title, Text, Paragraph } = Typography;
@@ -61,8 +62,9 @@ const VirtualConditionExtension: React.FC = () => {
   const location = useLocation();
   const incoming = location.state as BusinessRouteState | null;
   const { setContext } = useTrialAIAssistant();
-  const { projects, session, targetProject } = useWorkspaceBusinessSession(incoming);
+  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
+  const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
   const initialModel = incoming?.model ?? MODELS[0];
@@ -96,8 +98,8 @@ const VirtualConditionExtension: React.FC = () => {
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
-    () => boundProject ? { mode: 'project', targetProjectId: boundProject.id } : { mode: 'standalone' },
-    [boundProject],
+    () => boundProject ? (session.mode === 'task' ? session : { mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
+    [boundProject, session],
   );
 
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
@@ -205,13 +207,14 @@ const VirtualConditionExtension: React.FC = () => {
       },
     }));
     if (!artifact) return null;
+    recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
     setSavedProjectId(projectId);
     setPersistedProjectId(projectId);
     setPersistedArtifactId(artifact.id);
     setSaveTargetOpen(false);
     if (notify) message.success(`预测结果已保存到项目“${project.name}”`);
     return artifact;
-  }, [addArtifact, conditions, config, constraints, model, persistedArtifactId, persistedProjectId, predictionStatus, projects]);
+  }, [addArtifact, conditions, config, constraints, model, persistedArtifactId, persistedProjectId, predictionStatus, projects, recordArtifactForTaskItem]);
 
   const requestSave = () => {
     if (predictionStatus !== 'completed') return message.warning('请先完成虚拟工况预测');
@@ -234,7 +237,7 @@ const VirtualConditionExtension: React.FC = () => {
 
     if (action === '生成验证试验') {
       if (boundProject) persistVirtualResult(boundProject.id, false);
-      navigate('/experiment/design/intelligent', { state: {
+      navigate(`/experiment/design/intelligent${createTaskContextSearch(effectiveSession)}`, { state: {
         source: 'virtualCondition',
         task: incoming?.task,
         data: incoming?.data,
@@ -255,20 +258,25 @@ const VirtualConditionExtension: React.FC = () => {
       if (boundProject) {
         const artifact = persistVirtualResult(boundProject.id);
         if (!artifact) return;
+        if (effectiveSession.mode === 'task') {
+          addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId: artifact.id });
+          navigate(createTaskReturnPath(effectiveSession));
+          return;
+        }
         navigate('/report/create', { state: { ...createWorkspaceNavigationState(boundProject.id), artifactIds: [artifact.id] } });
         return;
       }
       setContinueToReportAfterSave(true);
       setSaveTargetOpen(true);
     }
-  }, [boundProject, conditions, effectiveSession, incoming?.data, incoming?.task, model, navigate, persistVirtualResult, predictionStatus]);
+  }, [addArtifactToReport, boundProject, conditions, effectiveSession, incoming?.data, incoming?.task, model, navigate, persistVirtualResult, predictionStatus]);
 
   useEffect(() => {
     setContext({
       pageType: 'virtualCondition',
       pageName: '虚拟工况扩展',
       projectName: boundProject?.name,
-      taskName: incoming?.task?.taskName,
+      taskName: incoming?.task?.taskName ?? activeTask?.title,
       modelName: `${model.modelName} ${model.version}`,
       resultSummary: predictionStatus === 'completed'
         ? `已完成 ${conditions.length} 个虚拟工况预测`
@@ -279,7 +287,7 @@ const VirtualConditionExtension: React.FC = () => {
       onBusinessAction: handleBusinessAction,
     });
     return () => setContext(null);
-  }, [boundProject?.name, conditions.length, generationStatus, handleBusinessAction, incoming?.task?.taskName, model.modelName, model.version, predictionStatus, setContext]);
+  }, [activeTask?.title, boundProject?.name, conditions.length, generationStatus, handleBusinessAction, incoming?.task?.taskName, model.modelName, model.version, predictionStatus, setContext]);
 
   const filteredConditions = useMemo(
     () => conditions.filter((row) => filter === '全部' || (filter === '高风险' ? row.risk === '高' : row.risk === '高' || row.credibility === '低')),
@@ -336,7 +344,7 @@ const VirtualConditionExtension: React.FC = () => {
 
   return (
     <div className="workspace-business-page">
-      <div className="workspace-business-heading">
+      <div className="workspace-business-heading workspace-page-heading">
         <div><Title level={4} style={{ margin: 0 }}>虚拟工况扩展</Title><Text type="secondary">使用可信数字孪生模型扩展未实测工况，并判断预测风险与可信度</Text></div>
         <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
@@ -402,6 +410,11 @@ const VirtualConditionExtension: React.FC = () => {
         const artifact = persistVirtualResult(projectId);
         if (artifact && continueToReportAfterSave) {
           setContinueToReportAfterSave(false);
+          if (effectiveSession.mode === 'task') {
+            addArtifactToReport(effectiveSession.taskId, { projectId, artifactId: artifact.id });
+            navigate(createTaskReturnPath(effectiveSession));
+            return;
+          }
           navigate('/report/create', { state: { ...createWorkspaceNavigationState(projectId), artifactIds: [artifact.id] } });
         }
       }} />

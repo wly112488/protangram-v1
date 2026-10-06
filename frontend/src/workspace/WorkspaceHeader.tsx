@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Avatar, Dropdown, Layout, Space, theme, Typography } from 'antd';
-import { HomeOutlined, LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Dropdown, Layout, Space, theme, Typography } from 'antd';
+import { FolderOpenOutlined, HomeOutlined, LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import FunctionBar from '@/workbench/FunctionBar';
 import type { ResearchObject } from '@/workbench/EquipmentManagerWindow';
 import comacLogo from '@/assets/comac_logo.png';
 import { getHeaderActiveKey } from './presentationModel';
+import type { WorkspaceSessionState } from '@/types/businessContext';
 import './visualIntegrations.css';
 
 const { Header } = Layout;
@@ -17,11 +18,16 @@ interface WorkspaceHeaderProps {
   onResearchObjectsChange: (objects: ResearchObject[]) => void;
   projects: Array<{ id: string; name: string }>;
   activeProjectId: string | null;
+  workspaceSession?: WorkspaceSessionState;
+  workspaceTask?: { id: string; title: string };
   onImportProject: (projectId: string) => void;
   onDesignGenerated: (designName: string) => void;
+  onToggleProjectNav: () => void;
+  projectNavOpen: boolean;
 }
 
-const sectionByLabel: Record<string, 'experiment' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report'> = {
+const sectionByLabel: Record<string, 'taskCenter' | 'experiment' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report'> = {
+  任务中心: 'taskCenter',
   试验管理: 'experiment',
   试验设计: 'doe',
   试验数据分析: 'analysis',
@@ -35,8 +41,12 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   onResearchObjectsChange,
   projects,
   activeProjectId,
+  workspaceSession,
+  workspaceTask,
   onImportProject,
   onDesignGenerated,
+  onToggleProjectNav,
+  projectNavOpen,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,6 +78,15 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
       className={`workspace-header ${selectedSection ? `workspace-active-${selectedSection}` : ''}`}
       onClickCapture={handleSectionClickCapture}
     >
+      <Button
+        className="workspace-mobile-project-toggle"
+        type="text"
+        icon={<FolderOpenOutlined />}
+        aria-label={projectNavOpen ? '关闭项目导航' : '打开项目导航'}
+        aria-expanded={projectNavOpen}
+        aria-controls="workspace-project-sidebar"
+        onClick={onToggleProjectNav}
+      />
       <button type="button" className="workspace-brand" onClick={() => navigate('/')} aria-label="返回平台首页">
         <img className="workspace-brand-logo" src={comacLogo} alt="中国商飞 COMAC" />
         <span>
@@ -81,11 +100,23 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
         onResearchObjectsChange={onResearchObjectsChange}
         experiments={projects}
         activeProjectId={activeProjectId}
+        workspaceSession={workspaceSession}
         onImportExperiment={onImportProject}
         onAssociateObjectToExperiment={() => undefined}
         onMergeObjects={() => undefined}
         onDesignGenerated={onDesignGenerated}
       />
+
+      {workspaceTask && (
+        <button
+          type="button"
+          className="workspace-current-task"
+          onClick={() => navigate(`/tasks/${workspaceTask.id}`)}
+          style={{ border: 0, background: 'transparent', color: token.colorPrimary, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          <span className="workspace-current-task-title">当前任务：{workspaceTask.title} · </span>返回任务
+        </button>
+      )}
 
       <Space className="workspace-header-actions" size={12}>
         <ThemeToggle />

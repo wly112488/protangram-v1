@@ -10,11 +10,8 @@ const { Title, Text } = Typography;
  */
 const SamplingRequirements: React.FC = () => {
   return (
-    <div>
-      <Title level={4}>采样要求</Title>
-      <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
-        采样要求管理功能
-      </Text>
+    <div className="workspace-simple-page">
+      <div className="workspace-page-heading"><div><Title level={4} className="workspace-page-title">采样要求</Title><Text type="secondary">采样要求管理功能</Text></div></div>
       <Card style={{ marginTop: 16 }}>
         <Empty
           image={<BlockOutlined style={{ fontSize: 64, color: '#d9d9d9' }} />}

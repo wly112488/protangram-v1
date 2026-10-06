@@ -102,6 +102,7 @@
 }
 
 .workspace-active-experiment [data-nav-key="experiment"],
+.workspace-active-taskCenter [data-nav-key="taskCenter"],
 .workspace-active-doe [data-nav-key="doe"],
 .workspace-active-analysis [data-nav-key="analysis"],
 .workspace-active-digitalTwin [data-nav-key="digitalTwin"],
@@ -111,6 +112,7 @@
 }
 
 .workspace-active-experiment [data-nav-key="experiment"]::after,
+.workspace-active-taskCenter [data-nav-key="taskCenter"]::after,
 .workspace-active-doe [data-nav-key="doe"]::after,
 .workspace-active-analysis [data-nav-key="analysis"]::after,
 .workspace-active-digitalTwin [data-nav-key="digitalTwin"]::after,
@@ -122,6 +124,15 @@
 .workspace-header-actions {
   margin-left: auto;
   flex-shrink: 0;
+}
+
+.workspace-mobile-project-toggle {
+  display: none;
+  flex: 0 0 auto;
+}
+
+.workspace-sidebar-backdrop {
+  display: none;
 }
 
 .workspace-user-menu {
@@ -259,6 +270,34 @@
   box-shadow: 0 8px 24px rgba(27, 55, 92, 0.045);
 }
 
+.workspace-task-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  margin: 12px 20px 0;
+  background: #f0f6ff;
+  border: 1px solid #d6e4ff;
+  border-radius: 10px;
+}
+
+.workspace-task-context-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+@media (max-width: 560px) {
+  .workspace-task-context {
+    align-items: flex-start;
+    flex-direction: column;
+    margin: 8px 10px 0;
+  }
+}
+
 .workspace-empty-center {
   height: 100%;
   min-height: 360px;
@@ -297,6 +336,137 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
+}
+
+.workspace-page-heading {
+  min-width: 0;
+  padding: 4px 2px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #e5ecf5;
+}
+
+.workspace-page-heading-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.workspace-page-title.ant-typography {
+  margin: 0;
+  color: #0d2043;
+}
+
+.workspace-page-context {
+  margin-top: 3px;
+}
+
+.workspace-page-actions {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.workspace-simple-page {
+  min-width: 0;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #203451;
+}
+
+.workspace-simple-page > .ant-card,
+.workspace-simple-page > form > .ant-card {
+  border-color: #e3eaf3;
+  border-radius: 14px;
+  box-shadow: 0 3px 12px rgba(27, 55, 92, 0.035);
+}
+
+.workspace-simple-page .ant-card-head {
+  min-height: 48px;
+  border-bottom-color: #edf1f6;
+}
+
+.workspace-simple-page .ant-card-head-title {
+  font-weight: 650;
+}
+
+.workspace-simple-page .ant-btn {
+  border-radius: 9px;
+}
+
+.workspace-test-subjects-page,
+.workspace-test-methods-page,
+.workspace-experiment-create-page,
+.workspace-outline-design-page,
+.workspace-analysis-execution-page,
+.workspace-report-generator-page {
+  height: 100%;
+  overflow: auto;
+}
+
+.workspace-experiment-create-page,
+.workspace-outline-design-page,
+.workspace-analysis-execution-page,
+.workspace-report-generator-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-experiment-create-page,
+.workspace-outline-design-page,
+.workspace-analysis-execution-page {
+  overflow: hidden;
+}
+
+.workspace-test-subjects-content {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.6fr);
+  gap: 14px;
+}
+
+.workspace-test-subjects-content > .ant-card {
+  min-width: 0;
+  overflow: auto;
+  border-color: #e3eaf3;
+  border-radius: 14px;
+}
+
+.workspace-test-methods-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-experiment-create-grid {
+  min-height: 0;
+  flex: 1;
+}
+
+.workspace-report-form-content {
+  width: 100%;
+  flex: 1;
+}
+
+.workspace-report-generator-layout > .ant-col {
+  min-width: 0;
+}
+
+.workspace-form-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.workspace-form-actions .ant-space {
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .workspace-overview-hero h2.ant-typography,
@@ -839,5 +1009,319 @@
   .workspace-overview-info-grid,
   .workspace-chart-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .workspace-header.ant-layout-header {
+    gap: 10px !important;
+  }
+
+  .workspace-brand {
+    min-width: 0;
+    flex: 0 0 auto;
+  }
+
+  .workspace-header .layout-function-bar {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .workspace-header .layout-function-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workspace-header .layout-function-item {
+    flex: 0 0 auto;
+  }
+
+  .workspace-shell-body {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-project-sidebar {
+    display: none;
+  }
+
+  .workspace-project-sidebar.is-mobile-open {
+    position: fixed;
+    z-index: 101;
+    top: 78px;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    width: min(300px, calc(100vw - 24px));
+    box-shadow: 0 16px 42px rgba(13, 32, 67, 0.22);
+  }
+
+  .workspace-project-nav-open .workspace-sidebar-backdrop {
+    position: fixed;
+    z-index: 100;
+    inset: 68px 0 0;
+    display: block;
+    border: 0;
+    background: rgba(13, 32, 67, 0.3);
+  }
+
+  .workspace-mobile-project-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 640px) {
+  .ant-modal {
+    max-width: calc(100vw - 24px);
+    margin: 12px auto;
+  }
+
+  .ant-modal-body {
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+  }
+
+  .workspace-header.ant-layout-header {
+    height: auto;
+    min-height: 104px;
+    padding: 7px 10px;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-rows: 38px 38px auto;
+    gap: 5px 8px !important;
+  }
+
+  .workspace-mobile-project-toggle {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .workspace-brand {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 7px;
+  }
+
+  .workspace-brand-logo {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+
+  .workspace-brand strong {
+    max-width: 190px;
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-header .layout-function-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    min-height: 38px;
+    overflow-x: auto;
+  }
+
+  .workspace-header .layout-function-item {
+    min-width: auto;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .workspace-current-task {
+    grid-column: 1 / 3;
+    grid-row: 3;
+    justify-self: start;
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .workspace-current-task-title {
+    display: none;
+  }
+
+  .workspace-header-actions {
+    grid-column: 3;
+    grid-row: 1;
+    margin-left: 0;
+    gap: 4px !important;
+  }
+
+  .workspace-user-menu {
+    min-height: 32px;
+    padding: 0 4px;
+  }
+
+  .workspace-user-menu .ant-typography {
+    display: none;
+  }
+
+  .workspace-shell-body {
+    padding: 8px;
+    gap: 0;
+  }
+
+  .workspace-center {
+    border-radius: 14px;
+  }
+
+  .workspace-overview,
+  .workspace-content-stack,
+  .workspace-business-page,
+  .task-center-page,
+  .task-workbench-page {
+    padding: 14px;
+  }
+
+  .workspace-project-sidebar.is-mobile-open {
+    top: 112px;
+  }
+
+  .workspace-project-nav-open .workspace-sidebar-backdrop {
+    inset-block-start: 104px;
+  }
+
+  .workspace-page-heading {
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .workspace-page-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .workspace-page-actions > * {
+    max-width: 100%;
+  }
+
+  .workspace-page-actions .ant-space,
+  .workspace-simple-page .ant-space {
+    flex-wrap: wrap;
+  }
+
+  .workspace-test-subjects-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-test-subjects-content > .ant-card {
+    max-height: 46vh;
+  }
+
+  .workspace-experiment-create-page .workspace-experiment-create-grid {
+    height: auto !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+    gap: 10px !important;
+  }
+
+  .workspace-experiment-create-grid > div {
+    grid-column: auto !important;
+    grid-row: auto !important;
+    min-height: 140px;
+  }
+
+  .workspace-outline-design-page .outline-steps .ant-steps-item-title {
+    font-size: 11px;
+  }
+
+  .workspace-report-generator-page {
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+  }
+
+  .workspace-report-generator-layout {
+    flex: 0 0 auto !important;
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible !important;
+  }
+
+  .workspace-report-generator-layout > .ant-col {
+    width: 100%;
+    max-width: 100%;
+    min-height: 320px;
+    height: auto !important;
+  }
+
+  .workspace-simple-page .ant-row > .ant-col {
+    min-width: 0;
+  }
+
+  .workspace-test-methods-page .ant-row > .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 12px;
+  }
+
+  .workspace-test-methods-page .ant-row {
+    display: block;
+    overflow: auto;
+  }
+
+  .workspace-business-page .ant-row > .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .workspace-report-create-page .workspace-report-form-content {
+    max-width: none !important;
+  }
+
+  .workspace-simple-page .ant-form-item .ant-form-item-label {
+    padding-bottom: 4px;
+  }
+
+  .workspace-simple-page .ant-modal {
+    max-width: calc(100vw - 24px);
+  }
+
+  .workspace-simple-page .ant-table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .workspace-form-actions {
+    justify-content: stretch;
+  }
+
+  .workspace-form-actions .ant-space {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .workspace-form-actions .ant-btn {
+    flex: 1 1 auto;
+  }
+
+  .workspace-experiment-create-page,
+  .workspace-outline-design-page,
+  .workspace-analysis-execution-page {
+    height: auto;
+    min-height: calc(100% - 28px);
+    overflow: visible;
+  }
+
+  .workspace-experiment-create-page > .ant-form {
+    display: block;
+  }
+
+  .workspace-analysis-execution-page {
+    min-height: calc(100% - 28px);
+  }
+
+  .workspace-analysis-execution-page > .ant-card {
+    min-height: 65vh;
+  }
+
+  .workspace-report-generator-page .workspace-form-actions {
+    flex: 0 0 auto;
   }
 }

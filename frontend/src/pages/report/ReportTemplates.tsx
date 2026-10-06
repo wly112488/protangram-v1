@@ -34,11 +34,8 @@ const ReportTemplates: React.FC = () => {
   };
 
   return (
-    <div>
-      <Title level={4}>报告模板管理</Title>
-      <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-        管理报告模板，点击卡片可查看具体Word模板内容。模板文件位于 wordreporttemplate 目录下。
-      </Text>
+    <div className="workspace-simple-page workspace-report-templates-page">
+      <div className="workspace-page-heading"><div><Title level={4} className="workspace-page-title">报告模板管理</Title><Text type="secondary">浏览报告结构并预览可用模板</Text></div></div>
 
       <Row gutter={[16, 16]}>
         {REPORT_TEMPLATES.map((template) => (

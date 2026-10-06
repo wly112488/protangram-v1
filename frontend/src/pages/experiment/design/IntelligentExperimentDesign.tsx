@@ -14,6 +14,7 @@ import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createDesignArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
+import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -76,7 +77,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   const location = useLocation();
   const incoming = location.state as BusinessRouteState | null;
   const { setContext } = useTrialAIAssistant();
-  const { projects, targetProject } = useWorkspaceBusinessSession(incoming);
+  const { projects, session, targetProject, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
@@ -168,6 +169,7 @@ const IntelligentExperimentDesign: React.FC = () => {
       },
     }));
     if (!artifact) return false;
+    recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
     message.success(`推荐方案已保存到项目“${project.name}”`);
     return true;
   };
@@ -184,7 +186,8 @@ const IntelligentExperimentDesign: React.FC = () => {
           : '智能试验设计',
       status: '待执行',
     };
-    navigate('/experiment/tasks', {
+    const taskQuery = createTaskContextSearch(workspaceSession);
+    navigate(`/experiment/tasks${taskQuery}`, {
       state: { source: 'intelligentDesign', task, model, plan, datasets, workspaceSession } satisfies BusinessRouteState,
     });
   };
@@ -192,7 +195,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   const confirmPlan = () => {
     if (!generated) return message.warning('请先生成推荐方案');
     if (targetProject) {
-      if (persistDesign(targetProject.id)) createTask({ mode: 'project', targetProjectId: targetProject.id });
+      if (persistDesign(targetProject.id)) createTask(session.mode === 'task' ? session : { mode: 'project', targetProjectId: targetProject.id });
       return;
     }
     setSaveTargetOpen(true);
@@ -276,7 +279,7 @@ const IntelligentExperimentDesign: React.FC = () => {
 
   return (
     <div className="workspace-business-page">
-      <div className="workspace-business-heading">
+      <div className="workspace-business-heading workspace-page-heading">
         <div><Title level={4} style={{ margin: 0 }}>智能试验设计</Title><Text type="secondary">基于可信模型、历史数据和安全约束生成推荐试验方案</Text></div>
         <Tag color={targetProject ? 'blue' : 'default'}>{targetProject ? `项目：${targetProject.name}` : '独立模式'}</Tag>
       </div>
@@ -370,11 +373,11 @@ const IntelligentExperimentDesign: React.FC = () => {
         onConfirm={(projectId) => {
           if (!persistDesign(projectId)) return;
           setSaveTargetOpen(false);
-          createTask({ mode: 'project', targetProjectId: projectId });
+          createTask(session.mode === 'task' ? session : { mode: 'project', targetProjectId: projectId });
         }}
         onSkip={() => {
           setSaveTargetOpen(false);
-          createTask({ mode: 'standalone' });
+          createTask(session.mode === 'task' ? session : { mode: 'standalone' });
         }}
       />
     </div>
@@ -385,6 +388,7 @@ export const ExperimentTaskResult: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const incoming = location.state as BusinessRouteState | null;
+  const { session } = useWorkspaceBusinessSession(incoming);
   const task: TaskContract = incoming?.task ?? {
     taskId: 'intelligent-task-demo', taskName: '发动机智能推荐试验任务 #01', taskType: '智能推荐试验', source: '智能试验设计', status: '待执行',
   };
@@ -405,19 +409,19 @@ export const ExperimentTaskResult: React.FC = () => {
 
   const enterAnalysis = () => {
     const completedTask = { ...task, status: '已完成' as const };
-    navigate('/analysis/projects', { state: {
+    navigate(`/analysis/projects${createTaskContextSearch(session)}`, { state: {
       source: 'intelligentDesign',
       task: completedTask,
       model: incoming?.model,
       plan,
-      workspaceSession: incoming?.workspaceSession,
+      workspaceSession: session,
       data: { dataId: `data-${task.taskId}`, dataName: `${task.taskId}.csv`, dataType: '试验实测数据', source: '试验任务执行', taskId: task.taskId },
     } satisfies BusinessRouteState });
   };
 
   return (
     <div className="workspace-business-page">
-      <div className="workspace-business-heading"><div><Title level={4}>试验任务</Title><Text type="secondary">按确认后的推荐工况执行并回流试验数据</Text></div></div>
+      <div className="workspace-business-heading workspace-page-heading"><div><Title level={4}>试验任务</Title><Text type="secondary">按确认后的推荐工况执行并回流试验数据</Text></div></div>
       <Alert type={status === '已完成' ? 'success' : 'info'} showIcon title={status === '已完成' ? '试验任务执行完成' : '试验任务已创建'} description={`来源方案：${task.source}`} />
       <Card title={task.taskName} size="small" className="workspace-business-card"><Descriptions column={2} items={[
         { key: 'id', label: '任务编号', children: task.taskId }, { key: 'source', label: '创建来源', children: task.source },
@@ -427,6 +431,7 @@ export const ExperimentTaskResult: React.FC = () => {
       ]} /></Card>
       <Card title="推荐执行顺序" size="small" className="workspace-business-card"><Table size="small" pagination={false} dataSource={plan} columns={[{ title: '顺序', dataIndex: 'order' }, { title: '转速', dataIndex: 'speed' }, { title: '温度', dataIndex: 'temperature' }, { title: '压力', dataIndex: 'pressure' }, { title: '风险', dataIndex: 'risk', render: tagLevel }]} /></Card>
       <Space>
+        {session.mode === 'task' && <Button onClick={() => navigate(createTaskReturnPath(session))}>返回当前任务</Button>}
         {status !== '已完成' && <Button type="primary" loading={status === '执行中'} disabled={status === '执行中'} onClick={startExecution}>{status === '执行中' ? '正在执行' : '开始执行'}</Button>}
         {status === '已完成' && <Button type="primary" onClick={enterAnalysis}>进入试验数据分析</Button>}
         <Button onClick={() => navigate('/')}>返回工作台</Button>

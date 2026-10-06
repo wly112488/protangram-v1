@@ -14,7 +14,10 @@ import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createCalibrationArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
+import { useTaskStore } from '@/workspace/taskStore';
+import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
+import type { ProjectArtifact } from '@/workspace/types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -51,8 +54,9 @@ const DigitalTwin: React.FC = () => {
   const location = useLocation();
   const incoming = location.state as BusinessRouteState | null;
   const { setContext } = useTrialAIAssistant();
-  const { projects, session, targetProject } = useWorkspaceBusinessSession(incoming);
+  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
+  const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const initialModel = incoming?.model ?? null;
   const [model, setModel] = useState<ModelContract | null>(initialModel);
   const [simulationFile, setSimulationFile] = useState(incoming?.source === 'dataAnalysis' ? 'digital_twin_baseline.json' : '');
@@ -75,8 +79,8 @@ const DigitalTwin: React.FC = () => {
   const preparationReady = Object.values(confirmed).every(Boolean);
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
-    () => boundProject ? { mode: 'project', targetProjectId: boundProject.id } : { mode: 'standalone' },
-    [boundProject],
+    () => boundProject ? (session.mode === 'task' ? session : { mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
+    [boundProject, session],
   );
 
   useEffect(() => () => {
@@ -130,10 +134,16 @@ const DigitalTwin: React.FC = () => {
     message.success('结果已导出');
   };
 
-  const persistCalibration = (projectId: string) => {
-    if (!calibrated || !activeModel) return message.warning('请先完成模型校准');
+  const persistCalibration = (projectId: string): ProjectArtifact | null => {
+    if (!calibrated || !activeModel) {
+      message.warning('请先完成模型校准');
+      return null;
+    }
     const project = projects.find((item) => item.id === projectId);
-    if (!project) return message.warning('目标项目不存在');
+    if (!project) {
+      message.warning('目标项目不存在');
+      return null;
+    }
     const saved = addArtifact(projectId, createCalibrationArtifactInput({
       title: `${activeModel.modelName} ${activeModel.version} 校准结果`,
       summary: '模型校准完成，综合拟合度 R² = 0.946，模型可信度 94.6%',
@@ -151,10 +161,23 @@ const DigitalTwin: React.FC = () => {
         charts: [{ id: 'calibration-comparison', title: '校准结果对比' }],
       },
     }));
-    if (!saved) return message.error('保存失败');
+    if (!saved) {
+      message.error('保存失败');
+      return null;
+    }
+    recordArtifactForTaskItem({ projectId, artifactId: saved.id });
     setSavedProjectId(projectId);
     setSaveTargetOpen(false);
     message.success(`校准结果已保存到项目“${project.name}”`);
+    return saved;
+  };
+
+  const addCalibrationToTaskReport = () => {
+    if (effectiveSession.mode !== 'task' || !boundProject) return;
+    const saved = persistCalibration(boundProject.id);
+    if (!saved) return;
+    addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId: saved.id });
+    navigate(createTaskReturnPath(effectiveSession));
   };
 
   const requestSaveToProject = () => {
@@ -173,19 +196,19 @@ const DigitalTwin: React.FC = () => {
     }
     if (!calibrated || !activeModel) return message.warning('请先完成模型校准');
     const result = { resultType: 'model-calibration', resultSummary: '模型校准完成，综合拟合度 R² = 0.946', metrics: ['出口温度', '出口压力', '振动幅值'] };
-    if (action === '用于试验设计') navigate('/experiment/design/intelligent', { state: { source: 'digitalTwin', model: activeModel, result, workspaceSession: effectiveSession } satisfies BusinessRouteState });
-    if (action === '用于工况扩展') navigate('/analysis/virtual-condition', { state: { source: 'digitalTwin', model: activeModel, result, workspaceSession: effectiveSession } satisfies BusinessRouteState });
+    if (action === '用于试验设计') navigate(`/experiment/design/intelligent${createTaskContextSearch(effectiveSession)}`, { state: { source: 'digitalTwin', model: activeModel, result, workspaceSession: effectiveSession } satisfies BusinessRouteState });
+    if (action === '用于工况扩展') navigate(`/analysis/virtual-condition${createTaskContextSearch(effectiveSession)}`, { state: { source: 'digitalTwin', model: activeModel, result, workspaceSession: effectiveSession } satisfies BusinessRouteState });
   }, [activeModel, calibrated, effectiveSession, navigate]);
 
   useEffect(() => {
     setContext({
       pageType: 'digitalTwin', pageName: '试验数字孪生', projectName: boundProject?.name,
-      taskName: incoming?.task?.taskName, modelName: activeModel ? `${activeModel.modelName} ${activeModel.version}` : undefined,
+      taskName: incoming?.task?.taskName ?? activeTask?.title, modelName: activeModel ? `${activeModel.modelName} ${activeModel.version}` : undefined,
       dataName: activeMeasuredFile || activeSimulationFile, resultSummary: calibrated ? '模型校准完成，综合拟合度 R² = 0.946' : '等待模型校准',
       resultReady: calibrated, onBusinessAction: handleBusinessAction,
     });
     return () => setContext(null);
-  }, [activeMeasuredFile, activeModel, activeSimulationFile, boundProject?.name, calibrated, handleBusinessAction, incoming?.task?.taskName, setContext]);
+  }, [activeMeasuredFile, activeModel, activeSimulationFile, activeTask?.title, boundProject?.name, calibrated, handleBusinessAction, incoming?.task?.taskName, setContext]);
 
   const comparisonChart = {
     tooltip: { trigger: 'axis' },
@@ -230,7 +253,7 @@ const DigitalTwin: React.FC = () => {
 
   return (
     <div className="workspace-business-page">
-      <div className="workspace-business-heading">
+      <div className="workspace-business-heading workspace-page-heading">
         <div><Title level={4} style={{ margin: 0 }}>试验数字孪生</Title><Text type="secondary">配置模型与数据，执行模型校准并查看分析结果</Text></div>
         <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
@@ -261,7 +284,7 @@ const DigitalTwin: React.FC = () => {
 
       <Card id="business-result" title="分析结果" size="small" className="workspace-business-card" extra={<Space><Button icon={<BarChartOutlined />} disabled={!calibrated} onClick={() => message.info('下方已显示结果对比图')}>结果对比</Button><Button icon={<DownloadOutlined />} onClick={exportResult}>导出结果</Button></Space>}>
         {calibrating ? <div style={{ padding: '40px 12%' }}><Progress percent={78} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在进行参数寻优与模型校准...</Paragraph></div>
-          : calibrated ? <><Alert type="success" showIcon title="校准已完成，综合拟合度 R² = 0.946" style={{ marginBottom: 16 }} /><Tabs items={resultTabs} /><Card size="small" title="结果对比" style={{ marginTop: 16 }}><ReactECharts option={comparisonChart} style={{ height: 280 }} /></Card><div className="workspace-result-actions"><Space wrap><Button icon={<SaveOutlined />} onClick={requestSaveToProject}>保存到项目</Button><Button onClick={() => handleBusinessAction('用于工况扩展')}>用于工况扩展</Button><Button onClick={() => handleBusinessAction('用于试验设计')}>用于试验设计</Button></Space></div></>
+          : calibrated ? <><Alert type="success" showIcon title="校准已完成，综合拟合度 R² = 0.946" style={{ marginBottom: 16 }} /><Tabs items={resultTabs} /><Card size="small" title="结果对比" style={{ marginTop: 16 }}><ReactECharts option={comparisonChart} style={{ height: 280 }} /></Card><div className="workspace-result-actions"><Space wrap><Button icon={<SaveOutlined />} onClick={requestSaveToProject}>保存到项目</Button>{effectiveSession.mode === 'task' && <Button type="primary" onClick={addCalibrationToTaskReport}>加入任务报告</Button>}<Button onClick={() => handleBusinessAction('用于工况扩展')}>用于工况扩展</Button><Button onClick={() => handleBusinessAction('用于试验设计')}>用于试验设计</Button></Space></div></>
             : <Alert type="info" showIcon title="完成模型、数据和参数配置后，点击“开始校准”查看结果" />}
       </Card>
 

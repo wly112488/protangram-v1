@@ -10,6 +10,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
+import { useTaskStore } from '@/workspace/taskStore';
 import { createReportArtifactInput, getReportableArtifacts } from './reportModel.js';
 import type { AnalysisReport } from '@/types';
 
@@ -37,6 +38,8 @@ const MOCK_OUTPUT_VARIABLES = [
 type ReportRecord = AnalysisReport & {
   workspaceProjectId?: string;
   artifactIds?: string[];
+  taskId?: string;
+  taskItemId?: string;
 };
 
 /**
@@ -48,6 +51,9 @@ const ReportGenerate: React.FC = () => {
   const { reportId } = useParams<{ reportId: string }>();
   const { analysisReports, updateAnalysisReport, setAnalysisReports } = useAppStore();
   const { projects, addArtifact, removeArtifact } = useProjectStore();
+  const setTaskReportStatus = useTaskStore((state) => state.setReportStatus);
+  const setTaskRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
 
   const [tagBindings, setTagBindings] = useState<Record<string, string>>({});
   const [dragItem, setDragItem] = useState<string>('');
@@ -134,7 +140,7 @@ const ReportGenerate: React.FC = () => {
     if (workspaceProject && report) {
       const existingArtifact = workspaceProject.artifacts.find((artifact) => artifact.id === report.id);
       if (existingArtifact) removeArtifact(workspaceProject.id, existingArtifact.id);
-      addArtifact(workspaceProject.id, createReportArtifactInput({
+      const reportArtifact = addArtifact(workspaceProject.id, createReportArtifactInput({
         reportId: report.id,
         title: report.name,
         summary: `${report.name} · 已绑定 ${Object.keys(tagBindings).length} 项内容`,
@@ -142,7 +148,12 @@ const ReportGenerate: React.FC = () => {
         artifactIds: selectedArtifactIds || projectOutputVariables.map((item) => item.id),
         tagBindings,
       }));
+      if (reportArtifact && report?.taskId && report.taskItemId) {
+        addArtifactToTaskItem(report.taskId, report.taskItemId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
+        setTaskRequirementStatus(report.taskId, report.taskItemId, '已满足');
+      }
     }
+    if (report?.taskId) setTaskReportStatus(report.taskId, 'finalized');
     setReportGenerated(true);
     message.success('报告生成成功！');
   };
@@ -158,9 +169,9 @@ const ReportGenerate: React.FC = () => {
   const totalTags = TEMPLATE_TAGS.length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, gap: 12, flexShrink: 0 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/report/list')}>返回</Button>
+    <div className="workspace-simple-page workspace-report-generator-page">
+      <div className="workspace-page-heading">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}${report.taskItemId ? `?taskItemId=${encodeURIComponent(report.taskItemId)}` : ''}` : '/report/list')}>返回</Button>
         <Title level={4} style={{ margin: 0 }}>分析报告生成</Title>
         {report && <Tag color="purple">{report.name}</Tag>}
         <Tag color={boundCount === totalTags ? 'green' : 'orange'}>
@@ -168,7 +179,13 @@ const ReportGenerate: React.FC = () => {
         </Tag>
       </div>
 
-      <Row gutter={16} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {report?.reportContent && (
+        <Card size="small" title="任务报告草稿内容" style={{ marginBottom: 12, maxHeight: 180, overflow: 'auto' }}>
+          <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{report.reportContent}</Paragraph>
+        </Card>
+      )}
+
+      <Row className="workspace-report-generator-layout" gutter={16} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* 左侧：数据分析输出节点（需求3.3.2） */}
         <Col span={8} style={{ height: '100%', display: 'flex' }}>
           <Card title={
@@ -264,9 +281,9 @@ const ReportGenerate: React.FC = () => {
         </Col>
       </Row>
 
-      <div style={{ textAlign: 'center', marginTop: 16, flexShrink: 0 }}>
+      <div className="workspace-form-actions" style={{ textAlign: 'center', marginTop: 16, flexShrink: 0 }}>
         <Space size="large">
-          <Button size="large" onClick={() => navigate('/report/list')}>返回列表</Button>
+          <Button size="large" onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}` : '/report/list')}>{report?.taskId ? '返回任务工作台' : '返回列表'}</Button>
           <Button size="large" icon={<SaveOutlined />} onClick={handleSave}>保存绑定</Button>
           <Button type="primary" size="large" icon={<FileDoneOutlined />}
             onClick={handleGenerateReport}>

@@ -1,6 +1,6 @@
 import type { Project } from './types';
 
-export type HeaderActiveKey = 'experiment' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | null;
+export type HeaderActiveKey = 'taskCenter' | 'experiment' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | null;
 
 export interface PrimaryNavigationItem {
   key: Exclude<HeaderActiveKey, null>;
@@ -10,6 +10,7 @@ export interface PrimaryNavigationItem {
 }
 
 export const primaryNavigationItems: PrimaryNavigationItem[] = [
+  { key: 'taskCenter', label: '任务中心', path: '/' },
   { key: 'experiment', label: '试验管理', groups: ['关联对象管理', '试验科目', '采样要求'] },
   { key: 'doe', label: '试验设计', path: '/experiment/design/intelligent' },
   { key: 'analysis', label: '试验数据分析', path: '/analysis/projects' },
@@ -25,6 +26,7 @@ export const filterProjectsBySearch = (projects: Project[], keyword: string): Pr
 };
 
 export const getHeaderActiveKey = (pathname: string): HeaderActiveKey => {
+  if (pathname === '/' || pathname.startsWith('/tasks/')) return 'taskCenter';
   if (pathname.startsWith('/analysis/digital-twin')) return 'digitalTwin';
   if (pathname.startsWith('/analysis/virtual-condition')) return 'virtualCondition';
   if (pathname.startsWith('/analysis/projects')) return 'analysis';

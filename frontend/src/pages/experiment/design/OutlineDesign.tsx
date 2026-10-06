@@ -577,8 +577,8 @@ const OutlineDesign: React.FC = () => {
   const stepRenderers = [renderStep0, renderStep1, renderStep2, renderStep3, renderStep4];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, gap: 12, flexShrink: 0 }}>
+    <div className="workspace-simple-page workspace-outline-design-page">
+      <div className="workspace-page-heading">
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/experiment/design')}>
           返回
         </Button>

@@ -992,7 +992,7 @@ body {
   min-width: 150px;
   display: flex;
   flex-direction: column;
-+  gap: 4px;
+  gap: 4px;
 }
 
 .layout-function-group {

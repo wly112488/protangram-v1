@@ -104,13 +104,12 @@ const TestSubjects: React.FC = () => {
   if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Title level={4} style={{ flexShrink: 0 }}>试验科目</Title>
-      <Text type="secondary" style={{ marginBottom: 12, display: 'block', flexShrink: 0 }}>
-        基于test.csv文件按层级结构展示试验科目
-      </Text>
-      <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
-        <Card title="科目树" style={{ width: 400, height: '100%', overflow: 'auto' }}>
+    <div className="workspace-simple-page workspace-test-subjects-page">
+      <div className="workspace-page-heading">
+        <div><Title level={4} className="workspace-page-title">试验科目</Title><Text type="secondary">基于试验科目层级浏览和筛选数据</Text></div>
+      </div>
+      <div className="workspace-test-subjects-content">
+        <Card title="科目树" className="workspace-test-subjects-tree">
           <Tree
             treeData={treeData}
             onSelect={(keys) => {
@@ -134,7 +133,7 @@ const TestSubjects: React.FC = () => {
               )}
             </span>
           }
-          style={{ flex: 1, height: '100%', overflow: 'auto' }}
+          className="workspace-test-subjects-table"
         >
           <Table
             dataSource={filteredTableData}

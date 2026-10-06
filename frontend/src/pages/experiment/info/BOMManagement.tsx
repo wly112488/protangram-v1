@@ -346,8 +346,8 @@ const BOMManagement: React.FC = () => {
   });
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+    <div className="workspace-simple-page">
+      <div className="workspace-page-heading">
         <div>
           <Title level={4} style={{ marginBottom: 4 }}>
             <ApartmentOutlined style={{ marginRight: 8 }} />

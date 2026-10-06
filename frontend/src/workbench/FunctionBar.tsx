@@ -4,6 +4,7 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { primaryNavigationItems } from '@/workspace/presentationModel';
 import { createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
+import type { WorkspaceSessionState } from '@/types/businessContext';
 import EquipmentManagerWindow, { type ResearchObject } from './EquipmentManagerWindow';
 
 const { Text, Title } = Typography;
@@ -129,6 +130,7 @@ interface FunctionBarProps {
   onDesignGenerated?: (designName: string) => void;
   experiments: Array<{ id: string; name: string; associationObjectId?: string }>;
   activeProjectId?: string | null;
+  workspaceSession?: WorkspaceSessionState;
   onAssociateObjectToExperiment: (objectId: string, experimentId: string) => void;
   onMergeObjects: (sourceObjectId: string, targetObjectId: string) => void;
   onImportExperiment: (experimentId: string) => void;
@@ -140,11 +142,17 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   onDesignGenerated,
   experiments,
   activeProjectId = null,
+  workspaceSession,
   onAssociateObjectToExperiment,
   onMergeObjects,
   onImportExperiment,
 }) => {
   const navigate = useNavigate();
+  const getNavigation = () => workspaceSession ?? createWorkspaceNavigationState(activeProjectId).workspaceSession;
+  const getTarget = (path: string) => {
+    const session = getNavigation();
+    return session.mode === 'task' ? `${path}?taskId=${encodeURIComponent(session.taskId)}` : path;
+  };
   const [quickDesignOpen, setQuickDesignOpen] = useState(false);
   const [equipmentManagerOpen, setEquipmentManagerOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<MethodRow | null>(null);
@@ -175,7 +183,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       报告生成: '/report/create',
     };
     if (groupRoutes[group]) {
-      navigate(groupRoutes[group], { state: createWorkspaceNavigationState(activeProjectId) });
+      navigate(getTarget(groupRoutes[group]), { state: { workspaceSession: getNavigation() } });
       return;
     }
     if (group === '快速设计') {
@@ -328,7 +336,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
               data-nav-key={item.key}
               key={item.key}
               type="button"
-              onClick={item.path ? () => navigate(item.path!, { state: createWorkspaceNavigationState(activeProjectId) }) : undefined}
+              onClick={item.path ? () => navigate(getTarget(item.path!), { state: { workspaceSession: getNavigation() } }) : undefined}
             >
               {item.label}
             </button>

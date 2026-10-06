@@ -23,7 +23,12 @@ const loadLegacyExperiments = (): LegacyGeneratedExperiment[] => {
   }
 };
 
-const ProjectSidebar: React.FC = () => {
+interface ProjectSidebarProps {
+  mobileOpen?: boolean;
+  onNavigate?: () => void;
+}
+
+const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onNavigate }) => {
   const navigate = useNavigate();
   const projects = useProjectStore((state) => state.projects);
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
@@ -59,7 +64,8 @@ const ProjectSidebar: React.FC = () => {
           onConfirm={() => {
             deleteProject(project.id);
             message.success(`项目“${project.name}”已删除`);
-            navigate('/');
+            navigate('/projects');
+            onNavigate?.();
           }}
         >
           <Button
@@ -84,7 +90,8 @@ const ProjectSidebar: React.FC = () => {
   const selectProjectView = (projectId: string, view: ProjectView) => {
     setActiveProject(projectId);
     setActiveView(view);
-    navigate('/');
+    navigate('/projects');
+    onNavigate?.();
   };
 
   const handleTreeSelect = (keys: React.Key[]) => {
@@ -107,11 +114,12 @@ const ProjectSidebar: React.FC = () => {
     createProject({ name, status: '未开始' });
     setProjectName('');
     setCreateOpen(false);
-    navigate('/');
+    navigate('/projects');
+    onNavigate?.();
   };
 
   return (
-    <aside className="workspace-project-sidebar">
+    <aside id="workspace-project-sidebar" className={`workspace-project-sidebar ${mobileOpen ? 'is-mobile-open' : ''}`}>
       <div className="workspace-project-sidebar-head">
         <div>
           <strong>项目内容</strong>
@@ -194,7 +202,8 @@ const ProjectSidebar: React.FC = () => {
                     onClick={() => {
                       importLegacyExperiment(item);
                       setImportOpen(false);
-                      navigate('/');
+                      navigate('/projects');
+                      onNavigate?.();
                     }}
                   >
                     导入

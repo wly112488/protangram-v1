@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Button, Space, Tag, Typography } from 'antd';
 import TrialAIAssistant from '@/components/TrialAIAssistant';
 import type { ResearchObject } from '@/workbench/EquipmentManagerWindow';
-import ProjectContent from './ProjectContent';
 import ProjectSidebar from './ProjectSidebar';
 import WorkspaceHeader from './WorkspaceHeader';
 import { useProjectStore } from './projectStore';
+import { useTaskStore } from './taskStore';
+import { createTaskReturnPath } from './businessSessionModel';
+import type { BusinessRouteState, WorkspaceSessionState } from '@/types/businessContext';
 import './workspace.css';
 
 const RESEARCH_OBJECT_STORAGE_KEY = 'protangram-research-objects';
+const { Text } = Typography;
 
 const loadResearchObjects = (): ResearchObject[] => {
   try {
@@ -68,9 +72,26 @@ const WorkspaceShell: React.FC = () => {
   const navigate = useNavigate();
   const projects = useProjectStore((state) => state.projects);
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
+  const tasks = useTaskStore((state) => state.tasks);
+  const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
+  const addArtifact = useProjectStore((state) => state.addArtifact);
   const createProjectFromDesign = useProjectStore((state) => state.createProjectFromDesign);
   const [researchObjects, setResearchObjects] = useState<ResearchObject[]>(loadResearchObjects);
+  const [projectNavOpen, setProjectNavOpen] = useState(false);
+  const incomingSession = (location.state as BusinessRouteState | null)?.workspaceSession;
+  const queryTaskId = new URLSearchParams(location.search).get('taskId');
+  const queryTaskItemId = new URLSearchParams(location.search).get('taskItemId') ?? undefined;
+  const activeTask = tasks.find((task) => task.id === (incomingSession?.mode === 'task' ? incomingSession.taskId : queryTaskId));
+  const requestedTaskItemId = incomingSession?.mode === 'task' ? incomingSession.taskItemId ?? queryTaskItemId : queryTaskItemId;
+  const activeTaskItem = activeTask?.requirements.find((item) => item.id === requestedTaskItemId);
+  const navigationSession: WorkspaceSessionState = activeTask
+    ? { mode: 'task', taskId: activeTask.id, targetProjectId: activeTask.projectId, taskItemId: activeTaskItem?.id }
+    : incomingSession ?? (activeProjectId ? { mode: 'project', targetProjectId: activeProjectId } : { mode: 'standalone' });
+
+  useEffect(() => {
+    setProjectNavOpen(false);
+  }, [location.pathname]);
 
   const handleResearchObjectsChange = (objects: ResearchObject[]) => {
     setResearchObjects(objects);
@@ -78,6 +99,20 @@ const WorkspaceShell: React.FC = () => {
   };
 
   const handleDesignGenerated = (designName: string) => {
+    if (navigationSession.mode === 'task') {
+      const artifact = addArtifact(navigationSession.targetProjectId, {
+        type: 'design',
+        title: designName,
+        source: '试验设计（DOE）',
+        summary: `${designName} · 已从当前任务生成`,
+        payload: { designSummary: createPresetDesignSummary(designName) },
+      });
+      if (artifact && navigationSession.taskItemId) {
+        addArtifactToTaskItem(navigationSession.taskId, navigationSession.taskItemId, { projectId: artifact.projectId, artifactId: artifact.id });
+      }
+      navigate(createTaskReturnPath(navigationSession));
+      return;
+    }
     const projectIndex = projects.length + 1;
     createProjectFromDesign({
       name: `实验${projectIndex}`,
@@ -85,12 +120,12 @@ const WorkspaceShell: React.FC = () => {
       designSummary: createPresetDesignSummary(designName),
       worksheetData: createPresetWorksheetData(designName, projectIndex),
     });
-    navigate('/');
+    navigate('/projects');
   };
 
   const handleImportProject = (projectId: string) => {
     setActiveProject(projectId);
-    navigate('/');
+    navigate('/projects');
   };
 
   return (
@@ -100,14 +135,31 @@ const WorkspaceShell: React.FC = () => {
         onResearchObjectsChange={handleResearchObjectsChange}
         projects={projects.map((project) => ({ id: project.id, name: project.name }))}
         activeProjectId={activeProjectId}
+        workspaceSession={navigationSession}
+        workspaceTask={activeTask ? { id: activeTask.id, title: activeTask.title } : undefined}
         onImportProject={handleImportProject}
         onDesignGenerated={handleDesignGenerated}
+        onToggleProjectNav={() => setProjectNavOpen((open) => !open)}
+        projectNavOpen={projectNavOpen}
       />
 
-      <div className="workspace-shell-body">
-        <ProjectSidebar />
+      <div className={`workspace-shell-body ${projectNavOpen ? 'workspace-project-nav-open' : ''}`}>
+        <ProjectSidebar mobileOpen={projectNavOpen} onNavigate={() => setProjectNavOpen(false)} />
+        {projectNavOpen && <button type="button" className="workspace-sidebar-backdrop" aria-label="关闭项目导航" onClick={() => setProjectNavOpen(false)} />}
         <main className="workspace-center">
-          {location.pathname === '/' ? <ProjectContent /> : <Outlet />}
+          {activeTask && !location.pathname.startsWith('/tasks/') && (
+            <div className="workspace-task-context">
+              <div className="workspace-task-context-copy">
+                <Tag color="blue">当前任务</Tag>
+                <Text strong>{activeTask.title}</Text>
+                {activeTaskItem && <Text type="secondary">当前事项：{activeTaskItem.text}</Text>}
+              </div>
+              <Button size="small" type="link" onClick={() => navigate(createTaskReturnPath(navigationSession))}>
+                返回{activeTaskItem ? '当前事项' : '任务'}
+              </Button>
+            </div>
+          )}
+          <Outlet />
         </main>
         <TrialAIAssistant />
       </div>

@@ -14,8 +14,9 @@ import type { BusinessAction, BusinessRouteState, DataContract, ModelContract, T
 import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createAnalysisArtifactInput, createRootCauseArtifactInput } from '@/workspace/projectModel';
-import { createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
+import { createTaskContextSearch, createTaskReturnPath, createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import { useProjectStore } from '@/workspace/projectStore';
+import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import '@/workspace/visualIntegrations.css';
 
@@ -95,14 +96,22 @@ const AnalysisProjects: React.FC = () => {
   const location = useLocation();
   const { setContext } = useTrialAIAssistant();
   const incoming = location.state as BusinessRouteState | null;
-  const { projects, session, targetProject } = useWorkspaceBusinessSession(incoming);
+  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
+  const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
 
-  const routedTask = incoming?.task ? {
-    id: incoming.task.taskId, name: incoming.task.taskName, source: incoming.task.source, status: incoming.task.status,
-    experimentFile: incoming.data?.dataName ?? `${incoming.task.taskId}.csv`, environmentFile: `environment_${incoming.task.taskId}.csv`,
-    controlFile: `control_${incoming.task.taskId}.csv`, modelData: incoming.model ? `${incoming.model.modelName} ${incoming.model.version}` : 'digital_twin_v2',
-    conditions: incoming.plan?.length ?? 8, dataCount: (incoming.plan?.length ?? 8) * 1500,
+  const routedTaskContract = incoming?.task ?? (activeTask ? {
+    taskId: activeTask.id,
+    taskName: activeTask.title,
+    taskType: '任务书分析',
+    source: activeTask.sourceName || '任务中心',
+    status: activeTask.status === '已完成' ? '已完成' as const : '待执行' as const,
+  } : undefined);
+  const routedTask = routedTaskContract ? {
+    id: routedTaskContract.taskId, name: routedTaskContract.taskName, source: routedTaskContract.source, status: routedTaskContract.status,
+    experimentFile: incoming?.data?.dataName ?? `${routedTaskContract.taskId}.csv`, environmentFile: `environment_${routedTaskContract.taskId}.csv`,
+    controlFile: `control_${routedTaskContract.taskId}.csv`, modelData: incoming?.model ? `${incoming.model.modelName} ${incoming.model.version}` : 'digital_twin_v2',
+    conditions: incoming?.plan?.length ?? 8, dataCount: (incoming?.plan?.length ?? 8) * 1500,
   } : null;
   const availableTasks = routedTask ? [routedTask, ...TASKS.filter((item) => item.id !== routedTask.id)] : TASKS;
   const initialTask = routedTask ?? TASKS[0];
@@ -135,8 +144,8 @@ const AnalysisProjects: React.FC = () => {
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
-    () => boundProject ? { mode: 'project', targetProjectId: boundProject.id } : { mode: 'standalone' },
-    [boundProject],
+    () => boundProject ? (session.mode === 'task' ? session : { mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
+    [boundProject, session],
   );
 
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
@@ -230,6 +239,7 @@ const AnalysisProjects: React.FC = () => {
 
     const artifact = addArtifact(projectId, artifactInput);
     if (!artifact) return null;
+    recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
     setSavedProjectId(projectId);
     if (kind === 'analysis') setSavedAnalysisProjectId(projectId);
     else setSavedRootCauseProjectId(projectId);
@@ -254,13 +264,18 @@ const AnalysisProjects: React.FC = () => {
     const dataContract: DataContract = { dataId: `data-${task.id}`, dataName: data.experimentFile, dataType: '试验实测数据', source: '试验数据分析', taskId: task.id };
     const result = { resultType: '试验数据分析', resultSummary: '发现 3 个异常事件，高转速区域温度异常，建议重新校准模型', abnormalRange: '7600～8000 rpm', metrics: config.metrics };
     const base: BusinessRouteState = { source: 'dataAnalysis', task: taskContract, data: dataContract, model: activeModel, result, workspaceSession: effectiveSession };
-    if (action === '用于模型校准') navigate('/analysis/digital-twin', { state: base });
-    if (action === '虚拟工况扩展') navigate('/analysis/virtual-condition', { state: { ...base, validation: { goal: '扩展高转速异常区域', suggestedRange: '7600～8200 rpm', metrics: ['出口温度', '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
-    if (action === '生成补充试验') navigate('/experiment/design/intelligent', { state: { ...base, validation: { goal: `验证${selectedAnomaly.event}及主要根因`, suggestedRange: '7600～8200 rpm', metrics: [selectedAnomaly.event, '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
+    if (action === '用于模型校准') navigate(`/analysis/digital-twin${createTaskContextSearch(effectiveSession)}`, { state: base });
+    if (action === '虚拟工况扩展') navigate(`/analysis/virtual-condition${createTaskContextSearch(effectiveSession)}`, { state: { ...base, validation: { goal: '扩展高转速异常区域', suggestedRange: '7600～8200 rpm', metrics: ['出口温度', '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
+    if (action === '生成补充试验') navigate(`/experiment/design/intelligent${createTaskContextSearch(effectiveSession)}`, { state: { ...base, validation: { goal: `验证${selectedAnomaly.event}及主要根因`, suggestedRange: '7600～8200 rpm', metrics: [selectedAnomaly.event, '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
     if (action === '加入报告') {
       if (boundProject) {
         const artifactId = persistResult(boundProject.id, 'analysis');
         if (!artifactId) return;
+        if (effectiveSession.mode === 'task') {
+          addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId });
+          navigate(createTaskReturnPath(effectiveSession));
+          return;
+        }
         navigate('/report/create', { state: { ...createWorkspaceNavigationState(boundProject.id), artifactIds: [artifactId] } });
         return;
       }
@@ -268,7 +283,7 @@ const AnalysisProjects: React.FC = () => {
       setContinueToReportAfterSave(true);
       setSaveTargetOpen(true);
     }
-  }, [activeModel, addArtifact, analyzed, boundProject, config, data, effectiveSession, navigate, projects, selectedAnomaly, selectedMeasurementPoint, task]);
+  }, [activeModel, addArtifact, addArtifactToReport, analyzed, boundProject, config, data, effectiveSession, navigate, projects, recordArtifactForTaskItem, selectedAnomaly, selectedMeasurementPoint, task]);
 
   useEffect(() => {
     setContext({
@@ -347,7 +362,7 @@ const AnalysisProjects: React.FC = () => {
 
   return (
     <div className="workspace-business-page">
-      <div className="workspace-business-heading">
+      <div className="workspace-business-heading workspace-page-heading">
         <div><Title level={4} style={{ margin: 0 }}>试验数据分析</Title><Text type="secondary">加载试验关联数据，识别异常并形成根因、证据与分析结论</Text></div>
         <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
@@ -472,6 +487,11 @@ const AnalysisProjects: React.FC = () => {
         const artifactId = persistResult(projectId, pendingSaveKind);
         if (artifactId && continueToReportAfterSave) {
           setContinueToReportAfterSave(false);
+          if (effectiveSession.mode === 'task') {
+            addArtifactToReport(effectiveSession.taskId, { projectId, artifactId });
+            navigate(createTaskReturnPath(effectiveSession));
+            return;
+          }
           navigate('/report/create', { state: { ...createWorkspaceNavigationState(projectId), artifactIds: [artifactId] } });
         }
       }} />

@@ -184,8 +184,8 @@ const TestMethods: React.FC = () => {
   const displayMethods = editing ? editMethods : testMethods;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
-      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+    <div className="workspace-simple-page workspace-test-methods-page">
+      <div className="workspace-page-heading">
         <div>
           <Title level={4} style={{ marginBottom: 4 }}>试验设计方法</Title>
           <Text type="secondary">

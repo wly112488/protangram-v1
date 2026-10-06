@@ -58,10 +58,10 @@ export interface PlanCondition {
   reason: string;
 }
 
-export interface WorkspaceSessionState {
-  mode: 'project' | 'standalone';
-  targetProjectId?: string;
-}
+export type WorkspaceSessionState =
+  | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string }
+  | { mode: 'project'; targetProjectId: string }
+  | { mode: 'standalone'; targetProjectId?: string };
 
 export interface BusinessRouteState {
   source: BusinessSource;

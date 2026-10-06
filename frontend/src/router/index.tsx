@@ -32,6 +32,9 @@ import ReportTemplates from '@/pages/report/ReportTemplates';
 import ReportList from '@/pages/report/ReportList';
 import ReportCreate from '@/pages/report/ReportCreate';
 import ReportGenerate from '@/pages/report/ReportGenerate';
+import TaskCenter from '@/workspace/TaskCenter';
+import TaskWorkbench from '@/workspace/TaskWorkbench';
+import ProjectContent from '@/workspace/ProjectContent';
 
 /**
  * 应用路由配置
@@ -42,6 +45,9 @@ const router = createBrowserRouter([
     path: '/',
     element: <MainLayout />,
     children: [
+      { index: true, element: <TaskCenter /> },
+      { path: 'projects', element: <ProjectContent /> },
+      { path: 'tasks/:taskId', element: <TaskWorkbench /> },
       // 1.1 信息管理
       { path: 'experiment/info/bom', element: <BOMManagement /> },
       { path: 'experiment/info/subjects', element: <TestSubjects /> },

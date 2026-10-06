@@ -501,8 +501,8 @@ const AnalysisExecution: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, gap: 12, flexShrink: 0 }}>
+    <div className="workspace-simple-page workspace-analysis-execution-page">
+      <div className="workspace-page-heading">
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/analysis/projects')}>返回</Button>
         <Title level={4} style={{ margin: 0 }}>数据分析执行</Title>
         {project && <Tag color="blue">{project.name}</Tag>}

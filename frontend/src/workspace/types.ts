@@ -72,7 +72,7 @@ export interface ProjectStats {
   artifactCount: number;
 }
 
-export interface BusinessSession {
-  mode: 'project' | 'standalone';
-  targetProjectId?: string;
-}
+export type BusinessSession =
+  | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string }
+  | { mode: 'project'; targetProjectId: string }
+  | { mode: 'standalone'; targetProjectId?: string };

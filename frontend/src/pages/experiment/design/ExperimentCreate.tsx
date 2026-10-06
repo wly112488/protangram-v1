@@ -248,15 +248,14 @@ const ExperimentCreate: React.FC = () => {
   }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6, gap: 8, flexShrink: 0 }}>
+    <div className="workspace-simple-page workspace-experiment-create-page">
+      <div className="workspace-page-heading">
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/experiment/design')}>
           返回
         </Button>
         <Title level={4} style={{ margin: 0 }}>
           {isEdit ? '编辑试验卡片' : '新建试验卡片'}
         </Title>
-        <div style={{ flex: 1 }} />
         <Space>
           <Button onClick={() => navigate('/experiment/design')}>取消</Button>
           <Button icon={<RobotOutlined />}>AI 辅助填写</Button>
@@ -265,7 +264,7 @@ const ExperimentCreate: React.FC = () => {
       </div>
 
       <Form form={form} layout="vertical" style={{ marginBottom: 0, flex: 1, minHeight: 0 }}>
-        <div style={{
+        <div className="workspace-experiment-create-grid" style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
           gridTemplateRows: 'auto 1fr 2fr 1fr',

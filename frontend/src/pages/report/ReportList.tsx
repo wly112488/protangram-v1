@@ -45,8 +45,8 @@ const ReportList: React.FC = () => {
   }, [setAnalysisReports]);
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+    <div className="workspace-simple-page workspace-report-list-page">
+      <div className="workspace-page-heading">
         <div>
           <Title level={4} style={{ margin: 0 }}>分析报告管理</Title>
           <Text type="secondary">管理已生成的分析报告</Text>

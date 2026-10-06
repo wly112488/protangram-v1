@@ -5,13 +5,7 @@ import {
   FundProjectionScreenOutlined,
   FileTextOutlined,
   PlusOutlined,
-  AppstoreOutlined,
-  ProfileOutlined,
-  FormOutlined,
-  EditOutlined,
-  BlockOutlined,
   LineChartOutlined,
-  PlayCircleOutlined,
   FileDoneOutlined,
   FileAddOutlined,
   FileSyncOutlined,
@@ -26,33 +20,41 @@ const HOME_CARDS = [
     key: 'experiment',
     title: '试验设计',
     icon: <ExperimentOutlined style={{ fontSize: 56, color: '#1890ff' }} />,
-    description: '创建和管理试验项目，设计试验大纲，配置试验方法、因子与响应变量，生成试验方案。',
-    path: '/experiment/design',
+    description: '基于可信模型、历史数据和安全约束生成推荐试验方案。',
+    path: '/experiment/design/intelligent',
     color: '#e6f7ff',
     borderColor: '#91caff',
-    steps: [
-      { label: '装备管理', path: '/experiment/info/bom', icon: <AppstoreOutlined /> },
-      { label: '试验科目', path: '/experiment/info/subjects', icon: <ProfileOutlined /> },
-      { label: '设计方法', path: '/experiment/info/methods', icon: <FormOutlined /> },
-      { label: '新建试验', path: '/experiment/design/create', icon: <PlusOutlined /> },
-      { label: '试验列表', path: '/experiment/design', icon: <EditOutlined /> },
-    ],
+    steps: [],
   },
   {
-    key: 'analysis',
-    title: '数据分析',
-    icon: <FundProjectionScreenOutlined style={{ fontSize: 56, color: '#52c41a' }} />,
-    description: '构建数据分析模板，执行分析流程，支持数据导入、计算处理、对比分析与图表可视化。',
+    key: 'analysis-projects',
+    title: '试验数据分析',
+    icon: <LineChartOutlined style={{ fontSize: 56, color: '#52c41a' }} />,
+    description: '加载试验关联数据，识别异常并形成根因、证据与分析结论。',
     path: '/analysis/projects',
     color: '#f6ffed',
     borderColor: '#b7eb8f',
-    steps: [
-      { label: '模块管理', path: '/analysis/modules', icon: <AppstoreOutlined /> },
-      { label: '模板列表', path: '/analysis/templates', icon: <BlockOutlined /> },
-      { label: '新建模板', path: '/analysis/templates/create', icon: <PlusOutlined /> },
-      { label: '分析项目', path: '/analysis/projects', icon: <LineChartOutlined /> },
-      { label: '新建项目', path: '/analysis/projects/create', icon: <PlayCircleOutlined /> },
-    ],
+    steps: [],
+  },
+  {
+    key: 'digital-twin',
+    title: '试验数字孪生',
+    icon: <FundProjectionScreenOutlined style={{ fontSize: 56, color: '#13a8a8' }} />,
+    description: '校准数字孪生模型并评估可信范围。',
+    path: '/analysis/digital-twin',
+    color: '#e6fffb',
+    borderColor: '#87e8de',
+    steps: [],
+  },
+  {
+    key: 'virtual-condition',
+    title: '虚拟工况扩展',
+    icon: <LineChartOutlined style={{ fontSize: 56, color: '#722ed1' }} />,
+    description: '使用可信数字孪生模型扩展未实测工况。',
+    path: '/analysis/virtual-condition',
+    color: '#f9f0ff',
+    borderColor: '#d3adf7',
+    steps: [],
   },
   {
     key: 'report',
@@ -73,7 +75,7 @@ const HOME_CARDS = [
 
 /**
  * 系统首页
- * @description 三个大卡片入口：试验设计、数据分析、报告生成，含快捷导航按钮
+ * @description 业务页面直达卡片和报告快捷入口
  */
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -110,22 +112,26 @@ const Home: React.FC = () => {
                 </Paragraph>
               </div>
 
-              <Divider style={{ margin: '14px 0' }} />
+              {card.steps.length > 0 && (
+                <>
+                  <Divider style={{ margin: '14px 0' }} />
 
-              <Text strong style={{ fontSize: 13, marginBottom: 10, display: 'block' }}>快捷入口</Text>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {card.steps.map((step) => (
-                  <Button
-                    key={step.label}
-                    size="middle"
-                    icon={step.icon}
-                    onClick={() => navigate(step.path)}
-                    style={{ borderRadius: 6 }}
-                  >
-                    {step.label}
-                  </Button>
-                ))}
-              </div>
+                  <Text strong style={{ fontSize: 13, marginBottom: 10, display: 'block' }}>快捷入口</Text>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {card.steps.map((step) => (
+                      <Button
+                        key={step.label}
+                        size="middle"
+                        icon={step.icon}
+                        onClick={() => navigate(step.path)}
+                        style={{ borderRadius: 6 }}
+                      >
+                        {step.label}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
 
               <div style={{ marginTop: 'auto', paddingTop: 14, textAlign: 'right' }}>
                 <Button type="primary" onClick={() => navigate(card.path)} style={{ borderRadius: 6 }}>
@@ -142,7 +148,7 @@ const Home: React.FC = () => {
         <Text type="secondary" style={{ fontSize: 15, whiteSpace: 'nowrap' }}>工作流程：</Text>
         {[
           { label: '信息管理', sub: '装备/科目/方法' },
-          { label: '试验设计', sub: '卡片/大纲/方案' },
+          { label: '试验设计', sub: '智能试验方案' },
           { label: '模板搭建', sub: '拖拽/连线/配置' },
           { label: '数据分析', sub: '导入/计算/对比' },
           { label: '报告生成', sub: '绑定/生成/预览' },

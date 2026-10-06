@@ -20,10 +20,12 @@ interface WorkspaceHeaderProps {
   onDesignGenerated: (designName: string) => void;
 }
 
-const sectionByLabel: Record<string, 'experiment' | 'doe' | 'analysis' | 'report'> = {
+const sectionByLabel: Record<string, 'experiment' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report'> = {
   试验管理: 'experiment',
-  '试验设计（DOE）': 'doe',
-  数据分析: 'analysis',
+  试验设计: 'doe',
+  试验数据分析: 'analysis',
+  试验数字孪生: 'digitalTwin',
+  虚拟工况扩展: 'virtualCondition',
   报告生成: 'report',
 };
 

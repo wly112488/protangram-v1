@@ -14,7 +14,7 @@ import {
   migrateLegacyExperiments,
   removeArtifactFromProject,
 } from '../src/workspace/projectModel.ts';
-import { filterProjectsBySearch, getHeaderActiveKey } from '../src/workspace/presentationModel.ts';
+import { filterProjectsBySearch, getHeaderActiveKey, primaryNavigationItems } from '../src/workspace/presentationModel.ts';
 
 const legacyExperiment = {
   id: 'experiment-1',
@@ -136,9 +136,66 @@ test('project search filters only by top-level project name', () => {
 
 test('header active key follows the current business route', () => {
   assert.equal(getHeaderActiveKey('/experiment/design/intelligent'), 'doe');
-  assert.equal(getHeaderActiveKey('/analysis/digital-twin'), 'analysis');
+  assert.equal(getHeaderActiveKey('/analysis/projects'), 'analysis');
+  assert.equal(getHeaderActiveKey('/analysis/digital-twin'), 'digitalTwin');
+  assert.equal(getHeaderActiveKey('/analysis/virtual-condition'), 'virtualCondition');
   assert.equal(getHeaderActiveKey('/report/list'), 'report');
   assert.equal(getHeaderActiveKey('/'), null);
+});
+
+test('primary navigation exposes direct business pages and hides legacy experiment and analysis entries', () => {
+  assert.deepEqual(
+    primaryNavigationItems.map(({ key, label, path }) => ({ key, label, path })),
+    [
+      { key: 'experiment', label: '试验管理', path: undefined },
+      { key: 'doe', label: '试验设计', path: '/experiment/design/intelligent' },
+      { key: 'analysis', label: '试验数据分析', path: '/analysis/projects' },
+      { key: 'digitalTwin', label: '试验数字孪生', path: '/analysis/digital-twin' },
+      { key: 'virtualCondition', label: '虚拟工况扩展', path: '/analysis/virtual-condition' },
+      { key: 'report', label: '报告生成', path: undefined },
+    ],
+  );
+
+  const visibleMenuLabels = primaryNavigationItems.flatMap((item) => item.groups ?? []);
+  assert.equal(visibleMenuLabels.includes('试验设计方法'), false);
+  assert.equal(visibleMenuLabels.includes('快速设计'), false);
+  assert.equal(visibleMenuLabels.includes('模板设计'), false);
+  assert.equal(visibleMenuLabels.includes('模块管理'), false);
+  assert.equal(visibleMenuLabels.includes('模板管理'), false);
+});
+
+test('legacy experiment design URL redirects to intelligent design while feature routes stay available', () => {
+  const routerSource = readFileSync(new URL('../src/router/index.tsx', import.meta.url), 'utf8');
+
+  assert.match(routerSource, /path: 'experiment\/design', element: <Navigate to="\/experiment\/design\/intelligent" replace \/>/);
+  assert.match(routerSource, /path: 'experiment\/design\/outline\/:id', element: <OutlineDesign \/>/);
+  assert.match(routerSource, /path: 'analysis\/modules', element: <ModuleManagement \/>/);
+  assert.match(routerSource, /path: 'analysis\/templates', element: <TemplateList \/>/);
+  assert.match(routerSource, /path: 'analysis\/projects', element: <AnalysisProjects \/>/);
+  assert.match(routerSource, /path: 'analysis\/digital-twin', element: <DigitalTwin \/>/);
+  assert.match(routerSource, /path: 'analysis\/virtual-condition', element: <VirtualConditionExtension \/>/);
+});
+
+test('home shortcuts no longer expose legacy design, module-management, or template-management entries', () => {
+  const homeSource = readFileSync(new URL('../src/pages/Home.tsx', import.meta.url), 'utf8');
+
+  assert.match(homeSource, /title: '试验设计',[\s\S]*?path: '\/experiment\/design\/intelligent'/);
+  assert.match(homeSource, /title: '试验数据分析',[\s\S]*?path: '\/analysis\/projects'/);
+  assert.match(homeSource, /title: '试验数字孪生',[\s\S]*?path: '\/analysis\/digital-twin'/);
+  assert.match(homeSource, /title: '虚拟工况扩展',[\s\S]*?path: '\/analysis\/virtual-condition'/);
+  assert.doesNotMatch(homeSource, /模块管理|模板管理|试验列表|设计方法|快速设计|模板设计/);
+  assert.doesNotMatch(homeSource, /title: '数据分析'/);
+});
+
+test('core business page transitions keep their route-state handoffs', () => {
+  const analysisSource = readFileSync(new URL('../src/pages/analysis/projects/AnalysisProjects.tsx', import.meta.url), 'utf8');
+  const digitalTwinSource = readFileSync(new URL('../src/pages/analysis/DigitalTwin.tsx', import.meta.url), 'utf8');
+  const virtualConditionSource = readFileSync(new URL('../src/pages/analysis/VirtualConditionExtension.tsx', import.meta.url), 'utf8');
+
+  assert.match(analysisSource, /navigate\('\/analysis\/digital-twin', \{ state: base \}\)/);
+  assert.match(analysisSource, /navigate\('\/analysis\/virtual-condition', \{ state:/);
+  assert.match(digitalTwinSource, /navigate\('\/experiment\/design\/intelligent', \{ state:/);
+  assert.match(virtualConditionSource, /navigate\('\/experiment\/design\/intelligent', \{ state:/);
 });
 
 test('business artifact factories assign stable type, source and payload contracts', () => {

@@ -12,7 +12,6 @@ import TestMethods from '@/pages/experiment/info/TestMethods';
 import SamplingRequirements from '@/pages/experiment/info/SamplingRequirements';
 
 // 1.2 试验设计
-import ExperimentDesign from '@/pages/experiment/design/ExperimentDesign';
 import ExperimentCreate from '@/pages/experiment/design/ExperimentCreate';
 import OutlineDesign from '@/pages/experiment/design/OutlineDesign';
 import IntelligentExperimentDesign, { ExperimentTaskResult } from '@/pages/experiment/design/IntelligentExperimentDesign';
@@ -53,7 +52,7 @@ const router = createBrowserRouter([
       { path: 'experiment/info/methods', element: <TestMethods /> },
       { path: 'experiment/info/sampling', element: <SamplingRequirements /> },
       // 1.2 试验设计
-      { path: 'experiment/design', element: <ExperimentDesign /> },
+      { path: 'experiment/design', element: <Navigate to="/experiment/design/intelligent" replace /> },
       { path: 'experiment/design/create', element: <ExperimentCreate /> },
       { path: 'experiment/design/edit/:id', element: <ExperimentCreate /> },
       { path: 'experiment/design/outline/:id', element: <OutlineDesign /> },

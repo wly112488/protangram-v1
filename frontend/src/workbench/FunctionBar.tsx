@@ -2,16 +2,10 @@ import React, { useState } from 'react';
 import { Button, Form, Input, Modal, Popover, Select, Typography, message } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { primaryNavigationItems } from '@/workspace/presentationModel';
 import EquipmentManagerWindow, { type ResearchObject } from './EquipmentManagerWindow';
 
 const { Text, Title } = Typography;
-
-const functionItems = [
-  { key: 'experiment', label: '试验管理', groups: ['关联对象管理', '试验科目', '试验设计方法', '采样要求'] },
-  { key: 'doe', label: '试验设计（DOE）', groups: ['快速设计', '模板设计', '智能试验设计', '筛选', '因子', '响应曲面', '混料', '田口'] },
-  { key: 'analysis', label: '数据分析', groups: ['模块管理', '模板管理', '试验数据分析', '试验数字孪生', '虚拟工况扩展'] },
-  { key: 'report', label: '报告生成', groups: ['报告模板管理', '分析报告管理', '报告生成'] },
-];
 
 interface MethodRow {
   title: string;
@@ -173,7 +167,6 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       试验数据分析: '/analysis/projects',
       试验数字孪生: '/analysis/digital-twin',
       虚拟工况扩展: '/analysis/virtual-condition',
-      智能试验设计: '/experiment/design/intelligent',
     };
     if (analysisRoutes[group]) {
       navigate(analysisRoutes[group]);
@@ -322,30 +315,46 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   return (
     <>
       <div className="layout-function-bar">
-        {functionItems.map((item) => (
-          <Popover
-            key={item.key}
-            trigger="click"
-            placement="bottomLeft"
-            overlayClassName="layout-function-popover"
-            content={
-              <div className="layout-function-popover-content">
-                {item.groups.map((group) => (
-                  <button
-                    className="layout-function-group"
-                    key={group}
-                    type="button"
-                    onClick={() => handleGroupClick(group)}
-                  >
-                    {group}
-                  </button>
-                ))}
-              </div>
-            }
-          >
-            <button className="layout-function-item" type="button">{item.label}</button>
-          </Popover>
-        ))}
+        {primaryNavigationItems.map((item) => {
+          const button = (
+            <button
+              className="layout-function-item"
+              data-nav-key={item.key}
+              key={item.key}
+              type="button"
+              onClick={item.path ? () => navigate(item.path!) : undefined}
+            >
+              {item.label}
+            </button>
+          );
+
+          if (item.path) return button;
+
+          return (
+            <Popover
+              key={item.key}
+              trigger="click"
+              placement="bottomLeft"
+              overlayClassName="layout-function-popover"
+              content={
+                <div className="layout-function-popover-content">
+                  {(item.groups ?? []).map((group) => (
+                    <button
+                      className="layout-function-group"
+                      key={group}
+                      type="button"
+                      onClick={() => handleGroupClick(group)}
+                    >
+                      {group}
+                    </button>
+                  ))}
+                </div>
+              }
+            >
+              {button}
+            </Popover>
+          );
+        })}
       </div>
 
       <EquipmentManagerWindow

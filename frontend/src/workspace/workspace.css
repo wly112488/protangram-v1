@@ -101,17 +101,21 @@
   background: #f7faff;
 }
 
-.workspace-active-experiment .layout-function-item:nth-child(1),
-.workspace-active-doe .layout-function-item:nth-child(2),
-.workspace-active-analysis .layout-function-item:nth-child(3),
-.workspace-active-report .layout-function-item:nth-child(4) {
+.workspace-active-experiment [data-nav-key="experiment"],
+.workspace-active-doe [data-nav-key="doe"],
+.workspace-active-analysis [data-nav-key="analysis"],
+.workspace-active-digitalTwin [data-nav-key="digitalTwin"],
+.workspace-active-virtualCondition [data-nav-key="virtualCondition"],
+.workspace-active-report [data-nav-key="report"] {
   color: #2f80ff;
 }
 
-.workspace-active-experiment .layout-function-item:nth-child(1)::after,
-.workspace-active-doe .layout-function-item:nth-child(2)::after,
-.workspace-active-analysis .layout-function-item:nth-child(3)::after,
-.workspace-active-report .layout-function-item:nth-child(4)::after {
+.workspace-active-experiment [data-nav-key="experiment"]::after,
+.workspace-active-doe [data-nav-key="doe"]::after,
+.workspace-active-analysis [data-nav-key="analysis"]::after,
+.workspace-active-digitalTwin [data-nav-key="digitalTwin"]::after,
+.workspace-active-virtualCondition [data-nav-key="virtualCondition"]::after,
+.workspace-active-report [data-nav-key="report"]::after {
   background: #2f80ff;
 }
 

@@ -31,6 +31,70 @@ const routeByArtifactView: Partial<Record<ProjectArtifactType, string>> = {
 
 const formatTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false });
 
+const readRecord = (value: unknown): Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+
+const displayValue = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+
+const getArtifactFacts = (artifact: ProjectArtifact): string[] => {
+  const payload = artifact.payload;
+  const model = readRecord(payload.model);
+  const facts: string[] = [];
+  const add = (label: string, value: unknown) => {
+    const text = displayValue(value);
+    if (text) facts.push(`${label}：${text}`);
+  };
+
+  switch (artifact.type) {
+    case 'design': {
+      const plan = Array.isArray(payload.plan) ? payload.plan : [];
+      const designSummary = readRecord(payload.designSummary);
+      const config = readRecord(payload.config);
+      add('试验次数', plan.length || payload.runCount || designSummary.runCount);
+      add('目标响应', config.target);
+      add('设计策略', config.strategy);
+      add('预计覆盖率', typeof payload.coverage === 'number' ? `${payload.coverage}%` : undefined);
+      add('高风险工况', payload.highRiskCount);
+      break;
+    }
+    case 'analysis': {
+      const config = readRecord(payload.config);
+      add('异常范围', payload.abnormalRange);
+      add('异常事件', Array.isArray(payload.anomalies) ? payload.anomalies.length : undefined);
+      add('主要指标', Array.isArray(config.metrics) ? config.metrics.join('、') : undefined);
+      add('结论', payload.conclusion);
+      break;
+    }
+    case 'rootCause':
+      add('异常范围', payload.affectedRange);
+      add('主要根因', readRecord(payload.confirmedRootCause).reason);
+      add('关联程度', readRecord(payload.confirmedRootCause).relevance);
+      add('证据数量', Array.isArray(payload.evidence) ? payload.evidence.length : undefined);
+      break;
+    case 'calibration':
+      add('校准模型', [displayValue(model.modelName), displayValue(model.version)].filter(Boolean).join(' '));
+      add('校准结果', payload.errorLimit);
+      add('可信度', typeof payload.credibility === 'number' ? `${payload.credibility}%` : undefined);
+      add('可信范围', payload.trustedRange);
+      break;
+    case 'virtualCondition': {
+      const conditions = Array.isArray(payload.conditions) ? payload.conditions : [];
+      add('预测工况', Array.isArray(payload.conditions) ? payload.conditions.length : undefined);
+      add('高风险工况', payload.highRiskCount);
+      add('可信范围', payload.trustedRange);
+      add('风险摘要', conditions.filter((condition) => readRecord(condition).risk === '高').length > 0
+        ? `包含 ${conditions.filter((condition) => readRecord(condition).risk === '高').length} 个高风险工况`
+        : undefined);
+      break;
+    }
+    case 'report':
+      add('报告状态', artifact.status);
+      break;
+  }
+
+  return facts;
+};
+
 const ArtifactHistory: React.FC<{
   artifacts: ProjectArtifact[];
   projectId: string;
@@ -45,6 +109,7 @@ const ArtifactHistory: React.FC<{
   );
   const latest = sorted[0];
   const route = routeByArtifactView[view];
+  const latestFacts = latest ? getArtifactFacts(latest) : [];
 
   const deleteArtifact = (artifactId: string) => {
     removeArtifact(projectId, artifactId);
@@ -66,7 +131,7 @@ const ArtifactHistory: React.FC<{
             icon={<PlusOutlined />}
             onClick={() => navigate(route, { state: { workspaceSession: { mode: 'project', targetProjectId: projectId } } })}
           >
-            新建{viewLabels[view]}
+            {latest ? `继续${viewLabels[view]}` : `新建${viewLabels[view]}`}
           </Button>
         )}
       </div>
@@ -84,7 +149,15 @@ const ArtifactHistory: React.FC<{
             </Popconfirm>
           </div>
           <p className="workspace-artifact-summary">{latest.summary}</p>
-          <pre className="workspace-artifact-payload">{JSON.stringify(latest.payload, null, 2)}</pre>
+          {latestFacts.length > 0 && (
+            <ul className="workspace-artifact-facts">
+              {latestFacts.map((fact) => <li key={fact}>{fact}</li>)}
+            </ul>
+          )}
+          <details className="workspace-artifact-debug">
+            <summary>查看原始数据（调试信息）</summary>
+            <pre className="workspace-artifact-payload">{JSON.stringify(latest.payload, null, 2)}</pre>
+          </details>
         </Card>
       ) : (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`暂无${viewLabels[view]}结果`} />

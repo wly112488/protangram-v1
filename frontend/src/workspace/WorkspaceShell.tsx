@@ -67,6 +67,7 @@ const WorkspaceShell: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const projects = useProjectStore((state) => state.projects);
+  const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const createProjectFromDesign = useProjectStore((state) => state.createProjectFromDesign);
   const [researchObjects, setResearchObjects] = useState<ResearchObject[]>(loadResearchObjects);
@@ -98,6 +99,7 @@ const WorkspaceShell: React.FC = () => {
         researchObjects={researchObjects}
         onResearchObjectsChange={handleResearchObjectsChange}
         projects={projects.map((project) => ({ id: project.id, name: project.name }))}
+        activeProjectId={activeProjectId}
         onImportProject={handleImportProject}
         onDesignGenerated={handleDesignGenerated}
       />

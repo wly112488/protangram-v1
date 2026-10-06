@@ -2,9 +2,6 @@ import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import MainLayout from '@/layouts/MainLayout';
 
-// 首页
-import Home from '@/pages/Home';
-
 // 1.1 信息管理
 import BOMManagement from '@/pages/experiment/info/BOMManagement';
 import TestSubjects from '@/pages/experiment/info/TestSubjects';
@@ -45,7 +42,6 @@ const router = createBrowserRouter([
     path: '/',
     element: <MainLayout />,
     children: [
-      { index: true, element: <Home /> },
       // 1.1 信息管理
       { path: 'experiment/info/bom', element: <BOMManagement /> },
       { path: 'experiment/info/subjects', element: <TestSubjects /> },

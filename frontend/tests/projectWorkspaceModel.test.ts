@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { normalizeBusinessSession } from '../src/workspace/businessSessionModel.ts';
+import { createWorkspaceNavigationState, normalizeBusinessSession } from '../src/workspace/businessSessionModel.ts';
 import {
   addArtifactToProject,
   buildProjectNavigation,
@@ -70,8 +70,8 @@ test('project navigation only exposes categories backed by real content', () => 
     'overview',
     'worksheet',
     'charts',
-    'calibration',
     'design',
+    'calibration',
   ]);
 });
 
@@ -223,6 +223,30 @@ test('business session stays standalone unless the route explicitly supplies a v
   assert.deepEqual(normalizeBusinessSession(undefined, ['project-a']), { mode: 'standalone' });
   assert.deepEqual(normalizeBusinessSession({ mode: 'project', targetProjectId: 'project-a' }, ['project-a']), { mode: 'project', targetProjectId: 'project-a' });
   assert.deepEqual(normalizeBusinessSession({ mode: 'project', targetProjectId: 'missing' }, ['project-a']), { mode: 'standalone' });
+});
+
+test('top-level business navigation carries the active project or explicit standalone session', () => {
+  assert.deepEqual(createWorkspaceNavigationState('project-a'), {
+    workspaceSession: { mode: 'project', targetProjectId: 'project-a' },
+  });
+  assert.deepEqual(createWorkspaceNavigationState(null), {
+    workspaceSession: { mode: 'standalone' },
+  });
+});
+
+test('the root workspace is the only homepage route and visible management/report groups have routes', () => {
+  const routerSource = readFileSync(new URL('../src/router/index.tsx', import.meta.url), 'utf8');
+  const functionBarSource = readFileSync(new URL('../src/workbench/FunctionBar.tsx', import.meta.url), 'utf8');
+  const shellSource = readFileSync(new URL('../src/workspace/WorkspaceShell.tsx', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(routerSource, /import Home from ['"]@\/pages\/Home['"]/);
+  assert.doesNotMatch(routerSource, /\{ index: true, element: <Home \/> \}/);
+  assert.match(shellSource, /location\.pathname === '\/' \? <ProjectContent \/>/);
+  assert.match(functionBarSource, /试验科目: '\/experiment\/info\/subjects'/);
+  assert.match(functionBarSource, /采样要求: '\/experiment\/info\/sampling'/);
+  assert.match(functionBarSource, /报告模板管理: '\/report\/templates'/);
+  assert.match(functionBarSource, /分析报告管理: '\/report\/list'/);
+  assert.match(functionBarSource, /报告生成: '\/report\/create'/);
 });
 
 test('workspace header and data analysis integrate the approved COMAC visual assets and interactive measurement view', () => {

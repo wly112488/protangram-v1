@@ -114,8 +114,8 @@ const ProjectSidebar: React.FC = () => {
     <aside className="workspace-project-sidebar">
       <div className="workspace-project-sidebar-head">
         <div>
-          <strong>项目</strong>
-          <Text type="secondary">{projects.length} 个项目</Text>
+          <strong>项目内容</strong>
+          <Text type="secondary">{projects.length} 个项目 · 工作表与已保存成果</Text>
         </div>
         <Dropdown
           trigger={['click']}

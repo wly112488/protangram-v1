@@ -3,11 +3,14 @@ import { Card, Typography, Button, Row, Col, Tag, Empty, Space } from 'antd';
 import {
   PlusOutlined, EyeOutlined, FileTextOutlined, CalendarOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisReports } from '@/utils/storage';
 import { loadBusinessReportItems } from '@/types/businessContext';
 import type { BusinessReportItem } from '@/types/businessContext';
+import { useProjectStore } from '@/workspace/projectStore';
+import { getReportableArtifacts } from './reportModel.js';
+import type { BusinessRouteState } from '@/types/businessContext';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -17,8 +20,24 @@ const { Title, Text, Paragraph } = Typography;
  */
 const ReportList: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { analysisReports, setAnalysisReports } = useAppStore();
+  const { projects, activeProjectId } = useProjectStore();
+  const routeProjectId = (location.state as BusinessRouteState | null)?.workspaceSession?.targetProjectId;
+  const currentProjectId = routeProjectId && projects.some((project) => project.id === routeProjectId)
+    ? routeProjectId
+    : activeProjectId;
   const [businessResults] = useState<BusinessReportItem[]>(loadBusinessReportItems);
+  const activeProject = projects.find((project) => project.id === currentProjectId);
+  const reportableArtifacts = activeProject ? getReportableArtifacts(activeProject.artifacts) : [];
+  const projectReports = activeProject?.artifacts.filter((artifact) => artifact.type === 'report') ?? [];
+
+  const createProjectReport = () => navigate('/report/create', {
+    state: {
+      workspaceSession: { mode: 'project', targetProjectId: activeProject?.id },
+      artifactIds: reportableArtifacts.map((artifact) => artifact.id),
+    },
+  });
 
   useEffect(() => {
     const saved = loadAnalysisReports();
@@ -33,10 +52,32 @@ const ReportList: React.FC = () => {
           <Text type="secondary">管理已生成的分析报告</Text>
         </div>
         <Button type="primary" icon={<PlusOutlined />} size="large"
-          onClick={() => navigate('/report/create')}>
+          onClick={createProjectReport}>
           新建报告
         </Button>
       </div>
+
+      {activeProject && <Card
+        title={<Space><span>当前项目</span><Tag color="blue">{activeProject.name}</Tag></Space>}
+        extra={<Button type="primary" size="small" onClick={createProjectReport}>基于项目成果新建报告</Button>}
+        style={{ marginBottom: 16 }}
+      >
+        <Text type="secondary">可纳入报告的项目成果（{reportableArtifacts.length}）</Text>
+        {reportableArtifacts.length > 0 ? (
+          <Space wrap style={{ display: 'flex', marginTop: 8 }}>
+            {reportableArtifacts.map((artifact) => (
+              <Tag key={artifact.id} color="geekblue">{artifact.title}</Tag>
+            ))}
+          </Space>
+        ) : <Paragraph type="secondary" style={{ margin: '8px 0 0' }}>当前项目暂无可纳入报告的成果</Paragraph>}
+        {projectReports.length > 0 && <div style={{ marginTop: 16 }}>
+          <Text type="secondary">项目内已生成报告（{projectReports.length}）</Text>
+          {projectReports.map((artifact) => <div key={artifact.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+            <Space><FileTextOutlined style={{ color: '#722ed1' }} /><Text strong>{artifact.title}</Text><Tag color="green">已生成</Tag></Space>
+            <Button type="link" size="small" onClick={() => navigate(`/report/generate/${artifact.id}`)}>打开</Button>
+          </div>)}
+        </div>}
+      </Card>}
 
       {businessResults.length > 0 && <Card title="业务分析结果" size="small" style={{ marginBottom: 16 }}>
         {businessResults.map((item, index) => <div key={item.id} style={{ padding: '10px 0', borderBottom: index === businessResults.length - 1 ? 'none' : '1px solid #f0f0f0' }}>
@@ -49,7 +90,7 @@ const ReportList: React.FC = () => {
         <Card style={{ marginTop: 32 }}>
           <Empty description={
             <span>暂无分析报告，点击
-              <Button type="link" onClick={() => navigate('/report/create')}>新建报告</Button>
+              <Button type="link" onClick={createProjectReport}>新建报告</Button>
               或通过数据分析流程自动生成
             </span>
           } />

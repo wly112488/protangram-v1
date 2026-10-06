@@ -234,7 +234,7 @@ const DigitalTwin: React.FC = () => {
         <div><Title level={4} style={{ margin: 0 }}>试验数字孪生</Title><Text type="secondary">配置模型与数据，执行模型校准并查看分析结果</Text></div>
         <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
-      {incoming?.source === 'dataAnalysis' && <Alert type="success" showIcon title={`新增校准数据：${incoming.task?.taskName ?? '试验任务'}`} description={`${incoming.data?.dataName ?? '未提供数据'}；异常工况：${incoming.result?.abnormalRange ?? '未提供'}；${incoming.result?.resultSummary ?? '暂无分析摘要'}`} style={{ marginBottom: 16 }} />}
+      {incoming?.source === 'dataAnalysis' && <Alert type="success" showIcon title={`已从试验数据分析带入：${incoming.task?.taskName ?? '试验任务'}`} description={`${incoming.data?.dataName ?? '未提供数据'}；异常工况：${incoming.result?.abnormalRange ?? '未提供'}；${incoming.result?.resultSummary ?? '暂无分析摘要'}`} style={{ marginBottom: 16 }} />}
 
       <PreparationChecklist
         title="校准准备"

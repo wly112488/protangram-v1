@@ -3,6 +3,7 @@ import { Button, Form, Input, Modal, Popover, Select, Typography, message } from
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { primaryNavigationItems } from '@/workspace/presentationModel';
+import { createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import EquipmentManagerWindow, { type ResearchObject } from './EquipmentManagerWindow';
 
 const { Text, Title } = Typography;
@@ -127,6 +128,7 @@ interface FunctionBarProps {
   onResearchObjectsChange: (objects: ResearchObject[]) => void;
   onDesignGenerated?: (designName: string) => void;
   experiments: Array<{ id: string; name: string; associationObjectId?: string }>;
+  activeProjectId?: string | null;
   onAssociateObjectToExperiment: (objectId: string, experimentId: string) => void;
   onMergeObjects: (sourceObjectId: string, targetObjectId: string) => void;
   onImportExperiment: (experimentId: string) => void;
@@ -137,6 +139,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   onResearchObjectsChange,
   onDesignGenerated,
   experiments,
+  activeProjectId = null,
   onAssociateObjectToExperiment,
   onMergeObjects,
   onImportExperiment,
@@ -161,15 +164,18 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   const [methodFactorRows, setMethodFactorRows] = useState<MethodFactorRow[]>([]);
 
   const handleGroupClick = (group: string) => {
-    const analysisRoutes: Record<string, string> = {
-      模块管理: '/analysis/modules',
-      模板管理: '/analysis/templates',
+    const groupRoutes: Record<string, string> = {
+      试验科目: '/experiment/info/subjects',
+      采样要求: '/experiment/info/sampling',
       试验数据分析: '/analysis/projects',
       试验数字孪生: '/analysis/digital-twin',
       虚拟工况扩展: '/analysis/virtual-condition',
+      报告模板管理: '/report/templates',
+      分析报告管理: '/report/list',
+      报告生成: '/report/create',
     };
-    if (analysisRoutes[group]) {
-      navigate(analysisRoutes[group]);
+    if (groupRoutes[group]) {
+      navigate(groupRoutes[group], { state: createWorkspaceNavigationState(activeProjectId) });
       return;
     }
     if (group === '快速设计') {
@@ -322,7 +328,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
               data-nav-key={item.key}
               key={item.key}
               type="button"
-              onClick={item.path ? () => navigate(item.path!) : undefined}
+              onClick={item.path ? () => navigate(item.path!, { state: createWorkspaceNavigationState(activeProjectId) }) : undefined}
             >
               {item.label}
             </button>

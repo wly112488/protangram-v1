@@ -285,7 +285,7 @@ const IntelligentExperimentDesign: React.FC = () => {
         <Alert
           type="success"
           showIcon
-          title={`已携带可信模型：${model.modelName} ${model.version}`}
+          title={`已从${incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`}
           description={`来源：${incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}；可信范围：${model.trustedRange}${incoming.validation ? `；建议重点验证：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}` : ''}`}
         />
       )}

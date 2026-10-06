@@ -121,3 +121,57 @@ test('data analysis readiness contains only user-confirmed analysis inputs, with
   assert.doesNotMatch(source, /model: false/);
   assert.doesNotMatch(source, /confirmed\.model/);
 });
+
+test('joining analysis and virtual results to a report persists Project artifacts and carries their ids', () => {
+  const analysisSource = readFileSync(new URL('../src/pages/analysis/projects/AnalysisProjects.tsx', import.meta.url), 'utf8');
+  const virtualSource = readFileSync(new URL('../src/pages/analysis/VirtualConditionExtension.tsx', import.meta.url), 'utf8');
+  const createSource = readFileSync(new URL('../src/pages/report/ReportCreate.tsx', import.meta.url), 'utf8');
+  const generateSource = readFileSync(new URL('../src/pages/report/ReportGenerate.tsx', import.meta.url), 'utf8');
+
+  assert.match(analysisSource, /persistResult\(boundProject\.id, 'analysis'\)/);
+  assert.match(analysisSource, /artifactIds: \[artifactId\]/);
+  assert.doesNotMatch(analysisSource, /saveBusinessReportItem/);
+  assert.match(virtualSource, /persistVirtualResult\(boundProject\.id\)/);
+  assert.match(virtualSource, /artifactIds: \[artifact\.id\]/);
+  assert.doesNotMatch(virtualSource, /saveBusinessReportItem/);
+  assert.match(createSource, /routeState\?\.artifactIds/);
+  assert.match(generateSource, /addArtifact\(workspaceProject\.id, createReportArtifactInput/);
+});
+
+test('cross-page workflows explain which task data model or validation context was carried forward', () => {
+  const sources = [
+    '../src/pages/experiment/design/IntelligentExperimentDesign.tsx',
+    '../src/pages/analysis/projects/AnalysisProjects.tsx',
+    '../src/pages/analysis/DigitalTwin.tsx',
+    '../src/pages/analysis/VirtualConditionExtension.tsx',
+  ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'));
+
+  for (const source of sources) assert.match(source, /已从[\s\S]{0,400}带入业务上下文|已从试验数据分析带入/);
+});
+
+test('project artifact content keeps raw payload in a collapsed debug section and offers a continue action', () => {
+  const source = readFileSync(new URL('../src/workspace/ProjectContent.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /<details/);
+  assert.match(source, /调试信息|原始数据/);
+  assert.match(source, /workspace-artifact-summary/);
+  assert.match(source, /继续|新建/);
+  assert.match(source, /workspaceSession: \{ mode: 'project', targetProjectId: projectId \}/);
+});
+
+test('project overview recommends deterministic next actions from saved artifacts and virtual risk', () => {
+  const source = readFileSync(new URL('../src/workspace/ProjectOverview.tsx', import.meta.url), 'utf8');
+
+  for (const action of ['试验设计', '试验数据分析', '模型校准', '虚拟工况', '补充试验设计', '报告', '验证设计', '创建任务']) {
+    assert.ok(source.includes(action), `missing next-step action: ${action}`);
+  }
+  assert.match(source, /workspaceSession/);
+  assert.match(source, /highRiskCount|高风险/);
+});
+
+test('project sidebar names the project contents and saved outcomes instead of suggesting feature navigation', () => {
+  const source = readFileSync(new URL('../src/workspace/ProjectSidebar.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /项目内容|项目成果/);
+  assert.match(source, /已保存|结果/);
+});

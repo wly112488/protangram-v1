@@ -139,10 +139,10 @@ export const buildProjectNavigation = (project: Project): ProjectNavigationItem[
   }
 
   const orderedViews: ProjectArtifact['type'][] = [
-    'rootCause',
-    'calibration',
     'design',
     'analysis',
+    'rootCause',
+    'calibration',
     'virtualCondition',
     'report',
   ];

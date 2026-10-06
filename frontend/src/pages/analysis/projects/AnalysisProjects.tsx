@@ -10,11 +10,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
 import ductFlowDiagram from '@/assets/duct_flow_diagram.png';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
-import { saveBusinessReportItem } from '@/types/businessContext';
 import type { BusinessAction, BusinessRouteState, DataContract, ModelContract, TaskContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createAnalysisArtifactInput, createRootCauseArtifactInput } from '@/workspace/projectModel';
+import { createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import '@/workspace/visualIntegrations.css';
@@ -119,6 +119,7 @@ const AnalysisProjects: React.FC = () => {
   const [dataModalOpen, setDataModalOpen] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
+  const [continueToReportAfterSave, setContinueToReportAfterSave] = useState(false);
   const [pendingSaveKind, setPendingSaveKind] = useState<SaveKind>('analysis');
   const [savedProjectId, setSavedProjectId] = useState<string | undefined>(session.targetProjectId);
   const [savedAnalysisProjectId, setSavedAnalysisProjectId] = useState<string | null>(null);
@@ -194,10 +195,10 @@ const AnalysisProjects: React.FC = () => {
   const rootCauseRows = ROOT_CAUSES[selectedAnomaly.key] ?? ROOT_CAUSES.temperature;
   const primaryRootCause = rootCauseRows[0];
 
-  const persistResult = (projectId: string, kind: SaveKind) => {
-    if (!analyzed) return false;
+  const persistResult = (projectId: string, kind: SaveKind): string | null => {
+    if (!analyzed) return null;
     const project = projects.find((item) => item.id === projectId);
-    if (!project) return false;
+    if (!project) return null;
 
     const artifactInput = kind === 'analysis'
       ? createAnalysisArtifactInput({
@@ -228,13 +229,13 @@ const AnalysisProjects: React.FC = () => {
         });
 
     const artifact = addArtifact(projectId, artifactInput);
-    if (!artifact) return false;
+    if (!artifact) return null;
     setSavedProjectId(projectId);
     if (kind === 'analysis') setSavedAnalysisProjectId(projectId);
     else setSavedRootCauseProjectId(projectId);
     setSaveTargetOpen(false);
     message.success(`${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
-    return true;
+    return artifact.id;
   };
 
   const requestSave = (kind: SaveKind) => {
@@ -257,10 +258,17 @@ const AnalysisProjects: React.FC = () => {
     if (action === '虚拟工况扩展') navigate('/analysis/virtual-condition', { state: { ...base, validation: { goal: '扩展高转速异常区域', suggestedRange: '7600～8200 rpm', metrics: ['出口温度', '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
     if (action === '生成补充试验') navigate('/experiment/design/intelligent', { state: { ...base, validation: { goal: `验证${selectedAnomaly.event}及主要根因`, suggestedRange: '7600～8200 rpm', metrics: [selectedAnomaly.event, '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
     if (action === '加入报告') {
-      saveBusinessReportItem({ source: '试验数据分析', title: `${task.name}分析结论`, summary: result.resultSummary });
-      message.success('分析结果已加入报告。');
+      if (boundProject) {
+        const artifactId = persistResult(boundProject.id, 'analysis');
+        if (!artifactId) return;
+        navigate('/report/create', { state: { ...createWorkspaceNavigationState(boundProject.id), artifactIds: [artifactId] } });
+        return;
+      }
+      setPendingSaveKind('analysis');
+      setContinueToReportAfterSave(true);
+      setSaveTargetOpen(true);
     }
-  }, [activeModel, analyzed, config.metrics, data.experimentFile, effectiveSession, navigate, selectedAnomaly.event, task]);
+  }, [activeModel, addArtifact, analyzed, boundProject, config, data, effectiveSession, navigate, projects, selectedAnomaly, selectedMeasurementPoint, task]);
 
   useEffect(() => {
     setContext({
@@ -343,6 +351,9 @@ const AnalysisProjects: React.FC = () => {
         <div><Title level={4} style={{ margin: 0 }}>试验数据分析</Title><Text type="secondary">加载试验关联数据，识别异常并形成根因、证据与分析结论</Text></div>
         <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
+      {incoming?.source && (incoming.task || incoming.data || incoming.model || incoming.result || incoming.validation) && (
+        <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.model && `模型：${incoming.model.modelName} ${incoming.model.version}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
+      )}
 
       <PreparationChecklist
         title="分析准备"
@@ -457,7 +468,13 @@ const AnalysisProjects: React.FC = () => {
           <Form.Item label="异常敏感度"><Select value={draftConfig.sensitivity} onChange={(value) => setDraftConfig({ ...draftConfig, sensitivity: value })} options={['低', '中', '高'].map((value) => ({ value }))} /></Form.Item>
         </Form>
       </Modal>
-      <ProjectSaveTargetModal open={saveTargetOpen} title={pendingSaveKind === 'analysis' ? '保存分析结果到项目' : '确认根因并保存到项目'} defaultProjectId={boundProject?.id} onCancel={() => setSaveTargetOpen(false)} onConfirm={(projectId) => persistResult(projectId, pendingSaveKind)} />
+      <ProjectSaveTargetModal open={saveTargetOpen} title={pendingSaveKind === 'analysis' ? '保存分析结果到项目' : '确认根因并保存到项目'} defaultProjectId={boundProject?.id} onCancel={() => { setSaveTargetOpen(false); setContinueToReportAfterSave(false); }} onConfirm={(projectId) => {
+        const artifactId = persistResult(projectId, pendingSaveKind);
+        if (artifactId && continueToReportAfterSave) {
+          setContinueToReportAfterSave(false);
+          navigate('/report/create', { state: { ...createWorkspaceNavigationState(projectId), artifactIds: [artifactId] } });
+        }
+      }} />
     </div>
   );
 };

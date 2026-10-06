@@ -16,6 +16,7 @@ interface WorkspaceHeaderProps {
   researchObjects: ResearchObject[];
   onResearchObjectsChange: (objects: ResearchObject[]) => void;
   projects: Array<{ id: string; name: string }>;
+  activeProjectId: string | null;
   onImportProject: (projectId: string) => void;
   onDesignGenerated: (designName: string) => void;
 }
@@ -33,6 +34,7 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   researchObjects,
   onResearchObjectsChange,
   projects,
+  activeProjectId,
   onImportProject,
   onDesignGenerated,
 }) => {
@@ -78,6 +80,7 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
         researchObjects={researchObjects}
         onResearchObjectsChange={onResearchObjectsChange}
         experiments={projects}
+        activeProjectId={activeProjectId}
         onImportExperiment={onImportProject}
         onAssociateObjectToExperiment={() => undefined}
         onMergeObjects={() => undefined}

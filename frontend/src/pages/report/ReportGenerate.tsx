@@ -9,6 +9,8 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
+import { useProjectStore } from '@/workspace/projectStore';
+import { createReportArtifactInput, getReportableArtifacts } from './reportModel.js';
 import type { AnalysisReport } from '@/types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -32,6 +34,11 @@ const MOCK_OUTPUT_VARIABLES = [
   { id: 'out-6', name: '异常值分析结果' },
 ];
 
+type ReportRecord = AnalysisReport & {
+  workspaceProjectId?: string;
+  artifactIds?: string[];
+};
+
 /**
  * 分析报告生成页面
  * @description 标签解析、拖拽绑定、报告生成（需求3.3）
@@ -40,12 +47,23 @@ const ReportGenerate: React.FC = () => {
   const navigate = useNavigate();
   const { reportId } = useParams<{ reportId: string }>();
   const { analysisReports, updateAnalysisReport, setAnalysisReports } = useAppStore();
+  const { projects, addArtifact, removeArtifact } = useProjectStore();
 
   const [tagBindings, setTagBindings] = useState<Record<string, string>>({});
   const [dragItem, setDragItem] = useState<string>('');
   const [reportGenerated, setReportGenerated] = useState(false);
 
-  const report = analysisReports.find((r) => r.id === reportId);
+  const report = analysisReports.find((r) => r.id === reportId) as ReportRecord | undefined;
+  const workspaceProjectId = report?.workspaceProjectId
+    || projects.find((project) => project.id === report?.analysisProjectId)?.id;
+  const workspaceProject = projects.find((project) => project.id === workspaceProjectId);
+  const selectedArtifactIds = report?.artifactIds;
+  const projectOutputVariables = workspaceProject
+    ? getReportableArtifacts(workspaceProject.artifacts)
+      .filter((artifact) => !selectedArtifactIds || selectedArtifactIds.includes(artifact.id))
+      .map((artifact) => ({ id: artifact.id, name: artifact.title }))
+    : [];
+  const outputVariables = projectOutputVariables.length > 0 ? projectOutputVariables : MOCK_OUTPUT_VARIABLES;
 
   useEffect(() => {
     let reports = analysisReports;
@@ -97,9 +115,9 @@ const ReportGenerate: React.FC = () => {
    */
   const handleSave = () => {
     updateAnalysisReport(reportId!, { tagBindings });
-    const all = loadAnalysisReports().map((r) =>
-      r.id === reportId ? { ...r, tagBindings } : r
-    );
+    const current = report ? { ...report, tagBindings } : undefined;
+    const all = loadAnalysisReports().filter((r) => r.id !== reportId);
+    if (current) all.push(current);
     saveAnalysisReports(all);
     message.success('绑定关系已保存');
   };
@@ -109,10 +127,22 @@ const ReportGenerate: React.FC = () => {
    */
   const handleGenerateReport = () => {
     updateAnalysisReport(reportId!, { tagBindings, status: 'generated' });
-    const all = loadAnalysisReports().map((r) =>
-      r.id === reportId ? { ...r, tagBindings, status: 'generated' as const } : r
-    );
+    const current = report ? { ...report, tagBindings, status: 'generated' as const } : undefined;
+    const all = loadAnalysisReports().filter((r) => r.id !== reportId);
+    if (current) all.push(current);
     saveAnalysisReports(all);
+    if (workspaceProject && report) {
+      const existingArtifact = workspaceProject.artifacts.find((artifact) => artifact.id === report.id);
+      if (existingArtifact) removeArtifact(workspaceProject.id, existingArtifact.id);
+      addArtifact(workspaceProject.id, createReportArtifactInput({
+        reportId: report.id,
+        title: report.name,
+        summary: `${report.name} · 已绑定 ${Object.keys(tagBindings).length} 项内容`,
+        reportTemplateId: report.reportTemplateId,
+        artifactIds: selectedArtifactIds || projectOutputVariables.map((item) => item.id),
+        tagBindings,
+      }));
+    }
     setReportGenerated(true);
     message.success('报告生成成功！');
   };
@@ -121,7 +151,7 @@ const ReportGenerate: React.FC = () => {
    * 获取变量名称
    */
   const getVarName = (varId: string) => {
-    return MOCK_OUTPUT_VARIABLES.find((v) => v.id === varId)?.name || varId;
+    return outputVariables.find((v) => v.id === varId)?.name || varId;
   };
 
   const boundCount = Object.keys(tagBindings).length;
@@ -150,7 +180,7 @@ const ReportGenerate: React.FC = () => {
               拖拽下方变量到右侧报告标签中进行绑定
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {MOCK_OUTPUT_VARIABLES.map((item) => (
+              {outputVariables.map((item) => (
                 <div
                   key={item.id}
                   draggable

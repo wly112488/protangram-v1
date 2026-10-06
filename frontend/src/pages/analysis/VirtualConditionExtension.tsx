@@ -9,11 +9,11 @@ import {
 import ReactECharts from 'echarts-for-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
-import { saveBusinessReportItem } from '@/types/businessContext';
 import type { BusinessAction, BusinessRouteState, ModelContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createVirtualConditionArtifactInput } from '@/workspace/projectModel';
+import { createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 
@@ -80,8 +80,10 @@ const VirtualConditionExtension: React.FC = () => {
   const [configOpen, setConfigOpen] = useState(false);
   const [constraintsOpen, setConstraintsOpen] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
+  const [continueToReportAfterSave, setContinueToReportAfterSave] = useState(false);
   const [savedProjectId, setSavedProjectId] = useState<string | undefined>(session.targetProjectId);
   const [persistedProjectId, setPersistedProjectId] = useState<string | null>(null);
+  const [persistedArtifactId, setPersistedArtifactId] = useState<string | null>(null);
   const [conditions, setConditions] = useState<VirtualCondition[]>([]);
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'generated'>('idle');
   const [predictionStatus, setPredictionStatus] = useState<'idle' | 'loading' | 'completed'>('idle');
@@ -110,6 +112,7 @@ const VirtualConditionExtension: React.FC = () => {
     setSelectedCondition(null);
     setFilter('全部');
     setPersistedProjectId(null);
+    setPersistedArtifactId(null);
   };
 
   const generateConditions = () => {
@@ -136,6 +139,7 @@ const VirtualConditionExtension: React.FC = () => {
     setActiveTab('prediction');
     setSelectedCondition(next[0] ?? null);
     setPersistedProjectId(null);
+    setPersistedArtifactId(null);
     message.success(`已生成 ${next.length} 个虚拟工况`);
   };
 
@@ -143,6 +147,7 @@ const VirtualConditionExtension: React.FC = () => {
     if (generationStatus !== 'generated') return message.warning('请先生成虚拟工况。');
     setPredictionStatus('loading');
     setPersistedProjectId(null);
+    setPersistedArtifactId(null);
     timer.current = window.setTimeout(() => {
       setConditions((prev) => prev.map((row) => {
         const credibility = row.speed <= 8800 ? '高' : row.speed <= 9400 ? '中' : '低';
@@ -176,10 +181,12 @@ const VirtualConditionExtension: React.FC = () => {
   };
 
   const persistVirtualResult = useCallback((projectId: string, notify = true) => {
-    if (predictionStatus !== 'completed') return false;
-    if (persistedProjectId === projectId) return true;
+    if (predictionStatus !== 'completed') return null;
+    if (persistedProjectId === projectId) {
+      return projects.find((item) => item.id === projectId)?.artifacts.find((artifact) => artifact.id === persistedArtifactId) ?? null;
+    }
     const project = projects.find((item) => item.id === projectId);
-    if (!project) return false;
+    if (!project) return null;
     const highRiskCount = conditions.filter((row) => row.risk === '高').length;
     const artifact = addArtifact(projectId, createVirtualConditionArtifactInput({
       title: `${model.modelName} ${model.version} · 虚拟工况预测`,
@@ -197,13 +204,14 @@ const VirtualConditionExtension: React.FC = () => {
         ],
       },
     }));
-    if (!artifact) return false;
+    if (!artifact) return null;
     setSavedProjectId(projectId);
     setPersistedProjectId(projectId);
+    setPersistedArtifactId(artifact.id);
     setSaveTargetOpen(false);
     if (notify) message.success(`预测结果已保存到项目“${project.name}”`);
-    return true;
-  }, [addArtifact, conditions, config, constraints, model, persistedProjectId, predictionStatus, projects]);
+    return artifact;
+  }, [addArtifact, conditions, config, constraints, model, persistedArtifactId, persistedProjectId, predictionStatus, projects]);
 
   const requestSave = () => {
     if (predictionStatus !== 'completed') return message.warning('请先完成虚拟工况预测');
@@ -244,8 +252,14 @@ const VirtualConditionExtension: React.FC = () => {
     }
 
     if (action === '加入报告') {
-      saveBusinessReportItem({ source: '虚拟工况扩展', title: `${model.modelName} ${model.version}扩展结果`, summary: result.resultSummary });
-      message.success('虚拟工况扩展结果已加入报告。');
+      if (boundProject) {
+        const artifact = persistVirtualResult(boundProject.id);
+        if (!artifact) return;
+        navigate('/report/create', { state: { ...createWorkspaceNavigationState(boundProject.id), artifactIds: [artifact.id] } });
+        return;
+      }
+      setContinueToReportAfterSave(true);
+      setSaveTargetOpen(true);
     }
   }, [boundProject, conditions, effectiveSession, incoming?.data, incoming?.task, model, navigate, persistVirtualResult, predictionStatus]);
 
@@ -327,7 +341,7 @@ const VirtualConditionExtension: React.FC = () => {
         <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
 
-      {sourceName && <Alert type="success" showIcon title={`来源：${sourceName}`} description={`${incoming?.validation ? `待验证区间：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}；` : ''}已携带可信模型：${model.modelName} ${model.version}`} />}
+      {sourceName && <Alert type="success" showIcon title={`已从${sourceName}带入业务上下文`} description={`${incoming?.validation ? `待验证区间：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}；` : ''}已携带可信模型：${model.modelName} ${model.version}`} style={{ marginBottom: 16 }} />}
 
       <PreparationChecklist
         title="工况扩展准备"
@@ -384,7 +398,13 @@ const VirtualConditionExtension: React.FC = () => {
         <Form.Item label="压力范围"><Space><InputNumber value={draftConstraints.pressureMin} onChange={(value) => setDraftConstraints({ ...draftConstraints, pressureMin: value ?? 1.5 })} /><Text>～</Text><InputNumber value={draftConstraints.pressureMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, pressureMax: value ?? 2.2 })} /></Space></Form.Item>
         <Form.Item label="约束策略"><Space orientation="vertical"><Checkbox checked={draftConstraints.withinScope} onChange={(event) => setDraftConstraints({ ...draftConstraints, withinScope: event.target.checked })}>限制在模型可推演范围内</Checkbox><Checkbox checked={draftConstraints.excludeAbnormal} onChange={(event) => setDraftConstraints({ ...draftConstraints, excludeAbnormal: event.target.checked })}>排除历史异常区域</Checkbox><Checkbox checked={draftConstraints.markOutsideTrusted} onChange={(event) => setDraftConstraints({ ...draftConstraints, markOutsideTrusted: event.target.checked })}>标记超出可信范围工况</Checkbox></Space></Form.Item>
       </Form></Modal>
-      <ProjectSaveTargetModal open={saveTargetOpen} title="保存虚拟工况预测到项目" defaultProjectId={boundProject?.id} onCancel={() => setSaveTargetOpen(false)} onConfirm={persistVirtualResult} />
+      <ProjectSaveTargetModal open={saveTargetOpen} title="保存虚拟工况预测到项目" defaultProjectId={boundProject?.id} onCancel={() => { setSaveTargetOpen(false); setContinueToReportAfterSave(false); }} onConfirm={(projectId) => {
+        const artifact = persistVirtualResult(projectId);
+        if (artifact && continueToReportAfterSave) {
+          setContinueToReportAfterSave(false);
+          navigate('/report/create', { state: { ...createWorkspaceNavigationState(projectId), artifactIds: [artifact.id] } });
+        }
+      }} />
     </div>
   );
 };

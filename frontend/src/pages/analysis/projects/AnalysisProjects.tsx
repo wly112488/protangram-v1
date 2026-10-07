@@ -298,6 +298,13 @@ const AnalysisProjects: React.FC = () => {
     if (!autoExecute || autoStarted.current || !preparationReady) return;
     autoStarted.current = true;
     startAnalysis();
+    return () => {
+      if (timer.current !== null) {
+        window.clearTimeout(timer.current);
+        timer.current = null;
+      }
+      autoStarted.current = false;
+    };
   }, [autoExecute, preparationReady]);
 
   useEffect(() => {

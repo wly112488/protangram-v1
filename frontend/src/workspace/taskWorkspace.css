@@ -191,6 +191,32 @@
   gap: 6px;
 }
 
+.task-item-execution-progress {
+  width: min(360px, 100%);
+}
+
+.task-item-results {
+  display: flex;
+  max-width: 560px;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.task-item-result-card {
+  background: var(--ant-color-fill-quaternary);
+}
+
+.task-artifact-payload {
+  max-height: 300px;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+}
+
 .task-plan-dependency {
   padding-left: 10px;
   border-left: 2px solid var(--ant-color-border-secondary);

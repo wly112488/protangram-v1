@@ -1,3 +1,4 @@
+import type { WorkspaceSessionState } from '@/types/businessContext';
 import type { BusinessSession } from './types.ts';
 
 export const createWorkspaceNavigationState = (activeProjectId: string | null) => ({
@@ -9,6 +10,11 @@ export const createWorkspaceNavigationState = (activeProjectId: string | null) =
 export const createTaskNavigationState = (taskId: string, projectId: string, taskItemId?: string) => ({
   workspaceSession: { mode: 'task' as const, taskId, targetProjectId: projectId, taskItemId },
 });
+
+export const createTopLevelNavigationSession = (session: WorkspaceSessionState): WorkspaceSessionState =>
+  session.mode === 'task'
+    ? { mode: 'task', taskId: session.taskId, targetProjectId: session.targetProjectId }
+    : session;
 
 export const createTaskContextSearch = (session: BusinessSession) => session.mode === 'task'
   ? `?taskId=${encodeURIComponent(session.taskId)}${session.taskItemId ? `&taskItemId=${encodeURIComponent(session.taskItemId)}` : ''}`

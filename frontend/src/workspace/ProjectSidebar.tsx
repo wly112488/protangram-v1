@@ -1,28 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Dropdown, Empty, Input, List, Modal, Popconfirm, Tooltip, Tree, Typography, message } from 'antd';
-import { DeleteOutlined, FolderOpenOutlined, LockOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Empty, Input, Popconfirm, Tooltip, Tree, Typography, message } from 'antd';
+import { DeleteOutlined, FolderOpenOutlined, LockOutlined, SearchOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import { useNavigate } from 'react-router-dom';
-import { buildProjectNavigation, type LegacyGeneratedExperiment } from './projectModel';
+import { buildProjectNavigation } from './projectModel';
 import { filterProjectsBySearch } from './presentationModel';
-import {
-  LEGACY_EXPERIMENT_STORAGE_KEY,
-  useProjectStore,
-} from './projectStore';
+import { useProjectStore } from './projectStore';
 import type { ProjectView } from './types';
 import { useTaskStore } from './taskStore';
 
 const { Text } = Typography;
-
-const loadLegacyExperiments = (): LegacyGeneratedExperiment[] => {
-  try {
-    const raw = localStorage.getItem(LEGACY_EXPERIMENT_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed as LegacyGeneratedExperiment[] : [];
-  } catch {
-    return [];
-  }
-};
 
 interface ProjectSidebarProps {
   mobileOpen?: boolean;
@@ -37,21 +24,11 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
   const activeView = useProjectStore((state) => state.activeView);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const setActiveView = useProjectStore((state) => state.setActiveView);
-  const createProject = useProjectStore((state) => state.createProject);
   const deleteProject = useProjectStore((state) => state.deleteProject);
-  const importLegacyExperiment = useProjectStore((state) => state.importLegacyExperiment);
 
   const [search, setSearch] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [projectName, setProjectName] = useState('');
 
   const visibleProjects = useMemo(() => filterProjectsBySearch(projects, search), [projects, search]);
-  const importCandidates = useMemo(
-    () => loadLegacyExperiments().filter((legacy) => !projects.some((project) => project.id === legacy.id)),
-    [projects, importOpen],
-  );
-
   const treeData = useMemo<DataNode[]>(() => visibleProjects.map((project) => {
     const linkedTask = tasks.find((task) => task.projectId === project.id);
     return {
@@ -118,19 +95,6 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
     selectProjectView(projectId, view as ProjectView);
   };
 
-  const handleCreate = () => {
-    const name = projectName.trim();
-    if (!name) {
-      message.warning('请输入项目名称');
-      return;
-    }
-    createProject({ name, status: '未开始' });
-    setProjectName('');
-    setCreateOpen(false);
-    navigate('/projects');
-    onNavigate?.();
-  };
-
   return (
     <aside id="workspace-project-sidebar" className={`workspace-project-sidebar ${mobileOpen ? 'is-mobile-open' : ''}`}>
       <div className="workspace-project-sidebar-head">
@@ -138,18 +102,6 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
             <strong>项目数据与成果</strong>
             <Text type="secondary">{projects.length} 个空间 · 数据、工作表与专业结果</Text>
         </div>
-        <Dropdown
-          trigger={['click']}
-          menu={{
-            items: [
-              { key: 'new', label: '新建项目' },
-              { key: 'import', label: '导入旧版试验项目' },
-            ],
-            onClick: ({ key }) => key === 'new' ? setCreateOpen(true) : setImportOpen(true),
-          }}
-        >
-          <Button type="text" className="workspace-project-add" icon={<PlusOutlined />} aria-label="新建项目或导入旧版试验项目" />
-        </Dropdown>
       </div>
 
       <div className="workspace-project-search">
@@ -180,57 +132,6 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
         )}
       </div>
 
-      <Modal
-        title="新建项目"
-        open={createOpen}
-        okText="创建"
-        cancelText="取消"
-        onOk={handleCreate}
-        onCancel={() => setCreateOpen(false)}
-      >
-        <Input
-          autoFocus
-          placeholder="请输入项目名称"
-          value={projectName}
-          onChange={(event) => setProjectName(event.target.value)}
-          onPressEnter={handleCreate}
-        />
-      </Modal>
-
-      <Modal
-        title="导入旧版试验项目"
-        open={importOpen}
-        footer={null}
-        onCancel={() => setImportOpen(false)}
-      >
-        {importCandidates.length > 0 ? (
-          <List
-            dataSource={importCandidates}
-            renderItem={(item) => (
-              <List.Item
-                actions={[
-                  <Button
-                    key="import"
-                    type="link"
-                    onClick={() => {
-                      importLegacyExperiment(item);
-                      setImportOpen(false);
-                      navigate('/projects');
-                      onNavigate?.();
-                    }}
-                  >
-                    导入
-                  </Button>,
-                ]}
-              >
-                <List.Item.Meta title={item.name} description={item.designName || '历史项目'} />
-              </List.Item>
-            )}
-          />
-        ) : (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有尚未导入的旧版试验项目" />
-        )}
-      </Modal>
     </aside>
   );
 };

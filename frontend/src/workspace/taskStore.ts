@@ -7,6 +7,8 @@ import type {
   TaskReportSection,
   TaskStatus,
 } from './taskTypes';
+import { addTaskRequirement, removeTaskRequirement, reopenTaskRequirement, satisfyTaskRequirement, updateTaskRequirement } from './taskPlanModel';
+import { synchronizeTaskReportJson } from './taskReportAiModel';
 
 export const TASK_STORAGE_KEY = 'protangram-task-workspace-v1';
 
@@ -29,11 +31,18 @@ interface TaskState {
   tasks: TaskRecord[];
   createTask: (input: CreateTaskInput) => string;
   createDemoTask: (input: CreateDemoTaskInput) => string;
+  addRequirement: (taskId: string, input: { text: string; capability?: TaskRequirement['capability'] }) => void;
+  updateRequirement: (taskId: string, requirementId: string, patch: Pick<TaskRequirement, 'text' | 'capability'>) => void;
+  removeRequirement: (taskId: string, requirementId: string) => void;
   addArtifactToTaskItem: (taskId: string, requirementId: string, reference: Omit<TaskArtifactReference, 'addedAt'>) => void;
   updateTask: (taskId: string, patch: Partial<Pick<TaskRecord, 'title' | 'sourceName' | 'sourceText' | 'status'>>) => void;
   setRequirementStatus: (taskId: string, requirementId: string, status: TaskRequirement['status']) => void;
+  setRequirementProgress: (taskId: string, requirementId: string, progress: number) => void;
+  confirmRequirementSatisfied: (taskId: string, requirementId: string, satisfactionNote: string) => void;
+  reopenRequirement: (taskId: string, requirementId: string) => void;
   setPlanConfirmed: (taskId: string, confirmed: boolean) => void;
   updateReportSection: (taskId: string, sectionId: string, body: string) => void;
+  saveReportAiCompletion: (taskId: string, input: { sections: TaskReportSection[]; structuredJson: string; aiCompletedAt: string }) => void;
   addArtifactToReport: (taskId: string, reference: Omit<TaskArtifactReference, 'addedAt'>, sectionId?: string) => void;
   setReportStatus: (taskId: string, status: TaskRecord['reportDraft']['status']) => void;
   setTaskStatus: (taskId: string, status: TaskStatus) => void;
@@ -77,6 +86,7 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
       createdAt: now,
       updatedAt: now,
     };
+    task.reportDraft.structuredJson = synchronizeTaskReportJson(undefined, task, task.reportDraft.sections);
     set((state) => ({ tasks: [task, ...state.tasks] }));
     return task.id;
   },
@@ -109,9 +119,30 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
       createdAt: now,
       updatedAt: now,
     };
+    task.reportDraft.structuredJson = synchronizeTaskReportJson(undefined, task, task.reportDraft.sections);
     set((state) => ({ tasks: [task, ...state.tasks] }));
     return task.id;
   },
+  addRequirement: (taskId, input) => set((state) => ({
+    tasks: state.tasks.map((task) => task.id === taskId
+      ? touchTask(addTaskRequirement(task, {
+        id: makeId('requirement'),
+        text: input.text.trim(),
+        status: '待完成',
+        capability: input.capability,
+      }), new Date().toISOString())
+      : task),
+  })),
+  updateRequirement: (taskId, requirementId, patch) => set((state) => ({
+    tasks: state.tasks.map((task) => task.id === taskId
+      ? touchTask(updateTaskRequirement(task, requirementId, { ...patch, text: patch.text.trim() }), new Date().toISOString())
+      : task),
+  })),
+  removeRequirement: (taskId, requirementId) => set((state) => ({
+    tasks: state.tasks.map((task) => task.id === taskId
+      ? touchTask(removeTaskRequirement(task, requirementId), new Date().toISOString())
+      : task),
+  })),
   addArtifactToTaskItem: (taskId, requirementId, reference) => set((state) => ({
     tasks: state.tasks.map((task) => {
       if (task.id !== taskId) return task;
@@ -146,21 +177,58 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
         : requirement),
     } : task),
   })),
+  setRequirementProgress: (taskId, requirementId, progress) => set((state) => ({
+    tasks: state.tasks.map((task) => task.id === taskId ? {
+      ...touchTask(task, new Date().toISOString()),
+      requirements: task.requirements.map((requirement) => requirement.id === requirementId
+        ? { ...requirement, executionProgress: Math.min(100, Math.max(0, Math.round(progress))) }
+        : requirement),
+    } : task),
+  })),
+  confirmRequirementSatisfied: (taskId, requirementId, satisfactionNote) => set((state) => ({
+    tasks: state.tasks.map((task) => task.id === taskId
+      ? touchTask(satisfyTaskRequirement(task, requirementId, satisfactionNote), new Date().toISOString())
+      : task),
+  })),
+  reopenRequirement: (taskId, requirementId) => set((state) => ({
+    tasks: state.tasks.map((task) => task.id === taskId
+      ? touchTask(reopenTaskRequirement(task, requirementId), new Date().toISOString())
+      : task),
+  })),
   setPlanConfirmed: (taskId, confirmed) => set((state) => ({
     tasks: state.tasks.map((task) => task.id === taskId
       ? { ...touchTask(task, new Date().toISOString()), planConfirmed: confirmed }
       : task),
   })),
   updateReportSection: (taskId, sectionId, body) => set((state) => ({
+    tasks: state.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+      const updatedAt = new Date().toISOString();
+      const sections = task.reportDraft.sections.map((section): TaskReportSection => section.id === sectionId
+        ? { ...section, body }
+        : section);
+      return {
+        ...touchTask(task, updatedAt),
+        reportDraft: {
+          ...task.reportDraft,
+          status: 'draft',
+          updatedAt,
+          sections,
+          structuredJson: synchronizeTaskReportJson(task.reportDraft.structuredJson, task, sections),
+        },
+      };
+    }),
+  })),
+  saveReportAiCompletion: (taskId, input) => set((state) => ({
     tasks: state.tasks.map((task) => task.id === taskId ? {
-      ...touchTask(task, new Date().toISOString()),
+      ...touchTask(task, input.aiCompletedAt),
       reportDraft: {
         ...task.reportDraft,
         status: 'draft',
-        updatedAt: new Date().toISOString(),
-        sections: task.reportDraft.sections.map((section): TaskReportSection => section.id === sectionId
-          ? { ...section, body }
-          : section),
+        updatedAt: input.aiCompletedAt,
+        sections: input.sections,
+        structuredJson: input.structuredJson,
+        aiCompletedAt: input.aiCompletedAt,
       },
     } : task),
   })),
@@ -176,15 +244,17 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
       if (alreadyAdded) return task;
       const artifactRef: TaskArtifactReference = { ...reference, addedAt: new Date().toISOString() };
       const updatedAt = new Date().toISOString();
+      const sections = task.reportDraft.sections.map((section) => section.id === targetSection.id
+        ? { ...section, artifactRefs: [...section.artifactRefs, artifactRef] }
+        : section);
       return {
         ...touchTask(task, updatedAt),
         reportDraft: {
           ...task.reportDraft,
           status: 'draft',
           updatedAt,
-          sections: task.reportDraft.sections.map((section) => section.id === targetSection.id
-            ? { ...section, artifactRefs: [...section.artifactRefs, artifactRef] }
-            : section),
+          sections,
+          structuredJson: synchronizeTaskReportJson(task.reportDraft.structuredJson, task, sections),
         },
       };
     }),

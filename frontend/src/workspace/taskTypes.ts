@@ -5,6 +5,7 @@ export interface TaskRequirement {
   id: string;
   text: string;
   status: TaskRequirementStatus;
+  executionProgress?: number;
   dependsOnIds?: string[];
   capability?: 'dataAnalysis' | 'digitalTwin' | 'virtualCondition' | 'experimentDesign' | 'report';
   recommendationReason?: string;
@@ -12,6 +13,7 @@ export interface TaskRequirement {
   sourceExcerpt?: string;
   inputSummary?: string;
   artifactRefs?: TaskArtifactReference[];
+  satisfactionNote?: string;
 }
 
 export interface TaskArtifactReference {
@@ -30,6 +32,8 @@ export interface TaskReportSection {
 export interface TaskReportDraft {
   status: 'draft' | 'finalized';
   updatedAt: string;
+  structuredJson?: string;
+  aiCompletedAt?: string;
   sections: TaskReportSection[];
 }
 

@@ -153,7 +153,12 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
         ))}
       </section>
 
-      <Card className="workspace-card workspace-next-steps-card" title="从项目开始专业分析" bordered={false}>
+      <Card className="workspace-card workspace-next-steps-card" title={linkedTask ? '从项目独立开始专业分析' : '从项目开始专业分析'} bordered={false}>
+        {linkedTask && (
+          <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+            这些入口独立于任务事项执行；分析结果仅保存到项目。需要纳入正式任务时，可在任务工作台关联到任务事项。
+          </Text>
+        )}
         <div className="workspace-next-steps">
           {nextSteps.map((step) => (
             <div className="workspace-next-step" key={step.key}>
@@ -167,7 +172,7 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
                 icon={<PlusOutlined />}
                 onClick={() => navigate(step.route, { state: { workspaceSession: { mode: 'project', targetProjectId: project.id } } })}
               >
-                {step.key === 'analysis' ? '进入试验数据分析' : step.title}
+                {linkedTask ? '独立分析' : step.key === 'analysis' ? '进入试验数据分析' : step.title}
               </Button>
             </div>
           ))}

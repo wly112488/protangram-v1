@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Card, Typography, Button, Row, Col, Tag, message, Space,
+  Alert, Card, Typography, Button, Row, Col, Tag, message, Modal, Space,
 } from 'antd';
 import {
   ArrowLeftOutlined, FileTextOutlined, CheckCircleOutlined,
@@ -12,6 +12,7 @@ import { loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { createReportArtifactInput, getReportableArtifacts } from './reportModel.js';
+import { countUnmetTaskItems } from './taskReportModel';
 import type { AnalysisReport } from '@/types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -54,12 +55,14 @@ const ReportGenerate: React.FC = () => {
   const setTaskReportStatus = useTaskStore((state) => state.setReportStatus);
   const setTaskRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
+  const tasks = useTaskStore((state) => state.tasks);
 
   const [tagBindings, setTagBindings] = useState<Record<string, string>>({});
   const [dragItem, setDragItem] = useState<string>('');
   const [reportGenerated, setReportGenerated] = useState(false);
 
   const report = analysisReports.find((r) => r.id === reportId) as ReportRecord | undefined;
+  const task = tasks.find((item) => item.id === report?.taskId);
   const workspaceProjectId = report?.workspaceProjectId
     || projects.find((project) => project.id === report?.analysisProjectId)?.id;
   const workspaceProject = projects.find((project) => project.id === workspaceProjectId);
@@ -167,6 +170,23 @@ const ReportGenerate: React.FC = () => {
 
   const boundCount = Object.keys(tagBindings).length;
   const totalTags = TEMPLATE_TAGS.length;
+  const unmetTaskItemCount = task
+    ? countUnmetTaskItems(task.requirements, report?.taskItemId)
+    : 0;
+
+  const confirmGenerateReport = () => {
+    if (unmetTaskItemCount > 0) {
+      Modal.confirm({
+        title: '仍有任务事项未满足',
+        content: `当前还有 ${unmetTaskItemCount} 项任务事项未完成。继续会正式生成报告，但不会自动标记任务完成。`,
+        okText: '仍要生成正式报告',
+        cancelText: '返回继续处理',
+        onOk: handleGenerateReport,
+      });
+      return;
+    }
+    handleGenerateReport();
+  };
 
   return (
     <div className="workspace-simple-page workspace-report-generator-page">
@@ -183,6 +203,16 @@ const ReportGenerate: React.FC = () => {
         <Card size="small" title="任务报告草稿内容" style={{ marginBottom: 12, maxHeight: 180, overflow: 'auto' }}>
           <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{report.reportContent}</Paragraph>
         </Card>
+      )}
+
+      {report?.taskId && (
+        <Alert
+          type="info"
+          showIcon
+          message="当前正在编制正式报告"
+          description="保存绑定只保留报告配置；正式生成后报告状态会更新。正式报告生成与任务完成是两件事，任务状态需在任务工作台单独确认。"
+          style={{ marginBottom: 12 }}
+        />
       )}
 
       <Row className="workspace-report-generator-layout" gutter={16} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -286,8 +316,8 @@ const ReportGenerate: React.FC = () => {
           <Button size="large" onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}` : '/report/list')}>{report?.taskId ? '返回任务工作台' : '返回列表'}</Button>
           <Button size="large" icon={<SaveOutlined />} onClick={handleSave}>保存绑定</Button>
           <Button type="primary" size="large" icon={<FileDoneOutlined />}
-            onClick={handleGenerateReport}>
-            生成报告
+            onClick={confirmGenerateReport}>
+            正式生成报告
           </Button>
           {reportGenerated && (
             <Button type="primary" size="large" icon={<EyeOutlined />}

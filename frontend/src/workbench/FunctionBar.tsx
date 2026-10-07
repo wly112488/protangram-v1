@@ -3,7 +3,7 @@ import { Button, Form, Input, Modal, Popover, Select, Typography, message } from
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { primaryNavigationItems } from '@/workspace/presentationModel';
-import { createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
+import { createTopLevelNavigationSession, createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import type { WorkspaceSessionState } from '@/types/businessContext';
 import EquipmentManagerWindow, { type ResearchObject } from './EquipmentManagerWindow';
 
@@ -148,7 +148,9 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   onImportExperiment,
 }) => {
   const navigate = useNavigate();
-  const getNavigation = () => workspaceSession ?? createWorkspaceNavigationState(activeProjectId).workspaceSession;
+  const getNavigation = () => createTopLevelNavigationSession(
+    workspaceSession ?? createWorkspaceNavigationState(activeProjectId).workspaceSession,
+  );
   const getTarget = (path: string) => {
     const session = getNavigation();
     return session.mode === 'task' ? `${path}?taskId=${encodeURIComponent(session.taskId)}` : path;

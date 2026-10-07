@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Card, Typography, Button, Form, Select, Space, Descriptions, Tag, message, Checkbox, Empty,
+  Alert, Card, Typography, Button, Form, Input, Select, Space, Descriptions, Tag, message, Checkbox, Empty,
 } from 'antd';
 import {
   ArrowLeftOutlined, FileSyncOutlined, LinkOutlined,
@@ -13,6 +13,7 @@ import { loadAnalysisProjects, loadExperiments, loadAnalysisReports, saveAnalysi
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js';
+import { resolveTaskReportProjectId } from './taskReportModel';
 import type { AnalysisProject, AnalysisReport } from '@/types';
 import type { ProjectArtifact } from '@/workspace/types';
 import type { BusinessRouteState } from '@/types/businessContext';
@@ -49,8 +50,11 @@ const ReportCreate: React.FC = () => {
     ? routeState.workspaceSession.taskItemId
     : new URLSearchParams(location.search).get('taskItemId') ?? undefined;
   const task = useTaskStore((state) => state.tasks.find((item) => item.id === taskId));
+  const taskBoundMode = Boolean(taskId && task);
   const setTaskRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
-  const routeProjectId = routeState?.workspaceSession?.targetProjectId || task?.projectId || legacyRouteProjectId;
+  const routeProjectId = taskBoundMode
+    ? task?.projectId
+    : routeState?.workspaceSession?.targetProjectId || legacyRouteProjectId;
   const [form] = Form.useForm();
   const {
     setAnalysisProjects, setExperiments, addAnalysisReport,
@@ -68,9 +72,12 @@ const ReportCreate: React.FC = () => {
     if (experiments.length > 0) setExperiments(experiments);
 
     const validProjectIds = [...projects.map((project) => project.id), ...savedProjects.map((project) => project.id)];
-    const initialProjectId = routeProjectId && validProjectIds.includes(routeProjectId)
-      ? routeProjectId
-      : resolveReportProjectId({ activeProjectId, projectIds: projects.map((project) => project.id) });
+    const taskProjectId = taskBoundMode ? resolveTaskReportProjectId(task, validProjectIds) : null;
+    const initialProjectId = taskBoundMode
+      ? taskProjectId ?? ''
+      : routeProjectId && validProjectIds.includes(routeProjectId)
+        ? routeProjectId
+        : resolveReportProjectId({ activeProjectId, projectIds: projects.map((project) => project.id) });
     setSelectedProjectId(initialProjectId);
     form.setFieldsValue({ analysisProjectId: initialProjectId });
 
@@ -103,6 +110,10 @@ const ReportCreate: React.FC = () => {
   const handleGenerate = async () => {
     try {
       const values = await form.validateFields();
+      if (taskBoundMode && values.analysisProjectId !== task?.projectId) {
+        message.error('任务报告只能使用当前任务关联的项目');
+        return;
+      }
       const project = projects.find((item) => item.id === values.analysisProjectId);
       const legacyProject = legacyProjects.find((item) => item.id === values.analysisProjectId);
       const report: ReportRecord = {
@@ -137,7 +148,7 @@ const ReportCreate: React.FC = () => {
       all.push(report);
       saveAnalysisReports(all);
 
-      message.success('报告已创建');
+      message.success(taskBoundMode ? '报告配置已保存，可继续编制正式报告' : '报告已创建');
       navigate(`/report/generate/${report.id}${task ? `?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}` : ''}`);
     } catch {
       message.error('请选择项目和报告模板');
@@ -153,23 +164,45 @@ const ReportCreate: React.FC = () => {
     <div className="workspace-simple-page workspace-report-create-page">
       <div className="workspace-page-heading">
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(task ? `/tasks/${task.id}` : '/report/list')}>返回</Button>
-        <Title level={4} style={{ margin: 0 }}>新建分析报告</Title>
+        <Title level={4} style={{ margin: 0 }}>{taskBoundMode ? '任务报告配置' : '新建分析报告'}</Title>
       </div>
 
       <div className="workspace-report-form-content" style={{ maxWidth: 850, margin: '0 auto' }}>
-        <Card title="报告配置" style={{ marginBottom: 16 }}>
+        {taskBoundMode && !selectedProjectId && (
+          <Alert
+            type="error"
+            showIcon
+            message="当前任务没有可用的关联项目"
+            description="请先在任务工作台修复项目关联，再继续配置任务报告。"
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        <Card title={taskBoundMode ? '当前任务的正式报告' : '报告配置'} style={{ marginBottom: 16 }}>
           <Form form={form} layout="vertical" initialValues={{ analysisProjectId: selectedProjectId }}>
-            <Form.Item label="选择项目" name="analysisProjectId"
-              rules={[{ required: true, message: '请选择项目' }]}>
-              <Select
-                showSearch
-                optionFilterProp="label"
-                placeholder="选择项目或兼容的旧分析项目"
-                onChange={handleProjectChange}
-                options={projectOptions}
-                notFoundContent={<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有可用于报告的项目" />}
-              />
-            </Form.Item>
+            {taskBoundMode ? (
+              <>
+                <Form.Item name="analysisProjectId" hidden rules={[{ required: true, message: '当前任务没有关联项目' }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item label="所属项目">
+                  <Input disabled value={projects.find((project) => project.id === task?.projectId)?.name ?? '关联项目不可用'} />
+                </Form.Item>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>任务报告沿用任务关联项目，成果来自该项目以及已明确加入任务报告草稿的成果。</Text>
+              </>
+            ) : (
+              <Form.Item label="选择项目" name="analysisProjectId"
+                rules={[{ required: true, message: '请选择项目' }]}>
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="选择项目或兼容的旧分析项目"
+                  onChange={handleProjectChange}
+                  options={projectOptions}
+                  notFoundContent={<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有可用于报告的项目" />}
+                />
+              </Form.Item>
+            )}
             <Form.Item label="选择报告模板" name="reportTemplateId"
               rules={[{ required: true, message: '请选择报告模板' }]}>
               <Select placeholder="选择报告模板" options={REPORT_TEMPLATE_OPTIONS} />
@@ -229,7 +262,7 @@ const ReportCreate: React.FC = () => {
           <Space size="large">
             <Button size="large" onClick={() => navigate('/report/list')}>取消</Button>
             <Button type="primary" size="large" icon={<FileSyncOutlined />} onClick={handleGenerate}>
-              生成报告
+              {taskBoundMode ? '保存配置并继续编制' : '进入报告编制'}
             </Button>
           </Space>
         </div>

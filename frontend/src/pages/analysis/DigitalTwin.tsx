@@ -213,6 +213,13 @@ const DigitalTwin: React.FC = () => {
     if (!autoExecute || autoStarted.current || !preparationReady) return;
     autoStarted.current = true;
     startCalibration();
+    return () => {
+      if (calibrationTimer.current !== null) {
+        window.clearTimeout(calibrationTimer.current);
+        calibrationTimer.current = null;
+      }
+      autoStarted.current = false;
+    };
   }, [autoExecute, preparationReady]);
 
   useEffect(() => {

@@ -198,14 +198,6 @@
   font-size: 11px;
 }
 
-.workspace-project-add.ant-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  color: #2f80ff;
-  background: #f0f6ff;
-}
-
 .workspace-project-search {
   padding: 0 14px 12px;
 }

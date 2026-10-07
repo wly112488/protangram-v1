@@ -13,6 +13,7 @@ import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createDesignArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
+import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
 
@@ -79,6 +80,9 @@ const IntelligentExperimentDesign: React.FC = () => {
   const { setContext } = useTrialAIAssistant();
   const { projects, session, targetProject, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
+  const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
+  const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
   const initialModel = incoming?.model ?? MODELS[0];
@@ -111,8 +115,10 @@ const IntelligentExperimentDesign: React.FC = () => {
   const [generated, setGenerated] = useState(false);
   const [activeTab, setActiveTab] = useState('plan');
   const [plan, setPlan] = useState<PlanRow[]>(createPlan(initialConfig));
-  const [confirmed, setConfirmed] = useState(EMPTY_CONFIRMATION);
+  const [confirmed, setConfirmed] = useState(autoExecute ? { model: true, data: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
+  const autoStarted = useRef(false);
+  const autoReturned = useRef(false);
   const preparationReady = Object.values(confirmed).every(Boolean);
 
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
@@ -154,7 +160,7 @@ const IntelligentExperimentDesign: React.FC = () => {
 
   const persistDesign = (projectId: string) => {
     const project = projects.find((item) => item.id === projectId);
-    if (!project) return false;
+    if (!project) return null;
     const artifact = addArtifact(projectId, createDesignArtifactInput({
       title: `${config.target} · 智能推荐方案`,
       summary: `推荐 ${plan.length} 个试验工况，预计覆盖率 86%，高风险工况 ${plan.filter((row) => row.risk === '高').length} 个`,
@@ -168,10 +174,10 @@ const IntelligentExperimentDesign: React.FC = () => {
         highRiskCount: plan.filter((row) => row.risk === '高').length,
       },
     }));
-    if (!artifact) return false;
+    if (!artifact) return null;
     recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
     message.success(`推荐方案已保存到项目“${project.name}”`);
-    return true;
+    return artifact;
   };
 
   const createTask = (workspaceSession: NonNullable<BusinessRouteState['workspaceSession']>) => {
@@ -194,12 +200,37 @@ const IntelligentExperimentDesign: React.FC = () => {
 
   const confirmPlan = () => {
     if (!generated) return message.warning('请先生成推荐方案');
+    if (session.mode === 'task' && session.taskItemId && targetProject) {
+      const artifact = persistDesign(targetProject.id);
+      if (!artifact) return;
+      addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id });
+      setRequirementStatus(session.taskId, session.taskItemId, '已满足');
+      navigate(createTaskReturnPath(session));
+      return;
+    }
     if (targetProject) {
       if (persistDesign(targetProject.id)) createTask(session.mode === 'task' ? session : { mode: 'project', targetProjectId: targetProject.id });
       return;
     }
     setSaveTargetOpen(true);
   };
+
+  useEffect(() => {
+    if (!autoExecute || autoStarted.current || !preparationReady) return;
+    autoStarted.current = true;
+    generatePlan();
+  }, [autoExecute, preparationReady]);
+
+  useEffect(() => {
+    if (!autoExecute || !generated || autoReturned.current || !targetProject || session.mode !== 'task' || !session.taskItemId) return;
+    autoReturned.current = true;
+    const artifact = persistDesign(targetProject.id);
+    if (!artifact) return;
+    addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id });
+    setRequirementStatus(session.taskId, session.taskItemId, '已满足');
+    message.success('已按复核后的任务规划完成模拟设计，成果已回到原任务');
+    navigate(createTaskReturnPath(session));
+  }, [addArtifactToReport, autoExecute, generated, navigate, persistDesign, session, setRequirementStatus, targetProject]);
 
   const handleBusinessAction = useCallback((action: BusinessAction) => {
     if (action === '调整方案') {

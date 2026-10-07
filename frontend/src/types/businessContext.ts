@@ -73,6 +73,7 @@ export interface BusinessRouteState {
   plan?: PlanCondition[];
   datasets?: string[];
   artifactIds?: string[];
+  autoExecute?: boolean;
   workspaceSession?: WorkspaceSessionState;
 }
 

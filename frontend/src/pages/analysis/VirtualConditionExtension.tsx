@@ -65,19 +65,24 @@ const VirtualConditionExtension: React.FC = () => {
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
+  const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
   const initialModel = incoming?.model ?? MODELS[0];
   const initialConfig = incomingRange
-    ? { ...DEFAULT_CONFIG, speedMin: incomingRange[0], speedMax: incomingRange[1] }
+    ? { ...DEFAULT_CONFIG, speedMin: incomingRange[0], speedMax: incomingRange[1], count: incoming?.validation?.recommendedRuns ?? DEFAULT_CONFIG.count }
     : DEFAULT_CONFIG;
+  const initialConstraints = incomingRange
+    ? { ...DEFAULT_CONSTRAINTS, speedMax: Math.max(DEFAULT_CONSTRAINTS.speedMax, incomingRange[1]) }
+    : DEFAULT_CONSTRAINTS;
 
   const [model, setModel] = useState(initialModel);
   const [config, setConfig] = useState<ConditionConfig>(initialConfig);
-  const [constraints, setConstraints] = useState<ConstraintConfig>(DEFAULT_CONSTRAINTS);
+  const [constraints, setConstraints] = useState<ConstraintConfig>(initialConstraints);
   const [draftModelId, setDraftModelId] = useState(initialModel.modelId);
   const [draftConfig, setDraftConfig] = useState<ConditionConfig>(initialConfig);
-  const [draftConstraints, setDraftConstraints] = useState<ConstraintConfig>(DEFAULT_CONSTRAINTS);
+  const [draftConstraints, setDraftConstraints] = useState<ConstraintConfig>(initialConstraints);
   const [modelOpen, setModelOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [constraintsOpen, setConstraintsOpen] = useState(false);
@@ -92,8 +97,11 @@ const VirtualConditionExtension: React.FC = () => {
   const [activeTab, setActiveTab] = useState('prediction');
   const [filter, setFilter] = useState('全部');
   const [selectedCondition, setSelectedCondition] = useState<VirtualCondition | null>(null);
-  const [confirmed, setConfirmed] = useState(EMPTY_CONFIRMATION);
+  const [confirmed, setConfirmed] = useState(autoExecute ? { model: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
+  const autoGenerationStarted = useRef(false);
+  const autoPredictionStarted = useRef(false);
+  const autoReturned = useRef(false);
   const preparationReady = Object.values(confirmed).every(Boolean);
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
@@ -270,6 +278,29 @@ const VirtualConditionExtension: React.FC = () => {
       setSaveTargetOpen(true);
     }
   }, [addArtifactToReport, boundProject, conditions, effectiveSession, incoming?.data, incoming?.task, model, navigate, persistVirtualResult, predictionStatus]);
+
+  useEffect(() => {
+    if (!autoExecute || autoGenerationStarted.current || !preparationReady) return;
+    autoGenerationStarted.current = true;
+    generateConditions();
+  }, [autoExecute, preparationReady]);
+
+  useEffect(() => {
+    if (!autoExecute || generationStatus !== 'generated' || autoPredictionStarted.current) return;
+    autoPredictionStarted.current = true;
+    startPrediction();
+  }, [autoExecute, generationStatus]);
+
+  useEffect(() => {
+    if (!autoExecute || predictionStatus !== 'completed' || autoReturned.current || effectiveSession.mode !== 'task' || !effectiveSession.taskItemId || !boundProject) return;
+    autoReturned.current = true;
+    const artifact = persistVirtualResult(boundProject.id);
+    if (!artifact) return;
+    addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId: artifact.id });
+    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '已满足');
+    message.success('已按复核后的任务规划完成模拟工况扩展，成果已回到原任务');
+    navigate(createTaskReturnPath(effectiveSession));
+  }, [addArtifactToReport, autoExecute, boundProject, effectiveSession, navigate, persistVirtualResult, predictionStatus, setRequirementStatus]);
 
   useEffect(() => {
     setContext({

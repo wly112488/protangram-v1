@@ -9,6 +9,8 @@ export interface TaskRequirement {
   capability?: 'dataAnalysis' | 'digitalTwin' | 'virtualCondition' | 'experimentDesign' | 'report';
   recommendationReason?: string;
   sourceRef?: string;
+  sourceExcerpt?: string;
+  inputSummary?: string;
   artifactRefs?: TaskArtifactReference[];
 }
 
@@ -38,6 +40,7 @@ export interface TaskRecord {
   sourceText?: string;
   projectId: string;
   demo?: boolean;
+  planConfirmed?: boolean;
   status: TaskStatus;
   requirements: TaskRequirement[];
   reportDraft: TaskReportDraft;

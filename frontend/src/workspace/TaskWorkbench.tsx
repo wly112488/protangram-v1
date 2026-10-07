@@ -19,14 +19,6 @@ const CAPABILITIES = [
   { key: 'virtualCondition' as const, label: '虚拟工况扩展', path: '/analysis/virtual-condition', source: 'virtualCondition' as const, description: '扩展工况并形成验证结果' },
 ];
 
-const MOCK_OUTPUTS = {
-  dataAnalysis: { type: 'analysis' as const, title: '高转速异常数据分析', summary: '识别到 11,800–12,200 rpm 温升异常，主要影响因素为进气温度。', source: '试验数据分析 · 模拟结果', payload: { sampleSize: 48, anomalyRange: '11,800–12,200 rpm', chart: '模拟温度趋势图' } },
-  digitalTwin: { type: 'calibration' as const, title: '高转速模型可信性评估', summary: '校准后验证集 R² = 0.94，12,000 rpm 附近存在可控偏差。', source: '试验数字孪生 · 模拟结果', payload: { r2: 0.94, validationSamples: 12, conclusion: '模型可用于限定范围的工况扩展' } },
-  virtualCondition: { type: 'virtualCondition' as const, title: '高风险区间虚拟工况扩展', summary: '扩展 6 个未覆盖工况，识别 2 个建议优先验证的高风险点。', source: '虚拟工况扩展 · 模拟结果', payload: { generatedConditions: 6, highRiskConditions: 2 } },
-  experimentDesign: { type: 'design' as const, title: '高风险区域补充验证方案', summary: '形成 8 组补充试验点，覆盖两个高风险区间及中心工况。', source: '智能试验设计 · 模拟结果', payload: { runCount: 8, factors: ['转速', '进气温度'], design: '模拟验证设计' } },
-  report: { type: 'report' as const, title: '高转速区域分析报告（演示稿）', summary: '已将任务背景、分析结论、扩展工况和验证方案汇总为演示报告。', source: '任务报告 · 模拟生成', payload: { status: '演示稿', sections: ['任务背景与目标', '分析过程与结果', '结论与建议'] } },
-};
-
 const TaskWorkbench: React.FC = () => {
   const { taskId = '' } = useParams<{ taskId: string }>();
   const location = useLocation();
@@ -34,12 +26,11 @@ const TaskWorkbench: React.FC = () => {
   const focusedRequirementId = new URLSearchParams(location.search).get('taskItemId');
   const task = useTaskStore((state) => state.tasks.find((item) => item.id === taskId));
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const setPlanConfirmed = useTaskStore((state) => state.setPlanConfirmed);
   const setTaskStatus = useTaskStore((state) => state.setTaskStatus);
-  const setReportStatus = useTaskStore((state) => state.setReportStatus);
   const updateReportSection = useTaskStore((state) => state.updateReportSection);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
-  const addArtifact = useProjectStore((state) => state.addArtifact);
   const project = useProjectStore((state) => state.projects.find((item) => item.id === task?.projectId));
   const allProjects = useProjectStore((state) => state.projects);
   const artifacts = project?.artifacts ?? [];
@@ -55,6 +46,60 @@ const TaskWorkbench: React.FC = () => {
     });
   }, [focusedRequirementId, taskId]);
 
+  useEffect(() => {
+    if (!task?.demo || !task.planConfirmed) return;
+    const nextRequirement = task.requirements.find((requirement) => {
+      if (requirement.status === '已满足' || !requirement.capability) return false;
+      return (requirement.dependsOnIds ?? []).every((dependencyId) =>
+        task.requirements.some((item) => item.id === dependencyId && item.status === '已满足'));
+    });
+    if (!nextRequirement) return;
+    if (nextRequirement.capability === 'report') {
+      navigate(`/report/create?taskId=${encodeURIComponent(task.id)}&taskItemId=${encodeURIComponent(nextRequirement.id)}`, {
+        state: { source: 'dataAnalysis', ...createTaskNavigationState(task.id, task.projectId, nextRequirement.id) },
+      });
+      return;
+    }
+    const capability = CAPABILITIES.find((item) => item.key === nextRequirement.capability);
+    if (!capability) return;
+    const dependencyArtifacts = (nextRequirement.dependsOnIds ?? [])
+      .flatMap((dependencyId) => task.requirements.find((item) => item.id === dependencyId)?.artifactRefs ?? [])
+      .map((reference) => allProjects.find((item) => item.id === reference.projectId)?.artifacts.find((item) => item.id === reference.artifactId))
+      .filter((artifact) => artifact !== undefined);
+    navigate(`${capability.path}?taskId=${encodeURIComponent(task.id)}&taskItemId=${encodeURIComponent(nextRequirement.id)}`, {
+      state: {
+        source: capability.source,
+        autoExecute: true,
+        artifactIds: dependencyArtifacts.map((artifact) => artifact.id),
+        result: dependencyArtifacts.length ? {
+          resultType: '前置事项成果',
+          resultSummary: dependencyArtifacts.map((artifact) => `${artifact.title}：${artifact.summary}`).join('；'),
+          abnormalRange: '11800～12200 rpm',
+          metrics: ['出口温度', '推力'],
+        } : undefined,
+        validation: {
+          goal: nextRequirement.text,
+          suggestedRange: '11800～12200 rpm',
+          highRiskRange: '11800～12200 rpm',
+          metrics: ['出口温度', '推力'],
+          recommendedRuns: nextRequirement.capability === 'experimentDesign' ? 8 : 6,
+        },
+        data: {
+          dataId: `${task.id}-${nextRequirement.id}-input`,
+          dataName: dependencyArtifacts[0]?.title ?? '任务关联试验数据集（模拟）',
+          dataType: '试验数据',
+          source: task.sourceName || '任务书',
+          taskId: task.id,
+        },
+        task: {
+          taskId: task.id, taskName: task.title, taskType: '任务书分析',
+          source: task.sourceName || '任务中心', status: task.status === '已完成' ? '已完成' : '待执行',
+        },
+        ...createTaskNavigationState(task.id, task.projectId, nextRequirement.id),
+      },
+    });
+  }, [navigate, task]);
+
   if (!task) return <Card><Empty description="未找到这项任务，可能已被删除。"><Button onClick={() => navigate('/')}>返回任务中心</Button></Empty></Card>;
 
   const reportArtifactKeys = new Set(task.reportDraft.sections.flatMap((section) => section.artifactRefs.map((item) => `${item.projectId}:${item.artifactId}`)));
@@ -69,9 +114,40 @@ const TaskWorkbench: React.FC = () => {
     message.success('独立成果已关联到任务事项');
   };
 
-  const openCapability = (path: string, source: BusinessRouteState['source'], taskItemId?: string) => navigate(`${path}?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}`, {
+  const openCapability = (requirement: NonNullable<typeof task>['requirements'][number], capability: typeof CAPABILITIES[number]) => {
+    const dependencyArtifacts = (requirement.dependsOnIds ?? [])
+      .flatMap((dependencyId) => task.requirements.find((item) => item.id === dependencyId)?.artifactRefs ?? [])
+      .map((reference) => allProjects.find((item) => item.id === reference.projectId)?.artifacts.find((item) => item.id === reference.artifactId))
+      .filter((artifact) => artifact !== undefined);
+    const suggestedRange = requirement.capability === 'dataAnalysis' ? '11800～12200 rpm'
+      : requirement.capability === 'digitalTwin' ? '11800～12200 rpm'
+        : requirement.capability === 'virtualCondition' ? '11800～12200 rpm'
+          : '11800～12200 rpm';
+    const validation: NonNullable<BusinessRouteState['validation']> = {
+      goal: requirement.text,
+      suggestedRange,
+      highRiskRange: suggestedRange,
+      metrics: ['出口温度', '推力'],
+      recommendedRuns: requirement.capability === 'experimentDesign' ? 8 : 6,
+    };
+    navigate(`${capability.path}?taskId=${encodeURIComponent(task.id)}&taskItemId=${encodeURIComponent(requirement.id)}`, {
     state: {
-      source,
+      source: capability.source,
+      autoExecute: Boolean(task.planConfirmed && task.demo),
+      validation,
+      result: dependencyArtifacts.length > 0 ? {
+        resultType: '前置事项成果',
+        resultSummary: dependencyArtifacts.map((artifact) => `${artifact.title}：${artifact.summary}`).join('；'),
+        abnormalRange: suggestedRange,
+        metrics: validation.metrics,
+      } : undefined,
+      data: {
+        dataId: `${task.id}-${requirement.id}-input`,
+        dataName: dependencyArtifacts[0]?.title ?? '任务书关联试验数据集（模拟）',
+        dataType: '试验数据',
+        source: task.sourceName || '任务书',
+        taskId: task.id,
+      },
       task: {
         taskId: task.id,
         taskName: task.title,
@@ -79,35 +155,20 @@ const TaskWorkbench: React.FC = () => {
         source: task.sourceName || '任务中心',
         status: task.status === '已完成' ? '已完成' : '待执行',
       },
-      ...createTaskNavigationState(task.id, task.projectId, taskItemId),
+      ...createTaskNavigationState(task.id, task.projectId, requirement.id),
     },
   });
+  };
   const runRequirement = (requirementId: string) => {
     const requirement = task.requirements.find((item) => item.id === requirementId);
     if (!requirement?.capability) return;
     const unmetDependencies = (requirement.dependsOnIds ?? []).filter((dependencyId) =>
       task.requirements.some((item) => item.id === dependencyId && item.status !== '已满足'));
     if (unmetDependencies.length > 0) return message.info('请先完成此事项的前置要求');
-    if (!task.demo) {
-      if (requirement.capability === 'report') return openReportGeneration(requirement.id);
-      const capability = CAPABILITIES.find((item) => item.key === requirement.capability);
-      if (capability) openCapability(capability.path, capability.source, requirement.id);
-      return;
-    }
-    const output = MOCK_OUTPUTS[requirement.capability];
-    const artifact = addArtifact(task.projectId, {
-      type: output.type,
-      title: output.title,
-      source: output.source,
-      summary: output.summary,
-      payload: output.payload,
-    });
-    if (!artifact) return message.error('无法保存模拟成果，请检查关联项目');
-    addArtifactToTaskItem(task.id, requirement.id, { projectId: artifact.projectId, artifactId: artifact.id });
-    addArtifactToReport(task.id, { projectId: artifact.projectId, artifactId: artifact.id });
-    setRequirementStatus(task.id, requirement.id, '已满足');
-    if (requirement.capability === 'report') setReportStatus(task.id, 'finalized');
-    message.success('模拟分析已完成，成果已回到任务并加入报告草稿');
+    if (!task.planConfirmed) return message.info('请先复核并确认任务规划，再开始执行事项');
+    if (requirement.capability === 'report') return openReportGeneration(requirement.id);
+    const capability = CAPABILITIES.find((item) => item.key === requirement.capability);
+    if (capability) openCapability(requirement, capability);
   };
   const openReportGeneration = (taskItemId?: string) => {
     navigate(`/report/create?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}`, { state: { source: 'dataAnalysis', ...createTaskNavigationState(task.id, task.projectId, taskItemId) } });
@@ -124,7 +185,7 @@ const TaskWorkbench: React.FC = () => {
             <Checkbox
               checked={requirement.status === '已满足'}
               onChange={(event) => setRequirementStatus(task.id, requirement.id, event.target.checked ? '已满足' : '待完成')}
-              disabled={task.demo}
+              disabled={false}
             >{requirement.text}</Checkbox>
           </List.Item>
         )}
@@ -222,10 +283,10 @@ const TaskWorkbench: React.FC = () => {
 
       <Card
         className="task-execution-plan"
-        title={<Space>任务执行计划{task.demo && <Tag color="purple">AI 模拟拆解</Tag>}</Space>}
-        extra={<Text type="secondary">事项表达任务要求，工具只是完成事项的手段</Text>}
+        title={<Space>任务规划复核{task.demo && <Tag color="purple">AI 模拟拆解</Tag>}</Space>}
+        extra={<Space><Text type="secondary">{task.demo ? '确认后，系统按前置关系自动配置并执行可开始事项' : '确认规划后可按前置要求启动事项'}</Text><Button type={task.planConfirmed ? 'default' : 'primary'} onClick={() => setPlanConfirmed(task.id, !task.planConfirmed)}>{task.planConfirmed ? '撤销确认并暂停' : task.demo ? '确认规划并开始自动执行' : '确认规划并解锁执行'}</Button></Space>}
       >
-        {task.demo && <Alert className="task-demo-note" type="info" showIcon message={`原型模拟：${task.sourceName || '已选择的任务书 PDF'}目前只记录文件名，尚未解析内容；以下事项拆解与专业分析结果为模拟数据。`} />}
+        {task.demo && <Alert className="task-demo-note" type="info" showIcon message={`原型模拟：${task.sourceName || '已选择的任务书 PDF'}尚未被实际解析；事项来源定位、推荐能力和分析输入均为预设演示数据，请先逐项核对后再确认规划。`} />}
         <List
           className="task-plan-list"
           dataSource={task.requirements}
@@ -241,31 +302,27 @@ const TaskWorkbench: React.FC = () => {
                   <Space wrap><Text strong>{requirement.text}</Text><Tag color={stateLabel === '已完成' ? 'green' : stateLabel === '可开始' ? 'blue' : 'default'}>{stateLabel}</Tag></Space>
                   <Text type="secondary">{requirement.recommendationReason ?? '根据任务要求选择合适的方式完成。'}</Text>
                   {dependencies.length > 0 && <Text className="task-plan-dependency" type="secondary">前置：{dependencies.map((item) => item?.text).join('；')}</Text>}
-                  {capability && <Space wrap><Tag color="geekblue">建议能力：{capability.label}</Tag>{requirement.sourceRef && <Text type="secondary">来源：{requirement.sourceRef}</Text>}</Space>}
+                  {requirement.sourceRef && <Text type="secondary">任务书依据：{requirement.sourceRef}</Text>}
+                  {requirement.sourceExcerpt && <Text type="secondary">依据摘录： “{requirement.sourceExcerpt}”</Text>}
+                  {capability && <Space wrap><Tag color="geekblue">建议能力：{capability.label}</Tag>{requirement.recommendationReason && <Text type="secondary">推荐原因：{requirement.recommendationReason}</Text>}</Space>}
+                  {(requirement.inputSummary || task.demo) && <Text type="secondary">已有数据 / 前置条件：{requirement.inputSummary ?? '任务书关联试验数据集（模拟）'}</Text>}
+                  {task.demo && <Checkbox checked={requirement.status === '已满足'} onChange={(event) => setRequirementStatus(task.id, requirement.id, event.target.checked ? '已满足' : '待完成')}>现有资料已满足此事项</Checkbox>}
                   {requirement.artifactRefs && requirement.artifactRefs.length > 0 && <Space wrap>{requirement.artifactRefs.map((reference) => {
                     const linkedArtifact = allProjects.find((candidate) => candidate.id === reference.projectId)?.artifacts.find((artifact) => artifact.id === reference.artifactId);
                     return <Tag key={`${reference.projectId}:${reference.artifactId}`} color="cyan">成果：{linkedArtifact?.title ?? reference.artifactId}</Tag>;
                   })}</Space>}
                 </div>
-                {requirement.status === '已满足' ? <Tag color="green">成果已回流</Tag> : (
-                  <Button size="small" type={stateLabel === '可开始' ? 'primary' : 'default'} disabled={Boolean(blocked.length)} onClick={() => runRequirement(requirement.id)}>
-                    {task.demo ? requirement.capability === 'report' ? '生成模拟报告' : '模拟执行并回传' : requirement.capability === 'report' ? '编制报告' : stateLabel === '进行中' ? '继续事项' : '开始事项'}
+                {requirement.status === '已满足' ? <Tag color="green">{requirement.artifactRefs?.length ? '成果已回流' : '已确认由现有资料满足'}</Tag> : task.demo ? (
+                  <Tag color={task.planConfirmed && stateLabel === '可开始' ? 'blue' : 'default'}>{task.planConfirmed && stateLabel === '可开始' ? '自动调度中' : task.planConfirmed ? stateLabel : '等待人工复核'}</Tag>
+                ) : (
+                  <Button size="small" type={stateLabel === '可开始' ? 'primary' : 'default'} disabled={Boolean(blocked.length) || !task.planConfirmed} onClick={() => runRequirement(requirement.id)}>
+                    {requirement.capability === 'report' ? '开始编制报告' : task.demo ? '自动配置并执行' : stateLabel === '进行中' ? '继续事项' : '开始事项'}
                   </Button>
                 )}
               </List.Item>
             );
           }}
         />
-      </Card>
-
-      <Card className="task-capabilities-card" title="按任务需要调用专业能力" extra={<Text type="secondary">没有固定先后顺序，可重复调用</Text>}>
-        <div className="task-capability-grid">
-          {CAPABILITIES.map((capability) => (
-            <button key={capability.path} type="button" className="task-capability" onClick={() => openCapability(capability.path, capability.source)}>
-              <strong>{capability.label}</strong><span>{capability.description}</span>
-            </button>
-          ))}
-        </div>
       </Card>
 
       <Card className="task-content-card">

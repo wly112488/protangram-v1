@@ -32,6 +32,7 @@ interface TaskState {
   addArtifactToTaskItem: (taskId: string, requirementId: string, reference: Omit<TaskArtifactReference, 'addedAt'>) => void;
   updateTask: (taskId: string, patch: Partial<Pick<TaskRecord, 'title' | 'sourceName' | 'sourceText' | 'status'>>) => void;
   setRequirementStatus: (taskId: string, requirementId: string, status: TaskRequirement['status']) => void;
+  setPlanConfirmed: (taskId: string, confirmed: boolean) => void;
   updateReportSection: (taskId: string, sectionId: string, body: string) => void;
   addArtifactToReport: (taskId: string, reference: Omit<TaskArtifactReference, 'addedAt'>, sectionId?: string) => void;
   setReportStatus: (taskId: string, status: TaskRecord['reportDraft']['status']) => void;
@@ -90,11 +91,11 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
       status: '进行中',
       demo: true,
       requirements: [
-        { id: ids[0], text: '分析已有高转速试验数据，识别异常响应', status: '待完成', capability: 'dataAnalysis', recommendationReason: '需要先确认实测数据中的异常区间与主要影响因素。', sourceRef: '模拟任务书 · 任务目标第 1 句' },
-        { id: ids[1], text: '判断高转速区域模型预测的可信性', status: '待完成', dependsOnIds: [ids[0]], capability: 'digitalTwin', recommendationReason: '需要结合前一事项识别的异常区间校准并评估模型。', sourceRef: '模拟任务书 · 任务目标第 1 句' },
-        { id: ids[2], text: '扩展实测覆盖不足的高风险工况', status: '待完成', dependsOnIds: [ids[1]], capability: 'virtualCondition', recommendationReason: '使用可信性评估后的模型补充未覆盖工况。', sourceRef: '模拟任务书 · 任务目标第 2 句' },
-        { id: ids[3], text: '针对高风险区域设计补充验证试验', status: '待完成', dependsOnIds: [ids[2]], capability: 'experimentDesign', recommendationReason: '依据扩展分析识别出的高风险区域设计验证点。', sourceRef: '模拟任务书 · 任务目标第 2 句' },
-        { id: ids[4], text: '汇总分析与验证证据，形成最终分析报告', status: '待完成', dependsOnIds: [ids[0], ids[1], ids[2], ids[3]], capability: 'report', recommendationReason: '汇总前序事项的成果与结论，完成报告交付。', sourceRef: '模拟任务书 · 交付要求' },
+        { id: ids[0], text: '分析已有高转速试验数据，识别异常响应', status: '待完成', capability: 'dataAnalysis', recommendationReason: '需要先确认实测数据中的异常区间与主要影响因素。', sourceRef: '第 2 页 · 工作目标第 1 条（模拟定位）', sourceExcerpt: '分析已有高转速试验数据，识别异常响应及主要影响因素。', inputSummary: '预设历史试验数据集 A；尚无任务内分析成果。' },
+        { id: ids[1], text: '判断高转速区域模型预测的可信性', status: '待完成', dependsOnIds: [ids[0]], capability: 'digitalTwin', recommendationReason: '需要结合前一事项识别的异常区间校准并评估模型。', sourceRef: '第 2 页 · 工作目标第 1 条（模拟定位）', sourceExcerpt: '判断模型在高转速区域的可信性。', inputSummary: '预设发动机模型 V2.1；等待数据分析事项输出异常区间。' },
+        { id: ids[2], text: '扩展实测覆盖不足的高风险工况', status: '待完成', dependsOnIds: [ids[1]], capability: 'virtualCondition', recommendationReason: '使用可信性评估后的模型补充未覆盖工况。', sourceRef: '第 2 页 · 工作目标第 2 条（模拟定位）', sourceExcerpt: '对缺少实测覆盖的区域进行工况扩展。', inputSummary: '等待数字孪生事项输出校准模型和可信范围。' },
+        { id: ids[3], text: '针对高风险区域设计补充验证试验', status: '待完成', dependsOnIds: [ids[2]], capability: 'experimentDesign', recommendationReason: '依据扩展分析识别出的高风险区域设计验证点。', sourceRef: '第 2 页 · 工作目标第 2 条（模拟定位）', sourceExcerpt: '针对风险区域设计补充验证试验。', inputSummary: '等待虚拟工况事项输出高风险工况和待验证区间。' },
+        { id: ids[4], text: '汇总分析与验证证据，形成最终分析报告', status: '待完成', dependsOnIds: [ids[0], ids[1], ids[2], ids[3]], capability: 'report', recommendationReason: '汇总前序事项的成果与结论，完成报告交付。', sourceRef: '第 3 页 · 交付要求第 1 条（模拟定位）', sourceExcerpt: '提交包含分析过程、验证结果和结论建议的最终分析报告。', inputSummary: '等待前序事项成果回流任务报告草稿。' },
       ],
       reportDraft: {
         status: 'draft',
@@ -144,6 +145,11 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
         ? { ...requirement, status }
         : requirement),
     } : task),
+  })),
+  setPlanConfirmed: (taskId, confirmed) => set((state) => ({
+    tasks: state.tasks.map((task) => task.id === taskId
+      ? { ...touchTask(task, new Date().toISOString()), planConfirmed: confirmed }
+      : task),
   })),
   updateReportSection: (taskId, sectionId, body) => set((state) => ({
     tasks: state.tasks.map((task) => task.id === taskId ? {

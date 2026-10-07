@@ -57,20 +57,28 @@ const DigitalTwin: React.FC = () => {
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
-  const initialModel = incoming?.model ?? null;
+  const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
+  const initialModel = incoming?.model ?? (autoExecute ? MODELS[0] : null);
+  const recommendedSpeedRange = incoming?.validation?.suggestedRange.match(/\d+/g)?.map(Number);
+  const initialParams = autoExecute && recommendedSpeedRange && recommendedSpeedRange.length >= 2
+    ? { ...INITIAL_PARAMS, speed: Math.round((recommendedSpeedRange[0] + recommendedSpeedRange[1]) / 2) }
+    : INITIAL_PARAMS;
   const [model, setModel] = useState<ModelContract | null>(initialModel);
-  const [simulationFile, setSimulationFile] = useState(incoming?.source === 'dataAnalysis' ? 'digital_twin_baseline.json' : '');
-  const [measuredFile, setMeasuredFile] = useState(incoming?.data?.dataName ?? '');
-  const [params, setParams] = useState(INITIAL_PARAMS);
-  const [draftParams, setDraftParams] = useState(INITIAL_PARAMS);
+  const [simulationFile, setSimulationFile] = useState(incoming?.source === 'dataAnalysis' || autoExecute ? 'digital_twin_baseline.json' : '');
+  const [measuredFile, setMeasuredFile] = useState(incoming?.data?.dataName ?? (autoExecute ? '任务关联实测数据集（模拟）' : ''));
+  const [params, setParams] = useState(initialParams);
+  const [draftParams, setDraftParams] = useState(initialParams);
   const [modelModalOpen, setModelModalOpen] = useState(false);
   const [paramsModalOpen, setParamsModalOpen] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
   const [savedProjectId, setSavedProjectId] = useState<string | undefined>(session.targetProjectId);
   const [calibrating, setCalibrating] = useState(false);
   const [calibrated, setCalibrated] = useState(false);
-  const [confirmed, setConfirmed] = useState(EMPTY_CONFIRMATION);
+  const [confirmed, setConfirmed] = useState(autoExecute ? { model: true, simulationData: true, measuredData: true, params: true } : EMPTY_CONFIRMATION);
   const calibrationTimer = useRef<number | null>(null);
+  const autoStarted = useRef(false);
+  const autoReturned = useRef(false);
   const simulationInputRef = useRef<HTMLInputElement | null>(null);
   const measuredInputRef = useRef<HTMLInputElement | null>(null);
   const activeModel = model ?? incoming?.model ?? (incoming?.source === 'dataAnalysis' ? MODELS[0] : null);
@@ -93,8 +101,8 @@ const DigitalTwin: React.FC = () => {
     setModel(initialModel);
     setSimulationFile(incoming?.source === 'dataAnalysis' ? 'digital_twin_baseline.json' : '');
     setMeasuredFile(incoming?.data?.dataName ?? '');
-    setParams(INITIAL_PARAMS);
-    setDraftParams(INITIAL_PARAMS);
+    setParams(initialParams);
+    setDraftParams(initialParams);
     setConfirmed(EMPTY_CONFIRMATION);
     setCalibrating(false);
     setCalibrated(false);
@@ -177,6 +185,7 @@ const DigitalTwin: React.FC = () => {
     const saved = persistCalibration(boundProject.id);
     if (!saved) return;
     addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId: saved.id });
+    if (effectiveSession.taskItemId) setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '已满足');
     navigate(createTaskReturnPath(effectiveSession));
   };
 
@@ -199,6 +208,23 @@ const DigitalTwin: React.FC = () => {
     if (action === '用于试验设计') navigate(`/experiment/design/intelligent${createTaskContextSearch(effectiveSession)}`, { state: { source: 'digitalTwin', model: activeModel, result, workspaceSession: effectiveSession } satisfies BusinessRouteState });
     if (action === '用于工况扩展') navigate(`/analysis/virtual-condition${createTaskContextSearch(effectiveSession)}`, { state: { source: 'digitalTwin', model: activeModel, result, workspaceSession: effectiveSession } satisfies BusinessRouteState });
   }, [activeModel, calibrated, effectiveSession, navigate]);
+
+  useEffect(() => {
+    if (!autoExecute || autoStarted.current || !preparationReady) return;
+    autoStarted.current = true;
+    startCalibration();
+  }, [autoExecute, preparationReady]);
+
+  useEffect(() => {
+    if (!autoExecute || !calibrated || autoReturned.current || effectiveSession.mode !== 'task' || !effectiveSession.taskItemId || !boundProject) return;
+    autoReturned.current = true;
+    const saved = persistCalibration(boundProject.id);
+    if (!saved) return;
+    addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId: saved.id });
+    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '已满足');
+    message.success('已按复核后的任务规划完成模拟校准，成果已回到原任务');
+    navigate(createTaskReturnPath(effectiveSession));
+  }, [addArtifactToReport, autoExecute, boundProject, calibrated, effectiveSession, navigate, persistCalibration, setRequirementStatus]);
 
   useEffect(() => {
     setContext({

@@ -99,6 +99,8 @@ const AnalysisProjects: React.FC = () => {
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
+  const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const routedTaskContract = incoming?.task ?? (activeTask ? {
     taskId: activeTask.id,
@@ -117,11 +119,16 @@ const AnalysisProjects: React.FC = () => {
   const initialTask = routedTask ?? TASKS[0];
   const initialData = { experimentFile: incoming?.data?.dataName ?? initialTask.experimentFile, environmentFile: initialTask.environmentFile, controlFile: initialTask.controlFile, modelData: initialTask.modelData };
   const activeModel = incoming?.model ?? DEFAULT_MODEL;
+  const initialConfig = incoming?.validation ? {
+    ...DEFAULT_CONFIG,
+    metrics: incoming.validation.metrics,
+    scope: incoming.validation.suggestedRange || DEFAULT_CONFIG.scope,
+  } : DEFAULT_CONFIG;
 
   const [task, setTask] = useState(initialTask);
   const [data, setData] = useState(initialData);
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
-  const [draftConfig, setDraftConfig] = useState(DEFAULT_CONFIG);
+  const [config, setConfig] = useState(initialConfig);
+  const [draftConfig, setDraftConfig] = useState(initialConfig);
   const [draftTaskId, setDraftTaskId] = useState(initialTask.id);
   const [draftData, setDraftData] = useState(data);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -138,8 +145,10 @@ const AnalysisProjects: React.FC = () => {
   const [activeTab, setActiveTab] = useState('trend');
   const [selectedAnomaly, setSelectedAnomaly] = useState(ANOMALIES[0]);
   const [selectedMeasurementPoint, setSelectedMeasurementPoint] = useState(MEASUREMENT_POINTS[3]);
-  const [confirmed, setConfirmed] = useState(EMPTY_CONFIRMATION);
+  const [confirmed, setConfirmed] = useState(autoExecute ? { task: true, data: true, config: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
+  const autoStarted = useRef(false);
+  const autoReturned = useRef(false);
   const preparationReady = Object.values(confirmed).every(Boolean);
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
@@ -192,8 +201,8 @@ const AnalysisProjects: React.FC = () => {
     setData(initialData);
     setDraftData(initialData);
     setDraftTaskId(initialTask.id);
-    setConfig(DEFAULT_CONFIG);
-    setDraftConfig(DEFAULT_CONFIG);
+    setConfig(initialConfig);
+    setDraftConfig(initialConfig);
     setConfirmed(EMPTY_CONFIRMATION);
     setSelectedMeasurementPoint(MEASUREMENT_POINTS[3]);
     setAnalyzing(false);
@@ -284,6 +293,23 @@ const AnalysisProjects: React.FC = () => {
       setSaveTargetOpen(true);
     }
   }, [activeModel, addArtifact, addArtifactToReport, analyzed, boundProject, config, data, effectiveSession, navigate, projects, recordArtifactForTaskItem, selectedAnomaly, selectedMeasurementPoint, task]);
+
+  useEffect(() => {
+    if (!autoExecute || autoStarted.current || !preparationReady) return;
+    autoStarted.current = true;
+    startAnalysis();
+  }, [autoExecute, preparationReady]);
+
+  useEffect(() => {
+    if (!autoExecute || !analyzed || autoReturned.current || effectiveSession.mode !== 'task' || !effectiveSession.taskItemId || !boundProject) return;
+    autoReturned.current = true;
+    const artifactId = persistResult(boundProject.id, 'analysis');
+    if (!artifactId) return;
+    addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId });
+    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '已满足');
+    message.success('已按复核后的任务规划完成模拟分析，成果已回到原任务');
+    navigate(createTaskReturnPath(effectiveSession));
+  }, [addArtifactToReport, analyzed, autoExecute, boundProject, effectiveSession, navigate, persistResult, setRequirementStatus]);
 
   useEffect(() => {
     setContext({

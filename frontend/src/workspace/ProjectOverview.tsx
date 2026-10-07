@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Button, Card, Empty, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Space, Tag, Typography } from 'antd';
 import { BarChartOutlined, DatabaseOutlined, FileDoneOutlined, PlusOutlined, TableOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getProjectStats } from './projectModel';
@@ -106,6 +106,16 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
         </div>
       </section>
 
+      {linkedTask && (
+        <Alert
+          showIcon
+          type="info"
+          message={`此项目关联正式任务：${linkedTask.title}`}
+          description="项目概览对所有入口保持一致，负责查看数据、工作表和已保存成果；任务事项复核与执行安排在任务工作台继续。"
+          action={<Button size="small" onClick={() => navigate(`/tasks/${linkedTask.id}`)}>返回任务工作台</Button>}
+        />
+      )}
+
       <section className="workspace-overview-grid workspace-overview-info-grid">
         <Card className="workspace-card" title="项目基础信息" bordered={false}>
           <dl className="workspace-definition-list">
@@ -143,42 +153,26 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
         ))}
       </section>
 
-      {linkedTask ? (
-        <Card className="workspace-card workspace-next-steps-card" title="任务执行安排" bordered={false}>
-          <div className="workspace-next-steps">
-            <div className="workspace-next-step">
+      <Card className="workspace-card workspace-next-steps-card" title="从项目开始专业分析" bordered={false}>
+        <div className="workspace-next-steps">
+          {nextSteps.map((step) => (
+            <div className="workspace-next-step" key={step.key}>
               <div>
-                <strong>{linkedTask.title}</strong>
-                <Text type="secondary">此处负责保存任务使用的数据、工作表和专业成果。任务事项复核、自动执行和报告编制请回任务工作台继续。</Text>
+                <strong>{step.title}</strong>
+                <Text type="secondary">{step.description}</Text>
               </div>
-              <Button type="primary" ghost icon={<PlusOutlined />} onClick={() => navigate(`/tasks/${linkedTask.id}`)}>
-                返回任务工作台
+              <Button
+                type="primary"
+                ghost
+                icon={<PlusOutlined />}
+                onClick={() => navigate(step.route, { state: { workspaceSession: { mode: 'project', targetProjectId: project.id } } })}
+              >
+                {step.key === 'analysis' ? '进入试验数据分析' : step.title}
               </Button>
             </div>
-          </div>
-        </Card>
-      ) : (
-        <Card className="workspace-card workspace-next-steps-card" title="从项目开始专业分析" bordered={false}>
-          <div className="workspace-next-steps">
-            {nextSteps.map((step) => (
-              <div className="workspace-next-step" key={step.key}>
-                <div>
-                  <strong>{step.title}</strong>
-                  <Text type="secondary">{step.description}</Text>
-                </div>
-                <Button
-                  type="primary"
-                  ghost
-                  icon={<PlusOutlined />}
-                  onClick={() => navigate(step.route, { state: { workspaceSession: { mode: 'project', targetProjectId: project.id } } })}
-                >
-                  {step.key === 'analysis' ? '进入试验数据分析' : step.title}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+          ))}
+        </div>
+      </Card>
 
       <Card className="workspace-card workspace-recent-card" title="最近结果" bordered={false}>
         {recentArtifacts.length > 0 ? (

@@ -10,7 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
 import ductFlowDiagram from '@/assets/duct_flow_diagram.png';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
-import type { BusinessAction, BusinessRouteState, DataContract, ModelContract, TaskContract } from '@/types/businessContext';
+import type { BusinessAction, BusinessRouteState, DataContract, TaskContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createAnalysisArtifactInput, createRootCauseArtifactInput } from '@/workspace/projectModel';
@@ -18,6 +18,7 @@ import { createTaskContextSearch, createTaskReturnPath, createWorkspaceNavigatio
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
+import { useGlobalModelStore } from '@/workspace/globalModelStore';
 import '@/workspace/visualIntegrations.css';
 
 const { Title, Text, Paragraph } = Typography;
@@ -85,10 +86,6 @@ const MEASUREMENT_POINTS = [
 const levelTag = (level: string) => <Tag color={level === '高' ? 'red' : level === '中' ? 'orange' : 'default'}>{level}</Tag>;
 const pointStatusColor = (status: string) => status === '异常' ? 'red' : status === '关注' ? 'orange' : 'green';
 
-const DEFAULT_MODEL: ModelContract = {
-  modelId: 'engine-v2.1', modelName: '发动机模型', version: 'V2.1', trustedRange: '2000～8000 rpm', status: '已确认', calibratedAt: '2026-08-28',
-};
-
 type SaveKind = 'analysis' | 'rootCause';
 
 const AnalysisProjects: React.FC = () => {
@@ -97,6 +94,7 @@ const AnalysisProjects: React.FC = () => {
   const { setContext } = useTrialAIAssistant();
   const incoming = location.state as BusinessRouteState | null;
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
+  const globalModels = useGlobalModelStore((state) => state.models);
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
@@ -117,8 +115,16 @@ const AnalysisProjects: React.FC = () => {
   } : null;
   const availableTasks = routedTask ? [routedTask, ...TASKS.filter((item) => item.id !== routedTask.id)] : TASKS;
   const initialTask = routedTask ?? TASKS[0];
-  const initialData = { experimentFile: incoming?.data?.dataName ?? initialTask.experimentFile, environmentFile: initialTask.environmentFile, controlFile: initialTask.controlFile, modelData: initialTask.modelData };
-  const activeModel = incoming?.model ?? DEFAULT_MODEL;
+  const defaultModel = (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
+    ?? globalModels.find((item) => item.modelId === 'engine-v2.1')
+    ?? globalModels[0]!;
+  const initialData = {
+    experimentFile: incoming?.data?.dataName ?? initialTask.experimentFile,
+    environmentFile: initialTask.environmentFile,
+    controlFile: initialTask.controlFile,
+    modelData: (incoming?.model && globalModels.some((item) => item.modelId === incoming.model?.modelId) ? incoming.model.modelId : undefined)
+      ?? (globalModels.some((item) => item.modelId === initialTask.modelData) ? initialTask.modelData : defaultModel.modelId),
+  };
   const initialConfig = incoming?.validation ? {
     ...DEFAULT_CONFIG,
     metrics: incoming.validation.metrics,
@@ -127,6 +133,7 @@ const AnalysisProjects: React.FC = () => {
 
   const [task, setTask] = useState(initialTask);
   const [data, setData] = useState(initialData);
+  const activeModel = globalModels.find((item) => item.modelId === data.modelData) ?? defaultModel;
   const [config, setConfig] = useState(initialConfig);
   const [draftConfig, setDraftConfig] = useState(initialConfig);
   const [draftTaskId, setDraftTaskId] = useState(initialTask.id);
@@ -170,7 +177,12 @@ const AnalysisProjects: React.FC = () => {
   const selectTask = () => {
     const next = availableTasks.find((item) => item.id === draftTaskId) ?? initialTask;
     setTask(next);
-    setData({ experimentFile: next.experimentFile, environmentFile: next.environmentFile, controlFile: next.controlFile, modelData: next.modelData });
+    setData({
+      experimentFile: next.experimentFile,
+      environmentFile: next.environmentFile,
+      controlFile: next.controlFile,
+      modelData: globalModels.some((item) => item.modelId === next.modelData) ? next.modelData : activeModel.modelId,
+    });
     setConfirmed((prev) => ({ ...prev, task: true, data: false }));
     setTaskModalOpen(false);
     invalidateResult();
@@ -313,7 +325,7 @@ const AnalysisProjects: React.FC = () => {
     const artifactId = persistResult(boundProject.id, 'analysis');
     if (!artifactId) return;
     addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId });
-    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '已满足');
+    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '待确认');
     message.success('已按复核后的任务规划完成模拟分析，成果已回到原任务');
     navigate(createTaskReturnPath(effectiveSession));
   }, [addArtifactToReport, analyzed, autoExecute, boundProject, effectiveSession, navigate, persistResult, setRequirementStatus]);
@@ -420,6 +432,7 @@ const AnalysisProjects: React.FC = () => {
         <Descriptions size="small" column={3} items={[
           { key: 'task', label: '当前任务', children: task.name }, { key: 'source', label: '来源方案', children: task.source },
           { key: 'status', label: '执行状态', children: <Tag color="green">{task.status}</Tag> }, { key: 'file', label: '试验数据', children: data.experimentFile },
+          { key: 'model', label: '全局模型', children: `${activeModel.modelName} ${activeModel.version}${activeModel.calibrationData ? '（已引用校准数据）' : ''}` },
           { key: 'conditions', label: '工况数量', children: `${task.conditions} 组` }, { key: 'count', label: '数据量', children: `${task.dataCount.toLocaleString()} 条` },
           { key: 'metrics', label: '分析指标', span: 3, children: config.metrics.join('、') },
         ]} />
@@ -504,7 +517,7 @@ const AnalysisProjects: React.FC = () => {
           <Form.Item label="试验数据"><Select value={draftData.experimentFile} onChange={(value) => setDraftData({ ...draftData, experimentFile: value })} options={[task.experimentFile, 'experiment_01.csv', 'experiment_backup.csv'].map((value) => ({ value }))} /></Form.Item>
           <Form.Item label="环境数据"><Select value={draftData.environmentFile} onChange={(value) => setDraftData({ ...draftData, environmentFile: value })} options={[task.environmentFile, 'environment_01.csv'].map((value) => ({ value }))} /></Form.Item>
           <Form.Item label="控制数据"><Select value={draftData.controlFile} onChange={(value) => setDraftData({ ...draftData, controlFile: value })} options={[task.controlFile, 'control_01.csv'].map((value) => ({ value }))} /></Form.Item>
-          <Form.Item label="模型预测数据"><Select value={draftData.modelData} onChange={(value) => setDraftData({ ...draftData, modelData: value })} options={[task.modelData, 'digital_twin_v2'].map((value) => ({ value }))} /></Form.Item>
+          <Form.Item label="全局模型"><Select value={draftData.modelData} onChange={(value) => setDraftData({ ...draftData, modelData: value })} options={globalModels.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version} · ${item.status ?? '未校准'}` }))} /></Form.Item>
         </Form>
       </Modal>
       <Modal title="分析配置" open={configModalOpen} width={620} onCancel={() => setConfigModalOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigModalOpen(false); invalidateResult(); }}>

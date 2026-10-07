@@ -46,10 +46,11 @@ const ReportCreate: React.FC = () => {
   const taskId = routeState?.workspaceSession?.mode === 'task'
     ? routeState.workspaceSession.taskId
     : new URLSearchParams(location.search).get('taskId') ?? undefined;
-  const taskItemId = routeState?.workspaceSession?.mode === 'task'
+  const requestedTaskItemId = routeState?.workspaceSession?.mode === 'task'
     ? routeState.workspaceSession.taskItemId
     : new URLSearchParams(location.search).get('taskItemId') ?? undefined;
   const task = useTaskStore((state) => state.tasks.find((item) => item.id === taskId));
+  const taskItemId = requestedTaskItemId ?? task?.requirements.find((requirement) => requirement.capability === 'report')?.id;
   const taskBoundMode = Boolean(taskId && task);
   const setTaskRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const routeProjectId = taskBoundMode

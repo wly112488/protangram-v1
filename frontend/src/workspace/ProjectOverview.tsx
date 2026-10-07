@@ -26,51 +26,12 @@ const statusColor: Record<Project['status'], string> = {
 
 type NextStep = { key: string; title: string; description: string; route: string };
 
-const getNextSteps = (project: Project): NextStep[] => {
-  const types = new Set(project.artifacts.map((artifact) => artifact.type));
-  const highRiskVirtual = project.artifacts.some((artifact) => {
-    if (artifact.type !== 'virtualCondition') return false;
-    if (Number(artifact.payload.highRiskCount) > 0) return true;
-    const conditions = artifact.payload.conditions;
-    return Array.isArray(conditions) && conditions.some((condition) =>
-      typeof condition === 'object' && condition !== null && (condition as Record<string, unknown>).risk === '高',
-    );
-  });
-  const analysisExists = types.has('analysis');
-  const designExists = types.has('design');
-
-  if (analysisExists) {
-    const analysisSteps: NextStep[] = [
-      { key: 'calibration', title: '模型校准', description: '用已保存的分析结果检查并校准当前模型。', route: '/analysis/digital-twin' },
-      { key: 'virtual', title: '虚拟工况', description: '基于校准模型扩展预测工况。', route: '/analysis/virtual-condition' },
-      { key: 'design', title: '补充试验设计', description: '针对分析发现补充验证工况。', route: '/experiment/design/intelligent' },
-      { key: 'report', title: '生成报告', description: '汇总项目中已保存的业务结果。', route: '/report/list' },
-    ];
-    if (highRiskVirtual) {
-      analysisSteps.unshift({ key: 'validation-design', title: '验证设计', description: '为高风险虚拟工况安排实测试验验证。', route: '/experiment/design/intelligent' });
-    }
-    return analysisSteps;
-  }
-
-  if (designExists) {
-    const designSteps: NextStep[] = [
-      { key: 'analysis', title: '试验数据分析', description: '选择试验数据，检查异常并形成分析结果。', route: '/analysis/projects' },
-    ];
-    if (highRiskVirtual) {
-      designSteps.unshift({ key: 'validation-design', title: '验证设计', description: '为高风险虚拟工况安排实测试验验证。', route: '/experiment/design/intelligent' });
-    }
-    return designSteps;
-  }
-
-  if (highRiskVirtual) {
-    return [{ key: 'validation-design', title: '验证设计', description: '为高风险虚拟工况安排实测试验验证。', route: '/experiment/design/intelligent' }];
-  }
-
+const getNextSteps = (_project: Project): NextStep[] => {
   return [
-    { key: 'design', title: '试验设计', description: '规划需要执行的试验工况。', route: '/experiment/design/intelligent' },
-    { key: 'analysis', title: '试验数据分析', description: '选择试验数据，检查异常并形成分析结果。', route: '/analysis/projects' },
-    { key: 'calibration', title: '模型校准', description: '用实测数据校准当前模型。', route: '/analysis/digital-twin' },
-    { key: 'virtual', title: '虚拟工况', description: '探索模型可信范围内的扩展工况。', route: '/analysis/virtual-condition' },
+    { key: 'design', title: '试验设计', description: '根据需要规划或补充试验工况。', route: '/experiment/design/intelligent' },
+    { key: 'analysis', title: '试验数据分析', description: '分析试验数据并形成结构化结果。', route: '/analysis/projects' },
+    { key: 'calibration', title: '试验数字孪生', description: '校准模型并评估预测能力。', route: '/analysis/digital-twin' },
+    { key: 'virtual', title: '虚拟工况扩展', description: '扩展工况并检查预测结果。', route: '/analysis/virtual-condition' },
   ];
 };
 
@@ -153,10 +114,10 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
         ))}
       </section>
 
-      <Card className="workspace-card workspace-next-steps-card" title={linkedTask ? '从项目独立开始专业分析' : '从项目开始专业分析'} bordered={false}>
+      <Card className="workspace-card workspace-next-steps-card" title={linkedTask ? '可按需使用专业能力' : '可按需使用专业能力'} bordered={false}>
         {linkedTask && (
           <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-            这些入口独立于任务事项执行；分析结果仅保存到项目。需要纳入正式任务时，可在任务工作台关联到任务事项。
+            这些入口不会自动完成任务事项；结果先保存到项目。需要纳入正式任务时，可在任务工作台引用成果并人工确认。
           </Text>
         )}
         <div className="workspace-next-steps">

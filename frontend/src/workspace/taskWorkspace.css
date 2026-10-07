@@ -227,6 +227,57 @@
   margin-bottom: 20px;
 }
 
+.task-professional-projects-card {
+  margin-bottom: 20px;
+}
+
+.task-professional-projects-intro {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.task-professional-project-list .ant-list-item {
+  padding: 0;
+}
+
+.task-professional-project-card {
+  width: 100%;
+  height: 100%;
+  border-top: 2px solid var(--ant-color-primary-border);
+}
+
+.task-professional-project-card .ant-card-body {
+  min-height: 112px;
+}
+
+.task-professional-project-artifacts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.task-professional-project-artifacts .ant-btn {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  text-overflow: ellipsis;
+}
+
+.task-professional-project-focused .ant-card {
+  border-color: var(--ant-color-primary);
+  box-shadow: 0 0 0 2px var(--ant-color-primary-bg);
+}
+
+.task-professional-project-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 500;
+}
+
 .task-capability-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -288,6 +339,27 @@
   gap: 12px;
 }
 
+.task-workbench-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.task-plan-evidence-details,
+.task-report-structured-details {
+  color: var(--ant-color-text-secondary);
+  font-size: 12px;
+}
+
+.task-plan-evidence-details summary,
+.task-report-structured-details summary {
+  width: fit-content;
+  cursor: pointer;
+  user-select: none;
+}
+
 @media (max-width: 900px) {
   .task-center-page,
   .task-workbench-page {
@@ -314,6 +386,11 @@
   }
 
   .task-report-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .task-workbench-section-heading {
     align-items: flex-start;
     flex-direction: column;
   }

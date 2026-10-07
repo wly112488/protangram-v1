@@ -7,6 +7,7 @@ import FunctionBar from '@/workbench/FunctionBar';
 import type { ResearchObject } from '@/workbench/EquipmentManagerWindow';
 import comacLogo from '@/assets/comac_logo.png';
 import { getHeaderActiveKey } from './presentationModel';
+import { createTaskReturnPath } from './businessSessionModel';
 import type { WorkspaceSessionState } from '@/types/businessContext';
 import './visualIntegrations.css';
 
@@ -19,7 +20,7 @@ interface WorkspaceHeaderProps {
   projects: Array<{ id: string; name: string }>;
   activeProjectId: string | null;
   workspaceSession?: WorkspaceSessionState;
-  workspaceTask?: { id: string; title: string };
+  workspaceTask?: { id: string; title: string; professionalProjectId?: string; professionalProjectName?: string };
   onImportProject: (projectId: string) => void;
   onDesignGenerated: (designName: string) => void;
   onToggleProjectNav: () => void;
@@ -111,10 +112,10 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
         <button
           type="button"
           className="workspace-current-task"
-          onClick={() => navigate(`/tasks/${workspaceTask.id}`)}
+          onClick={() => navigate(workspaceSession?.mode === 'task' ? createTaskReturnPath(workspaceSession) : `/tasks/${workspaceTask.id}`)}
           style={{ border: 0, background: 'transparent', color: token.colorPrimary, cursor: 'pointer', whiteSpace: 'nowrap' }}
         >
-          <span className="workspace-current-task-title">当前任务：{workspaceTask.title} · </span>返回任务
+          <span className="workspace-current-task-title">当前任务：{workspaceTask.title}{workspaceTask.professionalProjectName ? ` · ${workspaceTask.professionalProjectName}` : ''} · </span>返回任务工作台
         </button>
       )}
 

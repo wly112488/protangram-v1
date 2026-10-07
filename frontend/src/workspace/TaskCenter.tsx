@@ -126,7 +126,14 @@ const TaskCenter: React.FC = () => {
             dataSource={tasks}
             renderItem={(task) => {
               const project = projects.find((item) => item.id === task.projectId);
-              const artifactCount = project?.artifacts.length ?? 0;
+              const linkedArtifactIds = new Set([
+                ...(task.artifactRefs ?? []),
+                ...task.requirements.flatMap((requirement) => requirement.artifactRefs ?? []),
+                ...task.reportDraft.sections.flatMap((section) => section.artifactRefs),
+                ...(task.professionalProjects ?? []).flatMap((item) => item.artifactRefs),
+                ...(task.reportDraft.formalReportArtifact ? [task.reportDraft.formalReportArtifact] : []),
+              ].map((reference) => `${reference.projectId}:${reference.artifactId}`));
+              const artifactCount = projects.reduce((count, item) => count + item.artifacts.filter((artifact) => linkedArtifactIds.has(`${artifact.projectId}:${artifact.id}`)).length, 0);
               const openRequirements = task.requirements.length - completedCount(task.id);
               return (
                 <List.Item>
@@ -145,6 +152,7 @@ const TaskCenter: React.FC = () => {
                       {project && <Text type="secondary">关联项目空间：{project.name}</Text>}
                       <div className="task-card-stats">
                         <span>{openRequirements} 项事项待处理</span>
+                        <span>{task.professionalProjects?.length ?? 0} 个专业工作项目</span>
                         <span>{artifactCount} 项分析成果</span>
                         <span>{task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项已入报告</span>
                       </div>

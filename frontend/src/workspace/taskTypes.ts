@@ -1,5 +1,5 @@
 export type TaskStatus = '进行中' | '已完成' | '已归档';
-export type TaskRequirementStatus = '待完成' | '进行中' | '已满足';
+export type TaskRequirementStatus = '待完成' | '进行中' | '待确认' | '已满足';
 
 export interface TaskRequirement {
   id: string;
@@ -22,6 +22,20 @@ export interface TaskArtifactReference {
   addedAt: string;
 }
 
+export type TaskProfessionalCapability = Exclude<NonNullable<TaskRequirement['capability']>, 'report'>;
+export type TaskProfessionalProjectStatus = '待开始' | '进行中' | '待确认' | '已完成';
+
+export interface TaskProfessionalProject {
+  id: string;
+  name: string;
+  capability: TaskProfessionalCapability;
+  relatedRequirementId?: string;
+  status: TaskProfessionalProjectStatus;
+  artifactRefs: TaskArtifactReference[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TaskReportSection {
   id: string;
   title: string;
@@ -34,6 +48,7 @@ export interface TaskReportDraft {
   updatedAt: string;
   structuredJson?: string;
   aiCompletedAt?: string;
+  formalReportArtifact?: TaskArtifactReference;
   sections: TaskReportSection[];
 }
 
@@ -47,6 +62,8 @@ export interface TaskRecord {
   planConfirmed?: boolean;
   status: TaskStatus;
   requirements: TaskRequirement[];
+  artifactRefs?: TaskArtifactReference[];
+  professionalProjects?: TaskProfessionalProject[];
   reportDraft: TaskReportDraft;
   createdAt: string;
   updatedAt: string;

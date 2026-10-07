@@ -7,21 +7,21 @@ export const createWorkspaceNavigationState = (activeProjectId: string | null) =
     : { mode: 'standalone' as const },
 });
 
-export const createTaskNavigationState = (taskId: string, projectId: string, taskItemId?: string) => ({
-  workspaceSession: { mode: 'task' as const, taskId, targetProjectId: projectId, taskItemId },
+export const createTaskNavigationState = (taskId: string, projectId: string, taskItemId?: string, professionalProjectId?: string) => ({
+  workspaceSession: { mode: 'task' as const, taskId, targetProjectId: projectId, taskItemId, professionalProjectId },
 });
 
 export const createTopLevelNavigationSession = (session: WorkspaceSessionState): WorkspaceSessionState =>
   session.mode === 'task'
-    ? { mode: 'task', taskId: session.taskId, targetProjectId: session.targetProjectId }
+    ? { mode: 'task', taskId: session.taskId, targetProjectId: session.targetProjectId, professionalProjectId: session.professionalProjectId }
     : session;
 
 export const createTaskContextSearch = (session: BusinessSession) => session.mode === 'task'
-  ? `?taskId=${encodeURIComponent(session.taskId)}${session.taskItemId ? `&taskItemId=${encodeURIComponent(session.taskItemId)}` : ''}`
+  ? `?taskId=${encodeURIComponent(session.taskId)}${session.taskItemId ? `&taskItemId=${encodeURIComponent(session.taskItemId)}` : ''}${session.professionalProjectId ? `&professionalProjectId=${encodeURIComponent(session.professionalProjectId)}` : ''}`
   : '';
 
 export const createTaskReturnPath = (session: BusinessSession) => session.mode === 'task'
-  ? `/tasks/${encodeURIComponent(session.taskId)}${session.taskItemId ? `?taskItemId=${encodeURIComponent(session.taskItemId)}` : ''}`
+  ? `/tasks/${encodeURIComponent(session.taskId)}${session.taskItemId ? `?taskItemId=${encodeURIComponent(session.taskItemId)}` : session.professionalProjectId ? '?' : ''}${session.professionalProjectId ? `${session.taskItemId ? '&' : ''}professionalProjectId=${encodeURIComponent(session.professionalProjectId)}` : ''}`
   : '/';
 
 export const normalizeBusinessSession = (
@@ -29,6 +29,7 @@ export const normalizeBusinessSession = (
   validProjectIds: string[],
   validTaskProjectIds: Record<string, string> = {},
   validTaskItemIds: Record<string, string[]> = {},
+  validProfessionalProjectIds: Record<string, string[]> = {},
 ): BusinessSession => {
   if (session?.mode === 'task') {
     const taskProjectId = validTaskProjectIds[session.taskId];
@@ -36,7 +37,10 @@ export const normalizeBusinessSession = (
       const taskItemId = session.taskItemId && validTaskItemIds[session.taskId]?.includes(session.taskItemId)
         ? session.taskItemId
         : undefined;
-      return { mode: 'task', taskId: session.taskId, targetProjectId: taskProjectId, taskItemId };
+      const professionalProjectId = session.professionalProjectId && validProfessionalProjectIds[session.taskId]?.includes(session.professionalProjectId)
+        ? session.professionalProjectId
+        : undefined;
+      return { mode: 'task', taskId: session.taskId, targetProjectId: taskProjectId, taskItemId, professionalProjectId };
     }
   }
   if (

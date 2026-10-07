@@ -4,6 +4,9 @@ import type {
   TaskArtifactReference,
   TaskRecord,
   TaskRequirement,
+  TaskProfessionalCapability,
+  TaskProfessionalProject,
+  TaskProfessionalProjectStatus,
   TaskReportSection,
   TaskStatus,
 } from './taskTypes';
@@ -34,6 +37,7 @@ interface TaskState {
   addRequirement: (taskId: string, input: { text: string; capability?: TaskRequirement['capability'] }) => void;
   updateRequirement: (taskId: string, requirementId: string, patch: Pick<TaskRequirement, 'text' | 'capability'>) => void;
   removeRequirement: (taskId: string, requirementId: string) => void;
+  addArtifactToTask: (taskId: string, reference: Omit<TaskArtifactReference, 'addedAt'>) => void;
   addArtifactToTaskItem: (taskId: string, requirementId: string, reference: Omit<TaskArtifactReference, 'addedAt'>) => void;
   updateTask: (taskId: string, patch: Partial<Pick<TaskRecord, 'title' | 'sourceName' | 'sourceText' | 'status'>>) => void;
   setRequirementStatus: (taskId: string, requirementId: string, status: TaskRequirement['status']) => void;
@@ -45,6 +49,10 @@ interface TaskState {
   saveReportAiCompletion: (taskId: string, input: { sections: TaskReportSection[]; structuredJson: string; aiCompletedAt: string }) => void;
   addArtifactToReport: (taskId: string, reference: Omit<TaskArtifactReference, 'addedAt'>, sectionId?: string) => void;
   setReportStatus: (taskId: string, status: TaskRecord['reportDraft']['status']) => void;
+  setFormalReportArtifact: (taskId: string, reference: Omit<TaskArtifactReference, 'addedAt'>) => void;
+  createProfessionalProject: (taskId: string, input: { name: string; capability: TaskProfessionalCapability; relatedRequirementId?: string }) => string;
+  addArtifactToProfessionalProject: (taskId: string, professionalProjectId: string, reference: Omit<TaskArtifactReference, 'addedAt'>) => void;
+  setProfessionalProjectStatus: (taskId: string, professionalProjectId: string, status: TaskProfessionalProjectStatus) => void;
   setTaskStatus: (taskId: string, status: TaskStatus) => void;
 }
 
@@ -60,6 +68,24 @@ const touchTask = (task: TaskRecord, updatedAt: string): TaskRecord => ({
   updatedAt,
 });
 
+const invalidateFormalReport = (task: TaskRecord): Pick<TaskRecord, 'requirements' | 'reportDraft' | 'status'> => {
+  const reference = task.reportDraft.formalReportArtifact;
+  return {
+    status: '进行中',
+    requirements: task.requirements.map((requirement) => requirement.capability === 'report'
+      ? {
+        ...requirement,
+        status: '待确认',
+        satisfactionNote: undefined,
+        artifactRefs: reference
+          ? requirement.artifactRefs?.filter((item) => item.projectId !== reference.projectId || item.artifactId !== reference.artifactId)
+          : requirement.artifactRefs,
+      }
+      : requirement),
+    reportDraft: { ...task.reportDraft, formalReportArtifact: undefined },
+  };
+};
+
 export const useTaskStore = create<TaskState>()(persist((set) => ({
   tasks: [],
   createTask: (input) => {
@@ -74,6 +100,8 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
       requirements: input.requirementTexts.map((text): TaskRequirement => ({
         id: makeId('requirement'), text: text.trim(), status: '待完成',
       })).filter((requirement) => requirement.text.length > 0),
+      artifactRefs: [],
+      professionalProjects: [],
       reportDraft: {
         status: 'draft',
         updatedAt: now,
@@ -100,6 +128,8 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
       projectId,
       status: '进行中',
       demo: true,
+      artifactRefs: [],
+      professionalProjects: [],
       requirements: [
         { id: ids[0], text: '分析已有高转速试验数据，识别异常响应', status: '待完成', capability: 'dataAnalysis', recommendationReason: '需要先确认实测数据中的异常区间与主要影响因素。', sourceRef: '第 2 页 · 工作目标第 1 条（模拟定位）', sourceExcerpt: '分析已有高转速试验数据，识别异常响应及主要影响因素。', inputSummary: '预设历史试验数据集 A；尚无任务内分析成果。' },
         { id: ids[1], text: '判断高转速区域模型预测的可信性', status: '待完成', dependsOnIds: [ids[0]], capability: 'digitalTwin', recommendationReason: '需要结合前一事项识别的异常区间校准并评估模型。', sourceRef: '第 2 页 · 工作目标第 1 条（模拟定位）', sourceExcerpt: '判断模型在高转速区域的可信性。', inputSummary: '预设发动机模型 V2.1；等待数据分析事项输出异常区间。' },
@@ -142,6 +172,18 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
     tasks: state.tasks.map((task) => task.id === taskId
       ? touchTask(removeTaskRequirement(task, requirementId), new Date().toISOString())
       : task),
+  })),
+  addArtifactToTask: (taskId, reference) => set((state) => ({
+    tasks: state.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+      const alreadyAdded = task.artifactRefs?.some((item) => item.projectId === reference.projectId && item.artifactId === reference.artifactId);
+      if (alreadyAdded) return task;
+      const now = new Date().toISOString();
+      return {
+        ...touchTask(task, now),
+        artifactRefs: [...(task.artifactRefs ?? []), { ...reference, addedAt: now }],
+      };
+    }),
   })),
   addArtifactToTaskItem: (taskId, requirementId, reference) => set((state) => ({
     tasks: state.tasks.map((task) => {
@@ -207,10 +249,13 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
       const sections = task.reportDraft.sections.map((section): TaskReportSection => section.id === sectionId
         ? { ...section, body }
         : section);
+      const invalidated = invalidateFormalReport(task);
       return {
         ...touchTask(task, updatedAt),
+        status: invalidated.status,
+        requirements: invalidated.requirements,
         reportDraft: {
-          ...task.reportDraft,
+          ...invalidated.reportDraft,
           status: 'draft',
           updatedAt,
           sections,
@@ -220,17 +265,23 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
     }),
   })),
   saveReportAiCompletion: (taskId, input) => set((state) => ({
-    tasks: state.tasks.map((task) => task.id === taskId ? {
-      ...touchTask(task, input.aiCompletedAt),
-      reportDraft: {
-        ...task.reportDraft,
-        status: 'draft',
-        updatedAt: input.aiCompletedAt,
-        sections: input.sections,
-        structuredJson: input.structuredJson,
-        aiCompletedAt: input.aiCompletedAt,
-      },
-    } : task),
+    tasks: state.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+      const invalidated = invalidateFormalReport(task);
+      return {
+        ...touchTask(task, input.aiCompletedAt),
+        status: invalidated.status,
+        requirements: invalidated.requirements,
+        reportDraft: {
+          ...invalidated.reportDraft,
+          status: 'draft',
+          updatedAt: input.aiCompletedAt,
+          sections: input.sections,
+          structuredJson: input.structuredJson,
+          aiCompletedAt: input.aiCompletedAt,
+        },
+      };
+    }),
   })),
   addArtifactToReport: (taskId, reference, sectionId) => set((state) => ({
     tasks: state.tasks.map((task) => {
@@ -247,10 +298,13 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
       const sections = task.reportDraft.sections.map((section) => section.id === targetSection.id
         ? { ...section, artifactRefs: [...section.artifactRefs, artifactRef] }
         : section);
+      const invalidated = invalidateFormalReport(task);
       return {
         ...touchTask(task, updatedAt),
+        status: invalidated.status,
+        requirements: invalidated.requirements,
         reportDraft: {
-          ...task.reportDraft,
+          ...invalidated.reportDraft,
           status: 'draft',
           updatedAt,
           sections,
@@ -263,6 +317,68 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
     tasks: state.tasks.map((task) => task.id === taskId ? {
       ...touchTask(task, new Date().toISOString()),
       reportDraft: { ...task.reportDraft, status, updatedAt: new Date().toISOString() },
+    } : task),
+  })),
+  setFormalReportArtifact: (taskId, reference) => set((state) => ({
+    tasks: state.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+      const updatedAt = new Date().toISOString();
+      return {
+        ...touchTask(task, updatedAt),
+        reportDraft: {
+          ...task.reportDraft,
+          status: 'finalized',
+          updatedAt,
+          formalReportArtifact: { ...reference, addedAt: updatedAt },
+        },
+      };
+    }),
+  })),
+  createProfessionalProject: (taskId, input) => {
+    const id = makeId('professional-project');
+    const now = new Date().toISOString();
+    set((state) => ({
+      tasks: state.tasks.map((task) => task.id === taskId ? {
+        ...touchTask(task, now),
+        professionalProjects: [{
+          id,
+          name: input.name.trim(),
+          capability: input.capability,
+          relatedRequirementId: input.relatedRequirementId,
+          status: '待开始',
+          artifactRefs: [],
+          createdAt: now,
+          updatedAt: now,
+        }, ...(task.professionalProjects ?? [])],
+      } : task),
+    }));
+    return id;
+  },
+  addArtifactToProfessionalProject: (taskId, professionalProjectId, reference) => set((state) => ({
+    tasks: state.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+      const now = new Date().toISOString();
+      return {
+        ...touchTask(task, now),
+        professionalProjects: (task.professionalProjects ?? []).map((professionalProject): TaskProfessionalProject => {
+          if (professionalProject.id !== professionalProjectId) return professionalProject;
+          const exists = professionalProject.artifactRefs.some((item) => item.projectId === reference.projectId && item.artifactId === reference.artifactId);
+          return {
+            ...professionalProject,
+            status: '待确认',
+            updatedAt: now,
+            artifactRefs: exists ? professionalProject.artifactRefs : [...professionalProject.artifactRefs, { ...reference, addedAt: now }],
+          };
+        }),
+      };
+    }),
+  })),
+  setProfessionalProjectStatus: (taskId, professionalProjectId, status) => set((state) => ({
+    tasks: state.tasks.map((task) => task.id === taskId ? {
+      ...touchTask(task, new Date().toISOString()),
+      professionalProjects: (task.professionalProjects ?? []).map((professionalProject) => professionalProject.id === professionalProjectId
+        ? { ...professionalProject, status, updatedAt: new Date().toISOString() }
+        : professionalProject),
     } : task),
   })),
   setTaskStatus: (taskId, status) => set((state) => ({

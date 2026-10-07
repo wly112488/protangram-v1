@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Card, Drawer, Empty, Input, List, Modal, Popconfirm, Progress, Select, Space, Spin, Tabs, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, FileSearchOutlined, FileTextOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import type { TaskRequirement } from './taskTypes';
+import type { TaskProfessionalCapability, TaskProfessionalProject, TaskRequirement } from './taskTypes';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import { loadTaskBookFile, saveTaskBookFile } from './taskBookStorage';
 import { parseTaskBookPageRange } from './taskBookPreviewModel';
 import { createMockAiTaskReport } from './taskReportAiModel';
 import { createMockTaskCapabilityArtifact } from './taskExecutionModel';
+import { createTaskContextSearch } from './businessSessionModel';
 import WorkspacePageHeader from './WorkspacePageHeader';
 import './taskWorkspace.css';
 
@@ -25,12 +26,19 @@ const CAPABILITY_OPTIONS = [
   ...CAPABILITIES.map(({ key, label }) => ({ value: key, label })),
   { value: 'report' as const, label: '报告编制' },
 ];
+const PROFESSIONAL_PROJECT_ROUTES: Record<TaskProfessionalCapability, { label: string; route: string; source: 'intelligentDesign' | 'dataAnalysis' | 'digitalTwin' | 'virtualCondition' }> = {
+  experimentDesign: { label: '试验设计', route: '/experiment/design/intelligent', source: 'intelligentDesign' },
+  dataAnalysis: { label: '试验数据分析', route: '/analysis/projects', source: 'dataAnalysis' },
+  digitalTwin: { label: '试验数字孪生', route: '/analysis/digital-twin', source: 'digitalTwin' },
+  virtualCondition: { label: '虚拟工况扩展', route: '/analysis/virtual-condition', source: 'virtualCondition' },
+};
 
 const TaskWorkbench: React.FC = () => {
   const { taskId = '' } = useParams<{ taskId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
   const focusedRequirementId = new URLSearchParams(location.search).get('taskItemId');
+  const focusedProfessionalProjectId = new URLSearchParams(location.search).get('professionalProjectId');
   const task = useTaskStore((state) => state.tasks.find((item) => item.id === taskId));
   const confirmRequirementSatisfied = useTaskStore((state) => state.confirmRequirementSatisfied);
   const reopenRequirement = useTaskStore((state) => state.reopenRequirement);
@@ -43,19 +51,30 @@ const TaskWorkbench: React.FC = () => {
   const setTaskStatus = useTaskStore((state) => state.setTaskStatus);
   const updateReportSection = useTaskStore((state) => state.updateReportSection);
   const updateTask = useTaskStore((state) => state.updateTask);
-  const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
   const saveReportAiCompletion = useTaskStore((state) => state.saveReportAiCompletion);
   const setReportStatus = useTaskStore((state) => state.setReportStatus);
+  const createProfessionalProject = useTaskStore((state) => state.createProfessionalProject);
+  const setProfessionalProjectStatus = useTaskStore((state) => state.setProfessionalProjectStatus);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const project = useProjectStore((state) => state.projects.find((item) => item.id === task?.projectId));
   const allProjects = useProjectStore((state) => state.projects);
-  const artifacts = project?.artifacts ?? [];
   const allArtifacts = useMemo(() => allProjects.flatMap((sourceProject) => sourceProject.artifacts.map((artifact) => ({
     artifact,
     projectName: sourceProject.name,
   }))), [allProjects]);
+  const taskArtifactKeys = useMemo(() => new Set([
+    ...(task?.artifactRefs ?? []),
+    ...(task?.requirements.flatMap((requirement) => requirement.artifactRefs ?? []) ?? []),
+    ...(task?.reportDraft.sections.flatMap((section) => section.artifactRefs) ?? []),
+    ...(task?.professionalProjects?.flatMap((item) => item.artifactRefs) ?? []),
+    ...(task?.reportDraft.formalReportArtifact ? [task.reportDraft.formalReportArtifact] : []),
+  ].map((reference) => `${reference.projectId}:${reference.artifactId}`)), [task?.artifactRefs, task?.professionalProjects, task?.reportDraft.formalReportArtifact, task?.reportDraft.sections, task?.requirements]);
+  const taskArtifacts = useMemo(
+    () => allArtifacts.filter(({ artifact }) => taskArtifactKeys.has(`${artifact.projectId}:${artifact.id}`)),
+    [allArtifacts, taskArtifactKeys],
+  );
   const [requirementEditorOpen, setRequirementEditorOpen] = useState(false);
   const [editingRequirementId, setEditingRequirementId] = useState<string | null>(null);
   const [requirementText, setRequirementText] = useState('');
@@ -65,6 +84,13 @@ const TaskWorkbench: React.FC = () => {
   const [satisfactionArtifactKey, setSatisfactionArtifactKey] = useState<string>();
   const [activeTab, setActiveTab] = useState('requirements');
   const [selectedArtifact, setSelectedArtifact] = useState<(typeof allArtifacts)[number]['artifact'] | null>(null);
+  const [referenceArtifactOpen, setReferenceArtifactOpen] = useState(false);
+  const [referenceArtifactKey, setReferenceArtifactKey] = useState<string>();
+  const [referenceRequirementId, setReferenceRequirementId] = useState<string>();
+  const [professionalProjectDialogOpen, setProfessionalProjectDialogOpen] = useState(false);
+  const [professionalProjectName, setProfessionalProjectName] = useState('');
+  const [professionalProjectCapability, setProfessionalProjectCapability] = useState<TaskProfessionalCapability>('dataAnalysis');
+  const [professionalProjectRequirementId, setProfessionalProjectRequirementId] = useState<string>();
   const [sourcePreviewRequirement, setSourcePreviewRequirement] = useState<TaskRequirement | null>(null);
   const [sourcePdfUrl, setSourcePdfUrl] = useState<string | null>(null);
   const [sourcePdfLoading, setSourcePdfLoading] = useState(false);
@@ -81,7 +107,7 @@ const TaskWorkbench: React.FC = () => {
 
   const completeReportWithMockAi = useCallback((notify = true, switchToReport = true) => {
     if (!task) return;
-    const availableArtifacts = allArtifacts.map(({ artifact }) => ({
+    const availableArtifacts = taskArtifacts.map(({ artifact }) => ({
       projectId: artifact.projectId,
       artifactId: artifact.id,
       title: artifact.title,
@@ -92,7 +118,7 @@ const TaskWorkbench: React.FC = () => {
     saveReportAiCompletion(task.id, result);
     if (switchToReport) setActiveTab('report');
     if (notify) message.success('已根据任务成果补全报告草稿，并保存结构化 JSON');
-  }, [allArtifacts, saveReportAiCompletion, task]);
+  }, [saveReportAiCompletion, task, taskArtifacts]);
 
   const confirmReportComplete = () => {
     if (!task?.reportDraft.aiCompletedAt) return message.info('请先让 AI 补全任务报告');
@@ -101,8 +127,8 @@ const TaskWorkbench: React.FC = () => {
       requirement.id !== reportRequirement?.id && requirement.status !== '已满足').length;
     const finalize = () => {
       setReportStatus(task.id, 'finalized');
-      if (reportRequirement) setRequirementStatus(task.id, reportRequirement.id, '已满足');
-      message.success('任务报告已确认完成；任务本身仍可继续处理或单独标记完成');
+      if (reportRequirement) setRequirementStatus(task.id, reportRequirement.id, '待确认');
+      message.success('报告草稿已确认；下一步可生成正式报告');
     };
     if (unmetCount > 0) {
       Modal.confirm({
@@ -239,10 +265,17 @@ const TaskWorkbench: React.FC = () => {
   }, [focusedRequirementId, taskId]);
 
   useEffect(() => {
+    if (!focusedProfessionalProjectId) return;
+    window.requestAnimationFrame(() => {
+      document.getElementById(`professional-project-${focusedProfessionalProjectId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [focusedProfessionalProjectId, taskId]);
+
+  useEffect(() => {
     if (!task?.planConfirmed) return;
-    if (task.requirements.some((requirement) => requirement.status === '进行中')) return;
+    if (task.requirements.some((requirement) => requirement.status === '进行中' || requirement.status === '待确认')) return;
     const nextRequirement = task.requirements.find((requirement) => {
-      if (requirement.status === '已满足' || !requirement.capability) return false;
+      if (requirement.status !== '待完成' || !requirement.capability) return false;
       return (requirement.dependsOnIds ?? []).every((dependencyId) =>
         task.requirements.some((item) => item.id === dependencyId && item.status === '已满足'));
     });
@@ -252,7 +285,7 @@ const TaskWorkbench: React.FC = () => {
     if (nextRequirement.capability === 'report') {
       if (!task.reportDraft.aiCompletedAt) completeReportWithMockAi(false, false);
       setRequirementProgress(task.id, nextRequirement.id, 100);
-      setRequirementStatus(task.id, nextRequirement.id, '已满足');
+      setRequirementStatus(task.id, nextRequirement.id, '待确认');
     }
   }, [completeReportWithMockAi, setRequirementProgress, setRequirementStatus, task]);
 
@@ -274,25 +307,115 @@ const TaskWorkbench: React.FC = () => {
         return input ? addArtifact(task.projectId, input) : null;
       })();
       if (artifact) addArtifactToTaskItem(task.id, runningRequirement.id, { projectId: artifact.projectId, artifactId: artifact.id });
-      setRequirementStatus(task.id, runningRequirement.id, '已满足');
+      setRequirementStatus(task.id, runningRequirement.id, '待确认');
     }, 250);
     return () => window.clearInterval(timer);
   }, [addArtifact, addArtifactToTaskItem, project, runningRequirement, setRequirementProgress, setRequirementStatus, task]);
 
   if (!task) return <Card><Empty description="未找到这项任务，可能已被删除。"><Button onClick={() => navigate('/')}>返回任务中心</Button></Empty></Card>;
 
-  const reportArtifactKeys = new Set(task.reportDraft.sections.flatMap((section) => section.artifactRefs.map((item) => `${item.projectId}:${item.artifactId}`)));
+  const professionalProjects = task.professionalProjects ?? [];
+  const openProfessionalProject = (professionalProject: TaskProfessionalProject) => {
+    const page = PROFESSIONAL_PROJECT_ROUTES[professionalProject.capability];
+    const workspaceSession = {
+      mode: 'task' as const,
+      taskId: task.id,
+      targetProjectId: task.projectId,
+      professionalProjectId: professionalProject.id,
+    };
+    setProfessionalProjectStatus(task.id, professionalProject.id, '进行中');
+    setActiveProject(task.projectId);
+    navigate(`${page.route}${createTaskContextSearch(workspaceSession)}`, {
+      state: { source: page.source, workspaceSession },
+    });
+  };
+
+  const handleCreateProfessionalProject = () => {
+    const page = PROFESSIONAL_PROJECT_ROUTES[professionalProjectCapability];
+    const sameCapabilityCount = professionalProjects.filter((item) => item.capability === professionalProjectCapability).length;
+    const name = professionalProjectName.trim() || `${page.label}项目 ${sameCapabilityCount + 1}`;
+    const id = createProfessionalProject(task.id, {
+      name,
+      capability: professionalProjectCapability,
+      relatedRequirementId: professionalProjectRequirementId,
+    });
+    setProfessionalProjectDialogOpen(false);
+    setProfessionalProjectName('');
+    setProfessionalProjectRequirementId(undefined);
+    openProfessionalProject({
+      id,
+      name,
+      capability: professionalProjectCapability,
+      relatedRequirementId: professionalProjectRequirementId,
+      status: '待开始',
+      artifactRefs: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const confirmProfessionalProject = (professionalProject: TaskProfessionalProject) => {
+    if (professionalProject.artifactRefs.length === 0) return message.warning('该专业工作项目还没有保存成果');
+    setProfessionalProjectStatus(task.id, professionalProject.id, '已完成');
+    const requirement = professionalProject.relatedRequirementId
+      ? task.requirements.find((item) => item.id === professionalProject.relatedRequirementId)
+      : undefined;
+    if (requirement && requirement.status !== '已满足') {
+      confirmRequirementSatisfied(task.id, requirement.id, `已复核“${professionalProject.name}”的分析成果并确认满足该事项。`);
+    }
+    message.success('专业工作项目已确认完成');
+  };
+
   const requirementsMet = task.requirements.filter((requirement) => requirement.status === '已满足').length;
+  const reportRequirement = task.requirements.find((requirement) => requirement.capability === 'report');
   const executionProgress = task.requirements.length
     ? Math.round(task.requirements.reduce((total, requirement) => total + (requirement.status === '已满足' ? 100 : requirement.status === '进行中' ? requirement.executionProgress ?? 0 : 0), 0) / task.requirements.length)
     : 0;
-  const addToReport = (projectId: string, artifactId: string) => {
-    addArtifactToReport(task.id, { projectId, artifactId });
-    message.success('成果已加入任务报告草稿');
-  };
   const linkArtifactToRequirement = (projectId: string, artifactId: string, requirementId: string) => {
     addArtifactToTaskItem(task.id, requirementId, { projectId, artifactId });
-    message.success('独立成果已关联到任务事项');
+    setRequirementStatus(task.id, requirementId, '待确认');
+    message.success('成果已关联到任务事项，等待人工核对');
+  };
+
+  const handleReferenceArtifact = () => {
+    if (!referenceArtifactKey || !referenceRequirementId) return message.warning('请选择成果和对应事项');
+    const reference = JSON.parse(referenceArtifactKey) as { projectId: string; artifactId: string };
+    linkArtifactToRequirement(reference.projectId, reference.artifactId, referenceRequirementId);
+    setReferenceArtifactOpen(false);
+    setReferenceArtifactKey(undefined);
+    setReferenceRequirementId(undefined);
+  };
+
+  const handleTaskCompletion = () => {
+    if (task.status === '已完成') {
+      setTaskStatus(task.id, '进行中');
+      return;
+    }
+    const remaining = task.requirements.filter((requirement) => requirement.status !== '已满足');
+    const missingReport = !task.reportDraft.formalReportArtifact;
+    if (remaining.length || missingReport) {
+      const details = [
+        remaining.length ? `${remaining.length} 项任务事项尚未确认满足` : '',
+        missingReport ? '尚未生成正式报告' : '',
+      ].filter(Boolean).join('；');
+      message.warning(`暂不能完成任务：${details}`);
+      setActiveTab(missingReport ? 'report' : 'requirements');
+      return;
+    }
+    setTaskStatus(task.id, '已完成');
+    message.success('任务已标记完成');
+  };
+
+  const openFormalReport = () => {
+    const query = new URLSearchParams({ taskId: task.id });
+    if (reportRequirement) query.set('taskItemId', reportRequirement.id);
+    const artifactIds = task.reportDraft.sections.flatMap((section) => section.artifactRefs.map((reference) => reference.artifactId));
+    navigate(`/report/create?${query.toString()}`, {
+      state: {
+        workspaceSession: { mode: 'task', taskId: task.id, targetProjectId: task.projectId, taskItemId: reportRequirement?.id },
+        artifactIds,
+      },
+    });
   };
 
   const openReportDraft = () => setActiveTab('report');
@@ -332,31 +455,36 @@ const TaskWorkbench: React.FC = () => {
           {section.artifactRefs.length > 0 && (
             <div className="task-report-artifacts">
               {section.artifactRefs.map((reference) => {
-                const artifact = artifacts.find((item) => item.id === reference.artifactId);
+                const artifact = allProjects.find((item) => item.id === reference.projectId)?.artifacts.find((item) => item.id === reference.artifactId);
                 return <Tag key={`${reference.projectId}:${reference.artifactId}`} color="blue">{artifact?.title ?? reference.artifactId}</Tag>;
               })}
             </div>
           )}
         </Card>
       ))}
-      <Card
-        size="small"
-        title="结构化 JSON"
-        extra={<Button size="small" icon={<FileTextOutlined />} onClick={downloadStructuredReport}>下载 JSON</Button>}
-      >
-        <Input.TextArea
-          readOnly
-          autoSize={{ minRows: 8, maxRows: 18 }}
-          value={task.reportDraft.structuredJson ?? '{}'}
-          style={{ fontFamily: 'Consolas, monospace', fontSize: 12 }}
-        />
-        {task.reportDraft.aiCompletedAt && <Text type="secondary">AI 最近补全：{new Date(task.reportDraft.aiCompletedAt).toLocaleString('zh-CN')}</Text>}
-      </Card>
+      <details className="task-report-structured-details">
+        <summary>高级信息：查看结构化 JSON</summary>
+        <Card
+          size="small"
+          title="结构化 JSON"
+          extra={<Button size="small" icon={<FileTextOutlined />} onClick={downloadStructuredReport}>下载 JSON</Button>}
+          style={{ marginTop: 8 }}
+        >
+          <Input.TextArea
+            readOnly
+            autoSize={{ minRows: 8, maxRows: 18 }}
+            value={task.reportDraft.structuredJson ?? '{}'}
+            style={{ fontFamily: 'Consolas, monospace', fontSize: 12 }}
+          />
+          {task.reportDraft.aiCompletedAt && <Text type="secondary">AI 最近补全：{new Date(task.reportDraft.aiCompletedAt).toLocaleString('zh-CN')}</Text>}
+        </Card>
+      </details>
       <div className="task-report-footer">
-        <Text type="secondary">报告草稿最近保存：{new Date(task.reportDraft.updatedAt).toLocaleString('zh-CN')} · 可随时继续编制</Text>
+        <Text type="secondary">报告草稿最近保存：{new Date(task.reportDraft.updatedAt).toLocaleString('zh-CN')} · {task.reportDraft.formalReportArtifact ? '已生成正式报告' : task.reportDraft.status === 'finalized' ? '草稿已确认，待生成正式报告' : '可随时继续编制'}</Text>
         <Space wrap>
           <Button icon={<FileTextOutlined />} onClick={() => completeReportWithMockAi()}>AI根据成果补全报告</Button>
-          <Button type="primary" disabled={!task.reportDraft.aiCompletedAt || task.reportDraft.status === 'finalized'} onClick={confirmReportComplete}>确认报告完成</Button>
+          <Button disabled={!task.reportDraft.aiCompletedAt || task.reportDraft.status === 'finalized'} onClick={confirmReportComplete}>确认报告草稿</Button>
+          <Button type="primary" disabled={task.reportDraft.status !== 'finalized'} onClick={openFormalReport}>生成正式报告</Button>
         </Space>
       </div>
     </div>
@@ -364,27 +492,23 @@ const TaskWorkbench: React.FC = () => {
 
   const artifactsTab = (
     <div className="task-workbench-section">
-      {allArtifacts.length === 0 ? <Empty description="还没有保存的专业分析成果" /> : (
+      <div className="task-workbench-section-heading">
+        <Text type="secondary">任务成果会在补全任务报告时自动汇总；独立成果可在此关联到任务事项。</Text>
+        <Button icon={<PlusOutlined />} onClick={() => setReferenceArtifactOpen(true)}>引用已有成果</Button>
+      </div>
+      {taskArtifacts.length === 0 ? <Empty description="还没有关联到本任务的分析成果" /> : (
         <List
-          dataSource={[...allArtifacts].sort((left, right) => right.artifact.updatedAt.localeCompare(left.artifact.updatedAt))}
+          dataSource={[...taskArtifacts].sort((left, right) => right.artifact.updatedAt.localeCompare(left.artifact.updatedAt))}
           renderItem={({ artifact, projectName }) => {
-            const inReport = reportArtifactKeys.has(`${artifact.projectId}:${artifact.id}`);
+            const isTaskLevelArtifact = task.artifactRefs?.some((reference) => reference.projectId === artifact.projectId && reference.artifactId === artifact.id);
             const linkedRequirements = task.requirements.filter((requirement) => requirement.artifactRefs?.some((reference) =>
               reference.projectId === artifact.projectId && reference.artifactId === artifact.id));
             return (
               <List.Item actions={[
-                inReport ? <Tag key="added" color="green">已加入报告</Tag> : <Button key="add" type="link" icon={<PlusOutlined />} onClick={() => addToReport(artifact.projectId, artifact.id)}>加入报告</Button>,
+                <Tag key="report-source" color="blue">任务报告自动汇总</Tag>,
                 ...linkedRequirements.map((requirement) => <Tag key={`linked-${requirement.id}`} color="cyan">已关联：{requirement.text}</Tag>),
-                <Select
-                  key="link"
-                  size="small"
-                  placeholder="关联到任务事项"
-                  style={{ width: 180 }}
-                  options={task.requirements.map((requirement) => ({ label: requirement.text, value: requirement.id }))}
-                  onChange={(requirementId) => linkArtifactToRequirement(artifact.projectId, artifact.id, requirementId)}
-                />,
               ]}>
-                <List.Item.Meta title={<Space>{artifact.title}{artifact.projectId !== task.projectId && <Tag>独立成果</Tag>}</Space>} description={`${projectName} · ${artifact.source} · ${artifact.summary}`} />
+                <List.Item.Meta title={<Space>{artifact.title}{isTaskLevelArtifact && <Tag color="purple">任务成果</Tag>}{artifact.projectId !== task.projectId && <Tag>独立成果</Tag>}</Space>} description={`${projectName} · ${artifact.source} · ${artifact.summary}`} />
               </List.Item>
             );
           }}
@@ -408,8 +532,8 @@ const TaskWorkbench: React.FC = () => {
         actions={(
           <Space wrap>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/')}>任务中心</Button>
-          <Button onClick={() => { setActiveProject(task.projectId); navigate('/projects'); }}>项目数据与成果</Button>
-          <Button onClick={() => setTaskStatus(task.id, task.status === '已完成' ? '进行中' : '已完成')}>
+          <Button onClick={() => { setActiveProject(task.projectId); navigate('/projects'); }}>任务数据与成果</Button>
+          <Button onClick={handleTaskCompletion}>
             {task.status === '已完成' ? '重新打开任务' : '标记任务完成'}
           </Button>
           <Button type="primary" icon={<FileTextOutlined />} onClick={() => { openReportDraft(); completeReportWithMockAi(); }}>AI整理任务报告</Button>
@@ -419,9 +543,9 @@ const TaskWorkbench: React.FC = () => {
 
       <div className="task-progress-summary">
         <div className="task-progress-meter"><span><strong>{executionProgress}%</strong> 任务执行进度 · {requirementsMet}/{task.requirements.length} 项事项已完成</span><Progress percent={executionProgress} size="small" /></div>
-        <span><strong>{artifacts.length}</strong> 项分析成果</span>
+        <span><strong>{taskArtifacts.length}</strong> 项任务成果</span>
         <span><strong>{task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)}</strong> 项已关联报告</span>
-        <span>报告草稿：<strong>{task.reportDraft.status === 'draft' ? '编制中' : '已确认完成'}</strong></span>
+        <span>报告：<strong>{task.reportDraft.formalReportArtifact ? '正式报告已生成' : task.reportDraft.status === 'draft' ? '草稿编制中' : '草稿已确认，待生成正式报告'}</strong></span>
       </div>
 
       <Card
@@ -437,40 +561,49 @@ const TaskWorkbench: React.FC = () => {
           renderItem={(requirement, index) => {
             const dependencies = (requirement.dependsOnIds ?? []).map((dependencyId) => task.requirements.find((item) => item.id === dependencyId)).filter(Boolean);
             const blocked = dependencies.filter((item) => item?.status !== '已满足');
-            const stateLabel = requirement.status === '已满足' ? '已完成' : requirement.status === '进行中' ? '进行中' : blocked.length ? '等待前置事项' : '可开始';
+            const stateLabel = requirement.capability === 'report'
+              ? task.reportDraft.formalReportArtifact
+                ? '正式报告已生成'
+                : task.reportDraft.status === 'finalized' || requirement.status === '已满足'
+                  ? '待生成正式报告'
+                  : requirement.status === '进行中' ? '报告配置中' : '报告待编制'
+              : requirement.status === '已满足'
+                ? '已确认满足'
+                : requirement.status === '待确认'
+                  ? '待人工确认'
+                  : requirement.status === '进行中'
+                    ? '进行中'
+                    : blocked.length ? '等待前置事项' : '可开始';
             const capability = CAPABILITIES.find((item) => item.key === requirement.capability);
             return (
               <List.Item id={`task-item-${requirement.id}`} className={`task-plan-item ${requirement.status === '已满足' ? 'task-plan-item-done' : ''} ${focusedRequirementId === requirement.id ? 'task-plan-item-focused' : ''}`}>
                 <div className="task-plan-index">{index + 1}</div>
                 <div className="task-plan-body">
-                  <Space wrap><Text strong>{requirement.text}</Text><Tag color={stateLabel === '已完成' ? 'green' : stateLabel === '可开始' ? 'blue' : 'default'}>{stateLabel}</Tag></Space>
+                  <Space wrap><Text strong>{requirement.text}</Text><Tag color={stateLabel === '已确认满足' || stateLabel === '正式报告已生成' ? 'green' : stateLabel === '可开始' ? 'blue' : stateLabel === '待人工确认' || stateLabel === '待生成正式报告' ? 'orange' : 'default'}>{stateLabel}</Tag></Space>
                   <Text type="secondary">{requirement.recommendationReason ?? '根据任务要求选择合适的方式完成。'}</Text>
                   {dependencies.length > 0 && <Text className="task-plan-dependency" type="secondary">前置：{dependencies.map((item) => item?.text).join('；')}</Text>}
-                  {requirement.sourceRef && (
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<FileSearchOutlined />}
-                      style={{ alignSelf: 'flex-start', paddingInline: 0 }}
-                      onClick={() => setSourcePreviewRequirement(requirement)}
-                    >
-                      任务书原文 · {requirement.sourceRef}
-                    </Button>
+                  {capability && <Tag color="geekblue">建议能力：{capability.label}</Tag>}
+                  {(requirement.sourceRef || requirement.sourceExcerpt || requirement.inputSummary || task.demo) && (
+                    <details className="task-plan-evidence-details">
+                      <summary>任务书依据与输入条件</summary>
+                      <Space direction="vertical" size={4} style={{ marginTop: 6 }}>
+                        {requirement.sourceRef && <Button type="link" size="small" icon={<FileSearchOutlined />} style={{ alignSelf: 'flex-start', paddingInline: 0 }} onClick={() => setSourcePreviewRequirement(requirement)}>查看原 PDF · {requirement.sourceRef}</Button>}
+                        {requirement.sourceExcerpt && <Text type="secondary">依据摘录： “{requirement.sourceExcerpt}”</Text>}
+                        {(requirement.inputSummary || task.demo) && <Text type="secondary">已有数据 / 前置条件：{requirement.inputSummary ?? '任务书关联试验数据集（模拟）'}</Text>}
+                      </Space>
+                    </details>
                   )}
-                  {requirement.sourceExcerpt && <Text type="secondary">依据摘录： “{requirement.sourceExcerpt}”</Text>}
-                  {capability && <Space wrap><Tag color="geekblue">建议能力：{capability.label}</Tag>{requirement.recommendationReason && <Text type="secondary">推荐原因：{requirement.recommendationReason}</Text>}</Space>}
-                  {(requirement.inputSummary || task.demo) && <Text type="secondary">已有数据 / 前置条件：{requirement.inputSummary ?? '任务书关联试验数据集（模拟）'}</Text>}
                   {requirement.status === '进行中' && (
                     <div className="task-item-execution-progress">
                       <Text type="secondary">{capability?.label ?? '事项执行'} · {requirement.executionProgress ?? 0}%</Text>
                       <Progress percent={requirement.executionProgress ?? 0} size="small" status="active" />
                     </div>
                   )}
-                  {requirement.status !== '已满足' && <Button type="link" size="small" style={{ alignSelf: 'flex-start', paddingInline: 0 }} onClick={() => {
+                  {requirement.status !== '已满足' && requirement.capability !== 'report' && <Button type="link" size="small" style={{ alignSelf: 'flex-start', paddingInline: 0 }} onClick={() => {
                     setSatisfactionRequirementId(requirement.id);
                     setSatisfactionNote('');
                     setSatisfactionArtifactKey(undefined);
-                  }}>现有资料已满足？确认事项已满足</Button>}
+                  }}>{requirement.status === '待确认' ? '核对其他资料并确认满足' : '现有资料已满足？确认事项已满足'}</Button>}
                   {requirement.artifactRefs && requirement.artifactRefs.length > 0 && (
                     <div className="task-item-results">
                       <Text strong>本事项分析结果</Text>
@@ -482,6 +615,10 @@ const TaskWorkbench: React.FC = () => {
                               <Button type="link" style={{ padding: 0, height: 'auto', alignSelf: 'flex-start' }} onClick={() => setSelectedArtifact(linkedArtifact)}>{linkedArtifact.title}</Button>
                               <Text type="secondary">{linkedArtifact.summary}</Text>
                               <Text type="secondary">{linkedArtifact.source}</Text>
+                              {requirement.status === '待确认' && requirement.capability !== 'report' && <Button type="primary" size="small" onClick={() => {
+                                confirmRequirementSatisfied(task.id, requirement.id, '已复核关联的专业成果，并确认满足该任务事项。');
+                                message.success('已确认该专业成果满足任务事项');
+                              }}>确认结果满足要求</Button>}
                             </Space>
                           </Card>
                         ) : <Tag key={`${reference.projectId}:${reference.artifactId}`} color="cyan">成果：{reference.artifactId}</Tag>;
@@ -491,7 +628,7 @@ const TaskWorkbench: React.FC = () => {
                 </div>
                 <Space wrap>
                   {requirement.status === '已满足' ? <Space direction="vertical" align="end">
-                    <Tag color="green">{requirement.artifactRefs?.length ? '成果已回流' : '已确认由现有资料满足'}</Tag>
+                    <Tag color={requirement.capability === 'report' && !task.reportDraft.formalReportArtifact ? 'orange' : 'green'}>{requirement.capability === 'report' && !task.reportDraft.formalReportArtifact ? '待生成正式报告' : requirement.artifactRefs?.length ? '成果已回流' : '已确认由现有资料满足'}</Tag>
                     {requirement.satisfactionNote && <Text type="secondary" style={{ maxWidth: 240, textAlign: 'right' }}>满足依据：{requirement.satisfactionNote}</Text>}
                     <Button size="small" type="link" onClick={() => reopenSatisfiedRequirement(requirement.id)}>撤销满足确认</Button>
                   </Space> : task.planConfirmed
@@ -515,6 +652,60 @@ const TaskWorkbench: React.FC = () => {
         />
       </Card>
 
+      <Card
+        className="task-professional-projects-card"
+        title="本任务的专业工作项目"
+        extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setProfessionalProjectDialogOpen(true)}>新建专业工作项目</Button>}
+      >
+        <Text type="secondary" className="task-professional-projects-intro">
+          同一任务可以分别开展多个数据分析、数字孪生或虚拟工况工作。每个工作项目独立保存名称、关联事项和成果，不会覆盖其他项目。
+        </Text>
+        {professionalProjects.length === 0 ? (
+          <Empty description="还没有专业工作项目。按任务需要新建一项，再进入对应专业能力开展工作。" />
+        ) : (
+          <List
+            className="task-professional-project-list"
+            grid={{ gutter: 12, xs: 1, sm: 1, md: 2, lg: 2, xl: 3 }}
+            dataSource={[...professionalProjects].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))}
+            renderItem={(professionalProject) => {
+              const page = PROFESSIONAL_PROJECT_ROUTES[professionalProject.capability];
+              const relatedRequirement = task.requirements.find((item) => item.id === professionalProject.relatedRequirementId);
+              const workArtifacts = professionalProject.artifactRefs.map((reference) => allProjects
+                .find((sourceProject) => sourceProject.id === reference.projectId)?.artifacts
+                .find((artifact) => artifact.id === reference.artifactId)).filter(Boolean);
+              const statusColor = professionalProject.status === '已完成' ? 'green' : professionalProject.status === '待确认' ? 'orange' : professionalProject.status === '进行中' ? 'blue' : 'default';
+              return (
+                <List.Item id={`professional-project-${professionalProject.id}`}>
+                  <Card
+                    size="small"
+                    className={`task-professional-project-card ${focusedProfessionalProjectId === professionalProject.id ? 'task-professional-project-focused' : ''}`}
+                    title={<span className="task-card-title">{professionalProject.name}</span>}
+                    extra={<Tag color={statusColor}>{professionalProject.status}</Tag>}
+                    actions={[
+                      <Button type="link" key="open" onClick={() => openProfessionalProject(professionalProject)}>{professionalProject.artifactRefs.length ? '继续处理' : '开始处理'}</Button>,
+                      ...(professionalProject.status === '待确认'
+                        ? [<Button type="link" key="confirm" onClick={() => confirmProfessionalProject(professionalProject)}>确认完成</Button>]
+                        : []),
+                    ]}
+                  >
+                    <Space direction="vertical" size={8}>
+                      <Tag color="geekblue">{page.label}</Tag>
+                      {relatedRequirement
+                        ? <Text type="secondary">关联事项：{relatedRequirement.text}</Text>
+                        : <Text type="secondary">自主补充的专业工作</Text>}
+                      <Text type="secondary">{professionalProject.artifactRefs.length} 项已保存成果 · 更新于 {new Date(professionalProject.updatedAt).toLocaleDateString('zh-CN')}</Text>
+                      {workArtifacts.length > 0 && <div className="task-professional-project-artifacts">
+                        {workArtifacts.map((artifact) => artifact && <Button key={artifact.id} type="link" size="small" onClick={() => setSelectedArtifact(artifact)}>{artifact.title}</Button>)}
+                      </div>}
+                    </Space>
+                  </Card>
+                </List.Item>
+              );
+            }}
+          />
+        )}
+      </Card>
+
       <Card className="task-content-card">
         <Tabs
           activeKey={activeTab}
@@ -522,10 +713,32 @@ const TaskWorkbench: React.FC = () => {
           items={[
             { key: 'requirements', label: '任务书原文', children: requirementsTab },
             { key: 'report', label: '任务报告草稿', children: reportTab },
-            { key: 'artifacts', label: `分析成果 (${artifacts.length})`, children: artifactsTab },
+            { key: 'artifacts', label: `分析成果 (${taskArtifacts.length})`, children: artifactsTab },
           ]}
         />
       </Card>
+
+      <Modal
+        title="新建专业工作项目"
+        open={professionalProjectDialogOpen}
+        okText="创建并进入专业页面"
+        cancelText="取消"
+        onOk={handleCreateProfessionalProject}
+        onCancel={() => setProfessionalProjectDialogOpen(false)}
+      >
+        <Space direction="vertical" size={14} style={{ width: '100%' }}>
+          <label className="task-professional-project-field">工作项目名称
+            <Input autoFocus value={professionalProjectName} onChange={(event) => setProfessionalProjectName(event.target.value)} placeholder="例如：高转速区域补充工况预测" />
+          </label>
+          <label className="task-professional-project-field">专业能力
+            <Select value={professionalProjectCapability} onChange={setProfessionalProjectCapability} options={CAPABILITIES.map(({ key, label }) => ({ value: key, label }))} style={{ width: '100%' }} />
+          </label>
+          <label className="task-professional-project-field">关联任务事项（可选）
+            <Select allowClear value={professionalProjectRequirementId} onChange={setProfessionalProjectRequirementId} options={task.requirements.filter((item) => item.capability !== 'report').map((item) => ({ value: item.id, label: item.text }))} placeholder="可关联一项任务事项" style={{ width: '100%' }} />
+          </label>
+          <Alert showIcon type="info" message="每次创建都会保留为独立工作项目" description="专业结果会保存到本任务共用的数据空间，并归入本工作项目；关联事项的既有确认状态不会因补充分析而被重置。" />
+        </Space>
+      </Modal>
 
       <Modal
         title={editingRequirementId ? '编辑任务事项' : '补充任务事项'}
@@ -589,6 +802,43 @@ const TaskWorkbench: React.FC = () => {
       </Modal>
 
       <Modal
+        title="引用已有成果到本任务"
+        open={referenceArtifactOpen}
+        okText="关联并待确认"
+        cancelText="取消"
+        onOk={handleReferenceArtifact}
+        onCancel={() => setReferenceArtifactOpen(false)}
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Text type="secondary">选择已保存的独立成果和它支持的任务事项。关联后需要人工核对，才会解锁依赖事项。</Text>
+          <Select
+            showSearch
+            optionFilterProp="label"
+            value={referenceArtifactKey}
+            onChange={setReferenceArtifactKey}
+            options={allArtifacts.filter(({ artifact }) => !task.requirements.find((requirement) => requirement.id === referenceRequirementId)?.artifactRefs?.some((reference) => reference.projectId === artifact.projectId && reference.artifactId === artifact.id)).map(({ artifact, projectName }) => ({
+              value: JSON.stringify({ projectId: artifact.projectId, artifactId: artifact.id }),
+              label: `${artifact.title} · ${projectName}`,
+            }))}
+            placeholder="选择已有成果"
+            style={{ width: '100%' }}
+          />
+          <Select
+            showSearch
+            optionFilterProp="label"
+            value={referenceRequirementId}
+            onChange={(value) => {
+              setReferenceRequirementId(value);
+              setReferenceArtifactKey(undefined);
+            }}
+            options={task.requirements.filter((requirement) => requirement.capability !== 'report').map((requirement) => ({ label: requirement.text, value: requirement.id }))}
+            placeholder="选择对应任务事项"
+            style={{ width: '100%' }}
+          />
+        </Space>
+      </Modal>
+
+      <Modal
         title={selectedArtifact?.title ?? '分析结果'}
         open={Boolean(selectedArtifact)}
         footer={<Button type="primary" onClick={() => setSelectedArtifact(null)}>返回任务</Button>}
@@ -598,9 +848,12 @@ const TaskWorkbench: React.FC = () => {
           <Space direction="vertical" size={12} style={{ width: '100%' }}>
             <Space wrap><Tag color="blue">{selectedArtifact.source}</Tag><Tag>{selectedArtifact.status ?? '已保存'}</Tag></Space>
             <Paragraph>{selectedArtifact.summary}</Paragraph>
-            <Card size="small" title="结构化结果">
-              <pre className="task-artifact-payload">{JSON.stringify(selectedArtifact.payload, null, 2)}</pre>
-            </Card>
+            <details className="task-report-structured-details">
+              <summary>高级信息：查看原始结构化数据</summary>
+              <Card size="small" title="结构化结果" style={{ marginTop: 8 }}>
+                <pre className="task-artifact-payload">{JSON.stringify(selectedArtifact.payload, null, 2)}</pre>
+              </Card>
+            </details>
           </Space>
         )}
       </Modal>
@@ -619,11 +872,6 @@ const TaskWorkbench: React.FC = () => {
         onClose={() => setSourcePreviewRequirement(null)}
         destroyOnHidden
       >
-        {sourcePreviewRequirement?.sourceExcerpt && (
-          <Card size="small" title="事项摘录 · 辅助核对" style={{ marginBottom: 12 }}>
-            <Text>{sourcePreviewRequirement.sourceExcerpt}</Text>
-          </Card>
-        )}
         {task.demo && !isGeneralTaskBookPreview && (
           <Alert
             type="warning"
@@ -643,13 +891,9 @@ const TaskWorkbench: React.FC = () => {
             style={{ width: '100%', height: 'calc(100vh - 210px)', border: '1px solid #d9d9d9', borderRadius: 6 }}
           />
         ) : sourcePdfMissing || sourcePdfError ? (
-          <Alert
-            type={sourcePdfError ? 'error' : 'info'}
-            showIcon
-            message={sourcePdfError ? '暂时无法读取本机保存的 PDF' : '当前任务书 PDF 尚未保存在本机'}
-            description="重新选择原始任务书 PDF 后，系统会保存在当前浏览器本机并在这里打开。"
-            action={<Button icon={<UploadOutlined />} onClick={() => sourcePdfPicker.current?.click()}>选择任务书 PDF</Button>}
-          />
+          <Empty description={sourcePdfMissing ? '本机未找到已保存的任务书 PDF' : '任务书 PDF 打开失败'}>
+            <Button icon={<UploadOutlined />} onClick={() => sourcePdfPicker.current?.click()}>重新选择 PDF</Button>
+          </Empty>
         ) : null}
       </Drawer>
     </div>

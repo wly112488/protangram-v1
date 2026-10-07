@@ -22,7 +22,7 @@ type ChatMessage = { role: 'user' | 'assistant'; content: string; report?: boole
 const pageConfig = {
   digitalTwin: {
     quickActions: ['解释校准结果', '为什么误差较大', '判断模型可信度', '给出模型改进建议'],
-    resultActions: ['用于试验设计', '查看适用范围'],
+    resultActions: ['查看适用范围'],
     welcome: '已读取当前模型校准上下文。你可以让我解释校准结果、判断模型可信度或给出模型改进建议。',
   },
   intelligentDesign: {
@@ -36,8 +36,8 @@ const pageConfig = {
     welcome: '已读取当前试验数据分析结果。当前发现 3 个异常事件，其中出口温度异常程度最高。',
   },
   virtualCondition: {
-    quickActions: ['解释预测结果', '分析高风险区域', '判断可信范围', '建议验证工况'],
-    resultActions: ['生成验证试验', '加入报告'],
+    quickActions: ['解释预测结果', '分析高风险区域', '判断可信范围', '筛选高风险工况'],
+    resultActions: [],
     welcome: '已读取当前虚拟工况结果。你可以让我解释预测结果、判断可信范围或建议验证工况。',
   },
 } as const;
@@ -67,7 +67,7 @@ const getMockAnswer = (context: AIAssistantContext, prompt: string): ChatMessage
     digitalTwin: '当前校准结果显示模型整体可信度较高，但边界工况仍存在预测偏差。建议补充边界区域实测数据，并重点复核高敏感参数。',
     intelligentDesign: '推荐工况优先覆盖历史数据不足、预计信息增益较高且处于模型可信范围内的区域。方案兼顾覆盖率、执行成本与安全边界。',
     dataAnalysis: '结合当前数据，7600rpm 后冷却流量下降、压力波动增加，同时模型历史数据覆盖不足。建议验证 7600～8200rpm 区域，并使用本次数据重新校准模型。',
-    virtualCondition: '当前高风险区域靠近模型可信范围边界，预测不确定性明显增加。建议优先生成边界验证试验，再扩展虚拟工况。',
+    virtualCondition: '当前高风险区域靠近模型可信范围边界，预测不确定性明显增加。这张工况表就是本次虚拟工况分析结果；保存后会回到当前任务，任务报告整理时会统一读取这项成果。',
   };
   return { role: 'assistant', content: `${answers[context.pageType]}\n\n当前对象：${context.taskName ?? context.projectName ?? context.pageName}；当前模型：${context.modelName ?? '未指定'}；当前结果：${context.resultSummary ?? '暂无'}。\n针对“${prompt}”，以上结论由当前页面 Mock 上下文生成。` };
 };

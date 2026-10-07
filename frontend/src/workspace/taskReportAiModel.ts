@@ -15,7 +15,9 @@ export interface MockAiTaskReportResult {
 }
 
 const getTaskArtifactReferences = (task: TaskRecord) => {
-  const references = [...task.requirements.flatMap((requirement) => requirement.artifactRefs ?? []),
+  const references = [...(task.artifactRefs ?? []),
+    ...task.requirements.flatMap((requirement) => requirement.artifactRefs ?? []),
+    ...(task.professionalProjects ?? []).flatMap((professionalProject) => professionalProject.artifactRefs),
     ...task.reportDraft.sections.flatMap((section) => section.artifactRefs)];
   return references.filter((reference, index) => references.findIndex((candidate) =>
     candidate.projectId === reference.projectId && candidate.artifactId === reference.artifactId) === index);

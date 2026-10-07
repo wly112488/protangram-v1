@@ -3,7 +3,7 @@ import { Button, Form, Input, Modal, Popover, Select, Typography, message } from
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { primaryNavigationItems } from '@/workspace/presentationModel';
-import { createTopLevelNavigationSession, createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
+import { createTaskContextSearch, createTopLevelNavigationSession, createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import type { WorkspaceSessionState } from '@/types/businessContext';
 import EquipmentManagerWindow, { type ResearchObject } from './EquipmentManagerWindow';
 
@@ -153,7 +153,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   );
   const getTarget = (path: string) => {
     const session = getNavigation();
-    return session.mode === 'task' ? `${path}?taskId=${encodeURIComponent(session.taskId)}` : path;
+    return session.mode === 'task' ? `${path}${createTaskContextSearch(session)}` : path;
   };
   const [quickDesignOpen, setQuickDesignOpen] = useState(false);
   const [equipmentManagerOpen, setEquipmentManagerOpen] = useState(false);

@@ -19,7 +19,7 @@ export const updateTaskRequirement = (
       ...patch,
       text: patch.text.trim(),
       ...(patch.text.trim() !== requirement.text.trim()
-        ? { status: '待完成' as const, artifactRefs: [], satisfactionNote: undefined }
+        ? { status: '待完成' as const, executionProgress: 0, artifactRefs: [], satisfactionNote: undefined }
         : {}),
     }
     : requirement),

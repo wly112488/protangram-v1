@@ -8,7 +8,7 @@ import {
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
-import type { BusinessAction, BusinessRouteState, ModelContract, PlanCondition, TaskContract } from '@/types/businessContext';
+import type { BusinessAction, BusinessRouteState, PlanCondition, TaskContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createDesignArtifactInput } from '@/workspace/projectModel';
@@ -16,14 +16,9 @@ import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
+import { useGlobalModelStore } from '@/workspace/globalModelStore';
 
 const { Title, Text, Paragraph } = Typography;
-
-const MODELS: ModelContract[] = [
-  { modelId: 'engine-v2.1', modelName: '发动机模型', version: 'V2.1', trustedRange: '2000～8000 rpm', status: '已确认', calibratedAt: '2026-08-28' },
-  { modelId: 'engine-v2.0', modelName: '发动机模型', version: 'V2.0', trustedRange: '2000～7200 rpm', status: '已校准', calibratedAt: '2026-06-12' },
-  { modelId: 'engine-v1.8', modelName: '发动机模型', version: 'V1.8', trustedRange: '1800～6500 rpm', status: '已校准', calibratedAt: '2026-03-05' },
-];
 
 const DATASETS = ['历史试验数据集 A', '高转速验证数据集', '环境适应性试验数据集'];
 const DEFAULT_CONFIG = {
@@ -79,13 +74,17 @@ const IntelligentExperimentDesign: React.FC = () => {
   const incoming = location.state as BusinessRouteState | null;
   const { setContext } = useTrialAIAssistant();
   const { projects, session, targetProject, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
+  const globalModels = useGlobalModelStore((state) => state.models);
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
-  const initialModel = incoming?.model ?? MODELS[0];
+  const initialModel = (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
+    ?? globalModels.find((item) => item.modelId === 'engine-v2.1')
+    ?? globalModels[0]
+    ?? { modelId: 'engine-v2.1', modelName: '发动机模型', version: 'V2.1', trustedRange: '2000～8000 rpm', status: '已确认' };
   const initialConfig = incoming?.validation ? {
     ...DEFAULT_CONFIG,
     target: incoming.validation.goal,
@@ -97,7 +96,8 @@ const IntelligentExperimentDesign: React.FC = () => {
     ? { ...DEFAULT_CONSTRAINTS, speedMax: incomingRange[1] }
     : DEFAULT_CONSTRAINTS;
 
-  const [model, setModel] = useState(initialModel);
+  const [selectedModel, setModel] = useState(initialModel);
+  const model = globalModels.find((item) => item.modelId === selectedModel.modelId) ?? selectedModel;
   const [datasets, setDatasets] = useState<string[]>(incoming?.datasets ?? [DATASETS[0]]);
   const [config, setConfig] = useState(initialConfig);
   const [constraints, setConstraints] = useState(initialConstraints);
@@ -204,7 +204,7 @@ const IntelligentExperimentDesign: React.FC = () => {
       const artifact = persistDesign(targetProject.id);
       if (!artifact) return;
       addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id });
-      setRequirementStatus(session.taskId, session.taskItemId, '已满足');
+      setRequirementStatus(session.taskId, session.taskItemId, '待确认');
       navigate(createTaskReturnPath(session));
       return;
     }
@@ -234,7 +234,7 @@ const IntelligentExperimentDesign: React.FC = () => {
     const artifact = persistDesign(targetProject.id);
     if (!artifact) return;
     addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id });
-    setRequirementStatus(session.taskId, session.taskItemId, '已满足');
+    setRequirementStatus(session.taskId, session.taskItemId, '待确认');
     message.success('已按复核后的任务规划完成模拟设计，成果已回到原任务');
     navigate(createTaskReturnPath(session));
   }, [addArtifactToReport, autoExecute, generated, navigate, persistDesign, session, setRequirementStatus, targetProject]);
@@ -283,8 +283,8 @@ const IntelligentExperimentDesign: React.FC = () => {
   ];
 
   const modelOptions = useMemo(
-    () => [model, ...MODELS].filter((item, index, rows) => rows.findIndex((row) => row.modelId === item.modelId) === index),
-    [model],
+    () => globalModels,
+    [globalModels],
   );
 
   const tabs = [
@@ -348,6 +348,7 @@ const IntelligentExperimentDesign: React.FC = () => {
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
         { key: 'target', label: '当前目标', children: config.target },
         { key: 'model', label: '可信模型', children: `${model.modelName} ${model.version}` },
+        { key: 'calibration', label: '全局校准数据', children: model.calibrationData ? `已更新 · ${model.calibratedAt ?? ''}` : '使用模型当前参数' },
         { key: 'data', label: '历史数据', children: datasets.join('、') },
         { key: 'factors', label: '因素', children: '转速、温度、压力' },
         { key: 'constraints', label: '约束', children: `转速 ≤ ${constraints.speedMax} rpm、温度 ≤ ${constraints.temperatureMax}℃、最多 ${config.maxRuns} 次` },
@@ -376,7 +377,7 @@ const IntelligentExperimentDesign: React.FC = () => {
         )}
       </Card>
 
-      <Modal title="选择可信模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { setModel(modelOptions.find((item) => item.modelId === draftModelId) ?? MODELS[0]); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
+      <Modal title="选择全局模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { setModel(modelOptions.find((item) => item.modelId === draftModelId) ?? modelOptions[0]); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
         <Select style={{ width: '100%' }} value={draftModelId} onChange={setDraftModelId} options={modelOptions.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version}｜${item.trustedRange}｜${item.calibratedAt ?? '本次校准'}` }))} />
       </Modal>
       <Modal title="选择历史数据" open={dataOpen} onCancel={() => setDataOpen(false)} onOk={() => { setDatasets(draftDatasets); setConfirmed((prev) => ({ ...prev, data: true })); setDataOpen(false); invalidate(); }}>

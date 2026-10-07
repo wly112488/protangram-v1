@@ -82,11 +82,16 @@ const WorkspaceShell: React.FC = () => {
   const incomingSession = (location.state as BusinessRouteState | null)?.workspaceSession;
   const queryTaskId = new URLSearchParams(location.search).get('taskId');
   const queryTaskItemId = new URLSearchParams(location.search).get('taskItemId') ?? undefined;
-  const activeTask = tasks.find((task) => task.id === (incomingSession?.mode === 'task' ? incomingSession.taskId : queryTaskId));
+  const queryProfessionalProjectId = new URLSearchParams(location.search).get('professionalProjectId') ?? undefined;
+  const taskRouteId = location.pathname.match(/^\/tasks\/([^/]+)$/)?.[1];
+  const routeTaskId = taskRouteId ? decodeURIComponent(taskRouteId) : undefined;
+  const activeTask = tasks.find((task) => task.id === (incomingSession?.mode === 'task' ? incomingSession.taskId : queryTaskId ?? routeTaskId));
   const requestedTaskItemId = incomingSession?.mode === 'task' ? incomingSession.taskItemId ?? queryTaskItemId : queryTaskItemId;
+  const requestedProfessionalProjectId = incomingSession?.mode === 'task' ? incomingSession.professionalProjectId ?? queryProfessionalProjectId : queryProfessionalProjectId;
   const activeTaskItem = activeTask?.requirements.find((item) => item.id === requestedTaskItemId);
+  const activeProfessionalProject = activeTask?.professionalProjects?.find((item) => item.id === requestedProfessionalProjectId);
   const navigationSession: WorkspaceSessionState = activeTask
-    ? { mode: 'task', taskId: activeTask.id, targetProjectId: activeTask.projectId, taskItemId: activeTaskItem?.id }
+    ? { mode: 'task', taskId: activeTask.id, targetProjectId: activeTask.projectId, taskItemId: activeTaskItem?.id, professionalProjectId: activeProfessionalProject?.id }
     : incomingSession ?? (activeProjectId ? { mode: 'project', targetProjectId: activeProjectId } : { mode: 'standalone' });
 
   useEffect(() => {
@@ -136,7 +141,7 @@ const WorkspaceShell: React.FC = () => {
         projects={projects.map((project) => ({ id: project.id, name: project.name }))}
         activeProjectId={activeProjectId}
         workspaceSession={navigationSession}
-        workspaceTask={activeTask ? { id: activeTask.id, title: activeTask.title } : undefined}
+        workspaceTask={activeTask ? { id: activeTask.id, title: activeTask.title, professionalProjectId: activeProfessionalProject?.id, professionalProjectName: activeProfessionalProject?.name } : undefined}
         onImportProject={handleImportProject}
         onDesignGenerated={handleDesignGenerated}
         onToggleProjectNav={() => setProjectNavOpen((open) => !open)}
@@ -152,6 +157,7 @@ const WorkspaceShell: React.FC = () => {
               <div className="workspace-task-context-copy">
                 <Tag color="blue">当前任务</Tag>
                 <Text strong>{activeTask.title}</Text>
+                {activeProfessionalProject && <Text type="secondary">当前工作项目：{activeProfessionalProject.name}</Text>}
                 {activeTaskItem && <Text type="secondary">当前事项：{activeTaskItem.text}</Text>}
               </div>
               <Button size="small" type="link" onClick={() => navigate(createTaskReturnPath(navigationSession))}>

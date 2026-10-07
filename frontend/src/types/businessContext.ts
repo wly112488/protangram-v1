@@ -14,6 +14,7 @@ export interface ModelContract {
   measuredRange?: string;
   status?: string;
   calibratedAt?: string;
+  calibrationData?: Record<string, unknown>;
 }
 
 export interface TaskContract {
@@ -59,7 +60,7 @@ export interface PlanCondition {
 }
 
 export type WorkspaceSessionState =
-  | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string }
+  | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string; professionalProjectId?: string }
   | { mode: 'project'; targetProjectId: string }
   | { mode: 'standalone'; targetProjectId?: string };
 

@@ -73,6 +73,6 @@ export interface ProjectStats {
 }
 
 export type BusinessSession =
-  | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string }
+  | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string; professionalProjectId?: string }
   | { mode: 'project'; targetProjectId: string }
   | { mode: 'standalone'; targetProjectId?: string };

@@ -52,7 +52,7 @@ const ReportGenerate: React.FC = () => {
   const { reportId } = useParams<{ reportId: string }>();
   const { analysisReports, updateAnalysisReport, setAnalysisReports } = useAppStore();
   const { projects, addArtifact, removeArtifact } = useProjectStore();
-  const setTaskReportStatus = useTaskStore((state) => state.setReportStatus);
+  const setFormalTaskReportArtifact = useTaskStore((state) => state.setFormalReportArtifact);
   const setTaskRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
   const tasks = useTaskStore((state) => state.tasks);
@@ -151,12 +151,15 @@ const ReportGenerate: React.FC = () => {
         artifactIds: selectedArtifactIds || projectOutputVariables.map((item) => item.id),
         tagBindings,
       }));
-      if (reportArtifact && report?.taskId && report.taskItemId) {
-        addArtifactToTaskItem(report.taskId, report.taskItemId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
-        setTaskRequirementStatus(report.taskId, report.taskItemId, '已满足');
+      if (reportArtifact && report?.taskId) {
+        setFormalTaskReportArtifact(report.taskId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
+        const reportRequirementId = report.taskItemId ?? task?.requirements.find((requirement) => requirement.capability === 'report')?.id;
+        if (reportRequirementId) {
+          addArtifactToTaskItem(report.taskId, reportRequirementId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
+          setTaskRequirementStatus(report.taskId, reportRequirementId, '已满足');
+        }
       }
     }
-    if (report?.taskId) setTaskReportStatus(report.taskId, 'finalized');
     setReportGenerated(true);
     message.success('报告生成成功！');
   };

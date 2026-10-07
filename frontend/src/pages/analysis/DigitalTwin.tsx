@@ -4,28 +4,23 @@ import {
   Select, Space, Statistic, Table, Tabs, Tag, Typography, message,
 } from 'antd';
 import {
-  BarChartOutlined, DownloadOutlined, ExperimentOutlined, ReloadOutlined, SaveOutlined,
+  BarChartOutlined, DownloadOutlined, ExperimentOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import type { BusinessAction, BusinessRouteState, ModelContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
-import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createCalibrationArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
-import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
+import { createTaskReturnPath } from '@/workspace/businessSessionModel';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import type { ProjectArtifact } from '@/workspace/types';
+import { useGlobalModelStore } from '@/workspace/globalModelStore';
 
 const { Title, Text, Paragraph } = Typography;
 
-const MODELS: ModelContract[] = [
-  { modelId: 'engine-thermal-v2.1', modelName: '发动机热力学模型', version: 'V2.1', measuredRange: '2000～5000 rpm', trustedRange: '1500～5200 rpm', status: '已确认', calibratedAt: '2026-08-28' },
-  { modelId: 'structure-vibration-v1.4', modelName: '结构振动有限元模型', version: 'V1.4', measuredRange: '1200～4600 rpm', trustedRange: '1000～4800 rpm', status: '已校准', calibratedAt: '2026-07-16' },
-  { modelId: 'environment-temperature-v3.0', modelName: '环境温度响应模型', version: 'V3.0', measuredRange: '-20～50 ℃', trustedRange: '-25～55 ℃', status: '已确认', calibratedAt: '2026-08-03' },
-];
 const INITIAL_PARAMS = { temperature: 25, pressure: 101.3, speed: 3000 };
 const EMPTY_CONFIRMATION = { model: false, simulationData: false, measuredData: false, params: false };
 
@@ -55,11 +50,14 @@ const DigitalTwin: React.FC = () => {
   const incoming = location.state as BusinessRouteState | null;
   const { setContext } = useTrialAIAssistant();
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
+  const globalModels = useGlobalModelStore((state) => state.models);
+  const updateCurrentModel = useGlobalModelStore((state) => state.updateCurrentModel);
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
-  const initialModel = incoming?.model ?? (autoExecute ? MODELS[0] : null);
+  const incomingGlobalModel = incoming?.model ? globalModels.find((item) => item.modelId === incoming.model?.modelId) : null;
+  const initialModel = incomingGlobalModel ?? (incoming?.model || autoExecute ? globalModels[0] ?? null : null);
   const recommendedSpeedRange = incoming?.validation?.suggestedRange.match(/\d+/g)?.map(Number);
   const initialParams = autoExecute && recommendedSpeedRange && recommendedSpeedRange.length >= 2
     ? { ...INITIAL_PARAMS, speed: Math.round((recommendedSpeedRange[0] + recommendedSpeedRange[1]) / 2) }
@@ -71,7 +69,6 @@ const DigitalTwin: React.FC = () => {
   const [draftParams, setDraftParams] = useState(initialParams);
   const [modelModalOpen, setModelModalOpen] = useState(false);
   const [paramsModalOpen, setParamsModalOpen] = useState(false);
-  const [saveTargetOpen, setSaveTargetOpen] = useState(false);
   const [savedProjectId, setSavedProjectId] = useState<string | undefined>(session.targetProjectId);
   const [calibrating, setCalibrating] = useState(false);
   const [calibrated, setCalibrated] = useState(false);
@@ -81,7 +78,10 @@ const DigitalTwin: React.FC = () => {
   const autoReturned = useRef(false);
   const simulationInputRef = useRef<HTMLInputElement | null>(null);
   const measuredInputRef = useRef<HTMLInputElement | null>(null);
-  const activeModel = model ?? incoming?.model ?? (incoming?.source === 'dataAnalysis' ? MODELS[0] : null);
+  const activeModel = (model && globalModels.find((item) => item.modelId === model.modelId))
+    ?? (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
+    ?? model
+    ?? (incoming?.source === 'dataAnalysis' ? globalModels[0] ?? null : null);
   const activeSimulationFile = simulationFile || (incoming?.source === 'dataAnalysis' ? 'digital_twin_baseline.json' : '');
   const activeMeasuredFile = measuredFile || incoming?.data?.dataName || '';
   const preparationReady = Object.values(confirmed).every(Boolean);
@@ -119,9 +119,24 @@ const DigitalTwin: React.FC = () => {
     setCalibrated(false);
     calibrationTimer.current = window.setTimeout(() => {
       setCalibrating(false);
+      const updatedModel = activeModel ? updateCurrentModel(activeModel.modelId, {
+        status: '已校准',
+        calibratedAt: new Date().toISOString().slice(0, 10),
+        calibrationData: {
+          simulationFile: activeSimulationFile,
+          measuredFile: activeMeasuredFile,
+          params,
+          calibrationRows,
+          parameterRows,
+          credibility: 94.6,
+          confidenceInterval: 3.2,
+          errorLimit: 4.8,
+        },
+      }) : null;
+      if (updatedModel) setModel(updatedModel);
       setCalibrated(true);
       calibrationTimer.current = null;
-      message.success('模型校准完成');
+      message.success(updatedModel ? `校准完成，全局模型已更新至 ${updatedModel.version}` : '模型校准完成');
     }, 1000);
   };
 
@@ -175,8 +190,7 @@ const DigitalTwin: React.FC = () => {
     }
     recordArtifactForTaskItem({ projectId, artifactId: saved.id });
     setSavedProjectId(projectId);
-    setSaveTargetOpen(false);
-    message.success(`校准结果已保存到项目“${project.name}”`);
+    message.success('校准成果已归档到当前任务');
     return saved;
   };
 
@@ -185,29 +199,15 @@ const DigitalTwin: React.FC = () => {
     const saved = persistCalibration(boundProject.id);
     if (!saved) return;
     addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId: saved.id });
-    if (effectiveSession.taskItemId) setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '已满足');
+    if (effectiveSession.taskItemId) setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '待确认');
     navigate(createTaskReturnPath(effectiveSession));
-  };
-
-  const requestSaveToProject = () => {
-    if (!calibrated || !activeModel) return message.warning('请先完成模型校准');
-    if (boundProject) {
-      persistCalibration(boundProject.id);
-      return;
-    }
-    setSaveTargetOpen(true);
   };
 
   const handleBusinessAction = useCallback((action: BusinessAction) => {
     if (action === '查看适用范围') {
       document.getElementById('business-result')?.scrollIntoView({ behavior: 'smooth' });
-      return;
     }
-    if (!calibrated || !activeModel) return message.warning('请先完成模型校准');
-    const result = { resultType: 'model-calibration', resultSummary: '模型校准完成，综合拟合度 R² = 0.946', metrics: ['出口温度', '出口压力', '振动幅值'] };
-    if (action === '用于试验设计') navigate(`/experiment/design/intelligent${createTaskContextSearch(effectiveSession)}`, { state: { source: 'digitalTwin', model: activeModel, result, workspaceSession: effectiveSession } satisfies BusinessRouteState });
-    if (action === '用于工况扩展') navigate(`/analysis/virtual-condition${createTaskContextSearch(effectiveSession)}`, { state: { source: 'digitalTwin', model: activeModel, result, workspaceSession: effectiveSession } satisfies BusinessRouteState });
-  }, [activeModel, calibrated, effectiveSession, navigate]);
+  }, []);
 
   useEffect(() => {
     if (!autoExecute || autoStarted.current || !preparationReady) return;
@@ -228,7 +228,7 @@ const DigitalTwin: React.FC = () => {
     const saved = persistCalibration(boundProject.id);
     if (!saved) return;
     addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId: saved.id });
-    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '已满足');
+    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '待确认');
     message.success('已按复核后的任务规划完成模拟校准，成果已回到原任务');
     navigate(createTaskReturnPath(effectiveSession));
   }, [addArtifactToReport, autoExecute, boundProject, calibrated, effectiveSession, navigate, persistCalibration, setRequirementStatus]);
@@ -317,12 +317,12 @@ const DigitalTwin: React.FC = () => {
 
       <Card id="business-result" title="分析结果" size="small" className="workspace-business-card" extra={<Space><Button icon={<BarChartOutlined />} disabled={!calibrated} onClick={() => message.info('下方已显示结果对比图')}>结果对比</Button><Button icon={<DownloadOutlined />} onClick={exportResult}>导出结果</Button></Space>}>
         {calibrating ? <div style={{ padding: '40px 12%' }}><Progress percent={78} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在进行参数寻优与模型校准...</Paragraph></div>
-          : calibrated ? <><Alert type="success" showIcon title="校准已完成，综合拟合度 R² = 0.946" style={{ marginBottom: 16 }} /><Tabs items={resultTabs} /><Card size="small" title="结果对比" style={{ marginTop: 16 }}><ReactECharts option={comparisonChart} style={{ height: 280 }} /></Card><div className="workspace-result-actions"><Space wrap><Button icon={<SaveOutlined />} onClick={requestSaveToProject}>保存到项目</Button>{effectiveSession.mode === 'task' && <Button type="primary" onClick={addCalibrationToTaskReport}>加入任务报告</Button>}<Button onClick={() => handleBusinessAction('用于工况扩展')}>用于工况扩展</Button><Button onClick={() => handleBusinessAction('用于试验设计')}>用于试验设计</Button></Space></div></>
+          : calibrated ? <><Alert type="success" showIcon title={`校准完成，全局模型 ${activeModel?.modelName ?? ''} ${activeModel?.version ?? ''} 已更新，拟合度 R² = 0.946`} style={{ marginBottom: 16 }} /><Tabs items={resultTabs} /><Card size="small" title="结果对比" style={{ marginTop: 16 }}><ReactECharts option={comparisonChart} style={{ height: 280 }} /></Card>{effectiveSession.mode === 'task' && <div className="workspace-result-actions"><Button type="primary" onClick={addCalibrationToTaskReport}>加入任务报告</Button></div>}</>
             : <Alert type="info" showIcon title="完成模型、数据和参数配置后，点击“开始校准”查看结果" />}
       </Card>
 
-      <Modal title="选择模拟模型" open={modelModalOpen} onCancel={() => setModelModalOpen(false)} onOk={() => { if (!activeModel) return message.warning('请选择模型'); setConfirmed((prev) => ({ ...prev, model: true })); setModelModalOpen(false); setCalibrated(false); }}>
-        <Select style={{ width: '100%' }} placeholder="请选择模拟模型" value={activeModel?.modelId} options={MODELS.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version}｜可信范围 ${item.trustedRange}` }))} onChange={(value) => setModel(MODELS.find((item) => item.modelId === value) ?? null)} />
+      <Modal title="选择全局模型" open={modelModalOpen} onCancel={() => setModelModalOpen(false)} onOk={() => { if (!activeModel) return message.warning('请选择模型'); setConfirmed((prev) => ({ ...prev, model: true })); setModelModalOpen(false); setCalibrated(false); }}>
+        <Select style={{ width: '100%' }} placeholder="请选择模型" value={activeModel?.modelId} options={globalModels.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version}｜可信范围 ${item.trustedRange}` }))} onChange={(value) => setModel(globalModels.find((item) => item.modelId === value) ?? null)} />
       </Modal>
       <Modal title="参数配置" open={paramsModalOpen} onCancel={() => setParamsModalOpen(false)} onOk={() => { setParams(draftParams); setConfirmed((prev) => ({ ...prev, params: true })); setParamsModalOpen(false); setCalibrated(false); message.success('参数配置已保存'); }}>
         <Form labelCol={{ span: 7 }} wrapperCol={{ span: 14 }}>
@@ -331,7 +331,6 @@ const DigitalTwin: React.FC = () => {
           <Form.Item label="运行转速（r/min）"><InputNumber style={{ width: '100%' }} value={draftParams.speed} onChange={(value) => setDraftParams({ ...draftParams, speed: value ?? 3000 })} /></Form.Item>
         </Form>
       </Modal>
-      <ProjectSaveTargetModal open={saveTargetOpen} title="保存校准结果到项目" defaultProjectId={boundProject?.id} onCancel={() => setSaveTargetOpen(false)} onConfirm={persistCalibration} />
     </div>
   );
 };

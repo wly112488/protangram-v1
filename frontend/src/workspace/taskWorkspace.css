@@ -34,6 +34,39 @@
   height: 100%;
 }
 
+.task-center-section {
+  margin-top: 22px;
+}
+
+.task-center-section + .task-center-section {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.task-center-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 14px;
+}
+
+.task-center-section-heading > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+}
+
+.task-center-task-card {
+  border-top: 3px solid var(--ant-color-primary);
+}
+
+.task-center-project-card {
+  border-top: 3px solid var(--ant-color-info);
+}
+
 .task-card-title {
   display: inline-block;
   max-width: 240px;

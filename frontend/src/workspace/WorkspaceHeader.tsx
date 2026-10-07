@@ -24,7 +24,6 @@ interface WorkspaceHeaderProps {
   onDesignGenerated: (designName: string) => void;
   onToggleProjectNav: () => void;
   projectNavOpen: boolean;
-  showProjectNav?: boolean;
 }
 
 const sectionByLabel: Record<string, 'taskCenter' | 'experiment' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report'> = {
@@ -48,7 +47,6 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   onDesignGenerated,
   onToggleProjectNav,
   projectNavOpen,
-  showProjectNav = true,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -80,7 +78,7 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
       className={`workspace-header ${selectedSection ? `workspace-active-${selectedSection}` : ''}`}
       onClickCapture={handleSectionClickCapture}
     >
-      {showProjectNav && <Button
+      <Button
         className="workspace-mobile-project-toggle"
         type="text"
         icon={<FolderOpenOutlined />}
@@ -88,7 +86,7 @@ const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
         aria-expanded={projectNavOpen}
         aria-controls="workspace-project-sidebar"
         onClick={onToggleProjectNav}
-      />}
+      />
       <button type="button" className="workspace-brand" onClick={() => navigate('/')} aria-label="返回平台首页">
         <img className="workspace-brand-logo" src={comacLogo} alt="中国商飞 COMAC" />
         <span>

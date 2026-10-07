@@ -14,9 +14,12 @@ const TaskCenter: React.FC = () => {
   const tasks = useTaskStore((state) => state.tasks);
   const createDemoTask = useTaskStore((state) => state.createDemoTask);
   const createProject = useProjectStore((state) => state.createProject);
+  const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const projects = useProjectStore((state) => state.projects);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [taskBookFile, setTaskBookFile] = useState<File | null>(null);
   const taskBookInput = useRef<HTMLInputElement>(null);
 
@@ -36,6 +39,14 @@ const TaskCenter: React.FC = () => {
     navigate(`/tasks/${taskId}`);
   };
 
+  const handleCreateIndependentProject = () => {
+    if (!projectName.trim()) return message.warning('请填写项目名称');
+    createProject({ name: projectName.trim(), description: '用户自主开展试验与分析的数据、工作表和成果空间', status: '进行中' });
+    setProjectName('');
+    setCreateProjectOpen(false);
+    message.success('独立项目已创建');
+  };
+
   const handleTaskBookChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
@@ -47,12 +58,13 @@ const TaskCenter: React.FC = () => {
     setTaskBookFile(file);
   };
 
-  const openStandaloneCapability = (path: string) => navigate(path, { state: { workspaceSession: { mode: 'standalone' } } });
-
   const completedCount = (taskId: string) => {
     const task = tasks.find((item) => item.id === taskId);
     return task?.requirements.filter((item) => item.status === '已满足').length ?? 0;
   };
+
+  const taskProjectIds = new Set(tasks.map((task) => task.projectId));
+  const independentProjects = projects.filter((project) => !taskProjectIds.has(project.id));
 
   return (
     <div className="task-center-page">
@@ -62,64 +74,98 @@ const TaskCenter: React.FC = () => {
         level={3}
         actions={(
           <Space wrap>
-          <Button icon={<FolderOpenOutlined />} onClick={() => navigate('/projects')}>独立项目与成果</Button>
+          <Button icon={<FolderOpenOutlined />} onClick={() => setCreateProjectOpen(true)}>新建独立项目</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建任务</Button>
           </Space>
         )}
       />
 
-      {tasks.length === 0 ? (
-        <Card className="task-center-empty">
-          <Empty description="导入任务书 PDF 并命名任务后，即可在任务工作台体验事项拆解、专业分析和报告编制。当前事项拆解与分析结果使用模拟数据。" />
-        </Card>
-      ) : (
-        <List
-          className="task-center-list"
-          grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 3 }}
-          dataSource={tasks}
-          renderItem={(task) => {
-            const project = projects.find((item) => item.id === task.projectId);
-            const artifactCount = project?.artifacts.length ?? 0;
-            const openRequirements = task.requirements.length - completedCount(task.id);
-            return (
+      <section className="task-center-section">
+        <div className="task-center-section-heading">
+          <div><Text strong>正式任务</Text><Text type="secondary">任务书驱动 · AI 拆解与复核 · 专业分析 · 任务报告</Text></div>
+          <Tag>{tasks.length} 项</Tag>
+        </div>
+        {tasks.length === 0 ? (
+          <Card className="task-center-empty">
+            <Empty description="导入任务书并命名后，正式任务会显示在这里。当前任务拆解和分析结果使用模拟数据。" />
+          </Card>
+        ) : (
+          <List
+            className="task-center-list"
+            grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 3 }}
+            dataSource={tasks}
+            renderItem={(task) => {
+              const project = projects.find((item) => item.id === task.projectId);
+              const artifactCount = project?.artifacts.length ?? 0;
+              const openRequirements = task.requirements.length - completedCount(task.id);
+              return (
+                <List.Item>
+                  <Card
+                    className="task-center-card task-center-task-card"
+                    title={<span className="task-card-title">{task.title}</span>}
+                    extra={<Tag color={task.status === '进行中' ? 'blue' : task.status === '已完成' ? 'green' : 'default'}>{task.status}</Tag>}
+                    actions={[
+                      <Button type="link" key="open" onClick={() => navigate(`/tasks/${task.id}`)}>打开任务工作台</Button>,
+                      <Text type="secondary" key="updated">更新于 {new Date(task.updatedAt).toLocaleDateString('zh-CN')}</Text>,
+                    ]}
+                  >
+                    <Space direction="vertical" size={10}>
+                      <Text type="secondary">任务书：{task.sourceName || '未填写来源'}</Text>
+                      {task.demo && <Tag color="purple">AI 模拟拆解与分析结果</Tag>}
+                      {project && <Text type="secondary">关联项目空间：{project.name}</Text>}
+                      <div className="task-card-stats">
+                        <span>{openRequirements} 项事项待处理</span>
+                        <span>{artifactCount} 项分析成果</span>
+                        <span>{task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项已入报告</span>
+                      </div>
+                    </Space>
+                  </Card>
+                </List.Item>
+              );
+            }}
+          />
+        )}
+      </section>
+
+      <section className="task-center-section task-center-project-section">
+        <div className="task-center-section-heading">
+          <div><Text strong>我的独立项目</Text><Text type="secondary">自主试验与分析 · 不包含任务书和 AI 任务拆解</Text></div>
+          <Tag>{independentProjects.length} 个</Tag>
+        </div>
+        {independentProjects.length === 0 ? (
+          <Card className="task-center-empty task-center-project-empty">
+            <Empty description="还没有独立项目。创建后可保存自己的试验数据、工作表和专业分析成果。" />
+          </Card>
+        ) : (
+          <List
+            className="task-center-list"
+            grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 3 }}
+            dataSource={independentProjects}
+            renderItem={(project) => (
               <List.Item>
                 <Card
-                  className="task-center-card"
-                  title={<span className="task-card-title">{task.title}</span>}
-                  extra={<Tag color={task.status === '进行中' ? 'blue' : task.status === '已完成' ? 'green' : 'default'}>{task.status}</Tag>}
+                  className="task-center-card task-center-project-card"
+                  title={<span className="task-card-title">{project.name}</span>}
+                  extra={<Tag color="cyan">独立项目</Tag>}
                   actions={[
-                    <Button type="link" key="open" onClick={() => navigate(`/tasks/${task.id}`)}>打开任务工作台</Button>,
-                    <Text type="secondary" key="updated">更新于 {new Date(task.updatedAt).toLocaleDateString('zh-CN')}</Text>,
+                    <Button type="link" key="open" onClick={() => { setActiveProject(project.id); navigate('/projects'); }}>打开项目空间</Button>,
+                    <Text type="secondary" key="updated">更新于 {new Date(project.updatedAt).toLocaleDateString('zh-CN')}</Text>,
                   ]}
                 >
                   <Space direction="vertical" size={10}>
-                    <Text type="secondary">{task.sourceName || '未填写任务书来源'}</Text>
-                    {task.demo && <Tag color="purple">AI 模拟拆解与分析结果</Tag>}
+                    <Text type="secondary">{project.description || '自主试验与分析的数据、工作表和成果空间'}</Text>
                     <div className="task-card-stats">
-                      <span>{openRequirements} 项要求待确认</span>
-                      <span>{artifactCount} 项分析成果</span>
-                      <span>{task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项已入报告</span>
+                      <span>{project.datasets.length} 个数据集</span>
+                      <span>{project.worksheet ? `${Object.keys(project.worksheet.data).length} 条工作表记录` : '暂无工作表'}</span>
+                      <span>{project.artifacts.length} 项专业成果</span>
                     </div>
                   </Space>
                 </Card>
               </List.Item>
-            );
-          }}
-        />
-      )}
-
-      <Card className="task-center-standalone" size="small">
-        <div>
-          <Text strong>独立使用专业能力</Text>
-          <Text type="secondary">无需创建任务，也可以直接使用试验设计、数据分析、数字孪生或虚拟工况扩展。</Text>
-        </div>
-        <Space wrap>
-          <Button onClick={() => openStandaloneCapability('/experiment/design/intelligent')}>试验设计</Button>
-          <Button onClick={() => openStandaloneCapability('/analysis/projects')}>试验数据分析</Button>
-          <Button onClick={() => openStandaloneCapability('/analysis/digital-twin')}>试验数字孪生</Button>
-          <Button onClick={() => openStandaloneCapability('/analysis/virtual-condition')}>虚拟工况扩展</Button>
-        </Space>
-      </Card>
+            )}
+          />
+        )}
+      </section>
 
       <Modal
         title="新建任务"
@@ -148,6 +194,20 @@ const TaskCenter: React.FC = () => {
             message="当前为原型模拟"
             description="本地 PDF 目前只记录文件名，不会上传或解析文件内容；创建后使用内置模拟 AI 拆解和专业分析结果。"
           />
+        </div>
+      </Modal>
+
+      <Modal
+        title="新建独立项目"
+        open={createProjectOpen}
+        okText="创建项目"
+        cancelText="取消"
+        onOk={handleCreateIndependentProject}
+        onCancel={() => { setCreateProjectOpen(false); setProjectName(''); }}
+      >
+        <div className="task-create-form">
+          <label>项目名称<Input autoFocus value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="例如：高转速试验数据探索" /></label>
+          <Alert showIcon type="info" message="独立项目不创建正式任务" description="用于自主开展试验和分析，保存数据、工作表与专业成果；不包含任务书或 AI 任务事项拆解。" />
         </div>
       </Modal>
     </div>

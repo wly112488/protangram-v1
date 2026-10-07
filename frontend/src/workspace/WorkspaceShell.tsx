@@ -84,7 +84,6 @@ const WorkspaceShell: React.FC = () => {
   const queryTaskItemId = new URLSearchParams(location.search).get('taskItemId') ?? undefined;
   const activeTask = tasks.find((task) => task.id === (incomingSession?.mode === 'task' ? incomingSession.taskId : queryTaskId));
   const requestedTaskItemId = incomingSession?.mode === 'task' ? incomingSession.taskItemId ?? queryTaskItemId : queryTaskItemId;
-  const isTaskSurface = location.pathname === '/' || location.pathname.startsWith('/tasks/');
   const activeTaskItem = activeTask?.requirements.find((item) => item.id === requestedTaskItemId);
   const navigationSession: WorkspaceSessionState = activeTask
     ? { mode: 'task', taskId: activeTask.id, targetProjectId: activeTask.projectId, taskItemId: activeTaskItem?.id }
@@ -142,11 +141,10 @@ const WorkspaceShell: React.FC = () => {
         onDesignGenerated={handleDesignGenerated}
         onToggleProjectNav={() => setProjectNavOpen((open) => !open)}
         projectNavOpen={projectNavOpen}
-        showProjectNav={!isTaskSurface}
       />
 
-      <div className={`workspace-shell-body ${isTaskSurface ? 'workspace-shell-body-task' : ''} ${projectNavOpen ? 'workspace-project-nav-open' : ''}`}>
-        {!isTaskSurface && <ProjectSidebar mobileOpen={projectNavOpen} onNavigate={() => setProjectNavOpen(false)} />}
+      <div className={`workspace-shell-body ${projectNavOpen ? 'workspace-project-nav-open' : ''}`}>
+        <ProjectSidebar mobileOpen={projectNavOpen} onNavigate={() => setProjectNavOpen(false)} />
         {projectNavOpen && <button type="button" className="workspace-sidebar-backdrop" aria-label="关闭项目导航" onClick={() => setProjectNavOpen(false)} />}
         <main className="workspace-center">
           {activeTask && !location.pathname.startsWith('/tasks/') && (

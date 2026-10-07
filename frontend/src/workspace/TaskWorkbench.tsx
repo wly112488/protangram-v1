@@ -31,6 +31,7 @@ const TaskWorkbench: React.FC = () => {
   const updateReportSection = useTaskStore((state) => state.updateReportSection);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
+  const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const project = useProjectStore((state) => state.projects.find((item) => item.id === task?.projectId));
   const allProjects = useProjectStore((state) => state.projects);
   const artifacts = project?.artifacts ?? [];
@@ -266,6 +267,7 @@ const TaskWorkbench: React.FC = () => {
         actions={(
           <Space wrap>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/')}>任务中心</Button>
+          <Button onClick={() => { setActiveProject(task.projectId); navigate('/projects'); }}>项目数据与成果</Button>
           <Button onClick={() => setTaskStatus(task.id, task.status === '已完成' ? '进行中' : '已完成')}>
             {task.status === '已完成' ? '重新打开任务' : '标记任务完成'}
           </Button>

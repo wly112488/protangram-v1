@@ -88,7 +88,7 @@ const TaskCenter: React.FC = () => {
                   title={<span className="task-card-title">{task.title}</span>}
                   extra={<Tag color={task.status === '进行中' ? 'blue' : task.status === '已完成' ? 'green' : 'default'}>{task.status}</Tag>}
                   actions={[
-                    <Button type="link" key="open" onClick={() => navigate(`/tasks/${task.id}`)}>继续处理</Button>,
+                    <Button type="link" key="open" onClick={() => navigate(`/tasks/${task.id}`)}>打开任务工作台</Button>,
                     <Text type="secondary" key="updated">更新于 {new Date(task.updatedAt).toLocaleDateString('zh-CN')}</Text>,
                   ]}
                 >

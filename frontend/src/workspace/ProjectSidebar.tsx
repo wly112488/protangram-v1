@@ -122,8 +122,8 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
     <aside id="workspace-project-sidebar" className={`workspace-project-sidebar ${mobileOpen ? 'is-mobile-open' : ''}`}>
       <div className="workspace-project-sidebar-head">
         <div>
-          <strong>项目内容</strong>
-          <Text type="secondary">{projects.length} 个项目 · 工作表与已保存成果</Text>
+            <strong>项目数据与成果</strong>
+            <Text type="secondary">{projects.length} 个空间 · 数据、工作表与专业结果</Text>
         </div>
         <Dropdown
           trigger={['click']}

@@ -130,12 +130,12 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
           menu={{
             items: [
               { key: 'new', label: '新建项目' },
-              { key: 'import', label: '导入已有项目' },
+              { key: 'import', label: '导入旧版试验项目' },
             ],
             onClick: ({ key }) => key === 'new' ? setCreateOpen(true) : setImportOpen(true),
           }}
         >
-          <Button type="text" className="workspace-project-add" icon={<PlusOutlined />} aria-label="新建或导入项目" />
+          <Button type="text" className="workspace-project-add" icon={<PlusOutlined />} aria-label="新建项目或导入旧版试验项目" />
         </Dropdown>
       </div>
 
@@ -185,7 +185,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
       </Modal>
 
       <Modal
-        title="导入已有项目"
+        title="导入旧版试验项目"
         open={importOpen}
         footer={null}
         onCancel={() => setImportOpen(false)}
@@ -215,7 +215,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
             )}
           />
         ) : (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有尚未导入的历史项目" />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有尚未导入的旧版试验项目" />
         )}
       </Modal>
     </aside>

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, Button, Card, Empty, Input, List, Modal, Space, Tag, Typography, message } from 'antd';
-import { FolderOpenOutlined, PlusOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { DeleteOutlined, FolderOpenOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
@@ -17,32 +17,34 @@ const TaskCenter: React.FC = () => {
   const projects = useProjectStore((state) => state.projects);
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [taskBookFile, setTaskBookFile] = useState<File | null>(null);
+  const taskBookInput = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
     setTitle('');
+    setTaskBookFile(null);
   };
 
   const handleCreate = () => {
     if (!title.trim()) return message.warning('请填写任务名称');
+    if (!taskBookFile) return message.warning('请选择任务书 PDF');
     const projectId = createProject({ name: title.trim(), description: '由任务工作台创建的数据与成果空间', status: '进行中' });
-    const taskId = createDemoTask({ title, projectId });
+    const taskId = createDemoTask({ title, projectId, sourceName: taskBookFile.name });
     setCreateOpen(false);
     resetForm();
-    message.success('已载入内置模拟任务书和 AI 拆解样例');
+    message.success('任务已创建，任务事项将使用模拟 AI 拆解结果');
     navigate(`/tasks/${taskId}`);
   };
 
-  const handleOpenDemo = () => {
-    const existingDemoTask = tasks.find((task) => task.demo);
-    if (existingDemoTask) {
-      navigate(`/tasks/${existingDemoTask.id}`);
+  const handleTaskBookChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      message.error('请导入 PDF 格式的任务书');
       return;
     }
-    const title = '高转速区域模型可信性与补充验证';
-    const projectId = createProject({ name: title, description: '内置演示数据与模拟分析成果', status: '进行中' });
-    const taskId = createDemoTask({ projectId });
-    message.success('已载入演示任务书和模拟 AI 拆解计划');
-    navigate(`/tasks/${taskId}`);
+    setTaskBookFile(file);
   };
 
   const openStandaloneCapability = (path: string) => navigate(path, { state: { workspaceSession: { mode: 'standalone' } } });
@@ -61,7 +63,6 @@ const TaskCenter: React.FC = () => {
         actions={(
           <Space wrap>
           <Button icon={<FolderOpenOutlined />} onClick={() => navigate('/projects')}>独立项目与成果</Button>
-          <Button icon={<PlayCircleOutlined />} onClick={handleOpenDemo}>打开演示任务</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建任务</Button>
           </Space>
         )}
@@ -69,12 +70,7 @@ const TaskCenter: React.FC = () => {
 
       {tasks.length === 0 ? (
         <Card className="task-center-empty">
-          <Empty description="目前没有真实任务书或分析 AI。先打开内置样例，体验模拟任务书、事项拆解、分析成果回流和报告编制。">
-            <Space wrap>
-              <Button type="primary" icon={<PlayCircleOutlined />} onClick={handleOpenDemo}>体验完整演示</Button>
-              <Button icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建模拟任务</Button>
-            </Space>
-          </Empty>
+          <Empty description="导入任务书 PDF 并命名任务后，即可在任务工作台体验事项拆解、专业分析和报告编制。当前事项拆解与分析结果使用模拟数据。" />
         </Card>
       ) : (
         <List
@@ -98,7 +94,7 @@ const TaskCenter: React.FC = () => {
                 >
                   <Space direction="vertical" size={10}>
                     <Text type="secondary">{task.sourceName || '未填写任务书来源'}</Text>
-                    {task.demo && <Tag color="purple">演示数据 · AI 模拟拆解</Tag>}
+                    {task.demo && <Tag color="purple">AI 模拟拆解与分析结果</Tag>}
                     <div className="task-card-stats">
                       <span>{openRequirements} 项要求待确认</span>
                       <span>{artifactCount} 项分析成果</span>
@@ -128,7 +124,7 @@ const TaskCenter: React.FC = () => {
       <Modal
         title="新建任务"
         open={createOpen}
-        okText="创建演示任务并进入工作台"
+        okText="创建任务并进入工作台"
         cancelText="取消"
         width={720}
         onOk={handleCreate}
@@ -136,11 +132,21 @@ const TaskCenter: React.FC = () => {
       >
         <div className="task-create-form">
           <label>任务名称<Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：发动机高转速性能分析" /></label>
+          <div className="task-book-upload">
+            <Text strong>任务书 PDF</Text>
+            <input ref={taskBookInput} type="file" accept="application/pdf,.pdf" onChange={handleTaskBookChange} hidden />
+            <Space wrap>
+              <Button icon={<UploadOutlined />} onClick={() => taskBookInput.current?.click()}>
+                {taskBookFile ? '更换任务书 PDF' : '选择本地 PDF'}
+              </Button>
+              {taskBookFile && <Space size={4}><Text>{taskBookFile.name}</Text><Button type="text" size="small" aria-label="移除任务书 PDF" icon={<DeleteOutlined />} onClick={() => setTaskBookFile(null)} /></Space>}
+            </Space>
+          </div>
           <Alert
             showIcon
             type="info"
-            message="当前为演示环境"
-            description="暂未接入本地任务书解析或真实 AI。创建后会使用内置模拟任务书和预设拆解计划，便于体验完整业务流程。"
+            message="当前为原型模拟"
+            description="本地 PDF 目前只记录文件名，不会上传或解析文件内容；创建后使用内置模拟 AI 拆解和专业分析结果。"
           />
         </div>
       </Modal>

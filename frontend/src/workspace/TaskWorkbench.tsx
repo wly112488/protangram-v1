@@ -225,7 +225,7 @@ const TaskWorkbench: React.FC = () => {
         title={<Space>任务执行计划{task.demo && <Tag color="purple">AI 模拟拆解</Tag>}</Space>}
         extra={<Text type="secondary">事项表达任务要求，工具只是完成事项的手段</Text>}
       >
-        {task.demo && <Alert className="task-demo-note" type="info" showIcon message="演示模式：以下任务书、AI 拆解和专业结果均为内置样例，可逐项点击模拟执行。" />}
+        {task.demo && <Alert className="task-demo-note" type="info" showIcon message={`原型模拟：${task.sourceName || '已选择的任务书 PDF'}目前只记录文件名，尚未解析内容；以下事项拆解与专业分析结果为模拟数据。`} />}
         <List
           className="task-plan-list"
           dataSource={task.requirements}

@@ -53,8 +53,7 @@ const getNextSteps = (project: Project): NextStep[] => {
 
   if (designExists) {
     const designSteps: NextStep[] = [
-      { key: 'task', title: '创建任务', description: '根据已有试验设计创建数据分析任务。', route: '/analysis/projects' },
-      { key: 'analysis', title: '试验数据分析', description: '检查试验数据并生成分析结果。', route: '/analysis/projects' },
+      { key: 'analysis', title: '试验数据分析', description: '选择试验数据，检查异常并形成分析结果。', route: '/analysis/projects' },
     ];
     if (highRiskVirtual) {
       designSteps.unshift({ key: 'validation-design', title: '验证设计', description: '为高风险虚拟工况安排实测试验验证。', route: '/experiment/design/intelligent' });
@@ -68,7 +67,7 @@ const getNextSteps = (project: Project): NextStep[] => {
 
   return [
     { key: 'design', title: '试验设计', description: '规划需要执行的试验工况。', route: '/experiment/design/intelligent' },
-    { key: 'analysis', title: '试验数据分析', description: '检查数据并创建分析任务。', route: '/analysis/projects' },
+    { key: 'analysis', title: '试验数据分析', description: '选择试验数据，检查异常并形成分析结果。', route: '/analysis/projects' },
     { key: 'calibration', title: '模型校准', description: '用实测数据校准当前模型。', route: '/analysis/digital-twin' },
     { key: 'virtual', title: '虚拟工况', description: '探索模型可信范围内的扩展工况。', route: '/analysis/virtual-condition' },
   ];
@@ -156,7 +155,7 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
                 icon={<PlusOutlined />}
                 onClick={() => navigate(step.route, { state: { workspaceSession: { mode: 'project', targetProjectId: project.id } } })}
               >
-                {step.key === 'task' ? '创建任务' : step.title}
+                {step.key === 'analysis' ? '进入试验数据分析' : step.title}
               </Button>
             </div>
           ))}

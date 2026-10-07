@@ -22,6 +22,7 @@ interface CreateTaskInput {
 interface CreateDemoTaskInput {
   projectId: string;
   title?: string;
+  sourceName?: string;
 }
 
 interface TaskState {
@@ -78,14 +79,13 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
     set((state) => ({ tasks: [task, ...state.tasks] }));
     return task.id;
   },
-  createDemoTask: ({ projectId, title }) => {
+  createDemoTask: ({ projectId, title, sourceName }) => {
     const now = new Date().toISOString();
     const ids = ['demo-analysis', 'demo-twin', 'demo-extension', 'demo-design', 'demo-report'];
     const task: TaskRecord = {
       id: makeId('task-demo'),
       title: title?.trim() || '高转速区域模型可信性与补充验证',
-      sourceName: '模拟任务书.docx · 内置演示样例',
-      sourceText: '任务目标：基于已有高转速试验数据，分析异常响应并评价模型在高转速区域的预测可信性；对缺少实测覆盖的区域开展工况扩展；针对高风险区域设计补充验证试验；汇总分析、预测与验证证据，形成最终分析报告。\n\n交付要求：异常分析结论、模型可信性评估、扩展工况结果、补充试验方案及完整报告。',
+      sourceName: sourceName?.trim() || '未命名任务书.pdf',
       projectId,
       status: '进行中',
       demo: true,

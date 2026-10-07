@@ -158,6 +158,10 @@
   background: #eef3f9;
 }
 
+.workspace-shell-body-task {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
 .workspace-project-sidebar,
 .workspace-ai-panel {
   min-height: 0;
@@ -965,6 +969,10 @@
 
   .workspace-ai-panel {
     display: none;
+  }
+
+  .workspace-shell-body-task {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .workspace-ai-mobile-trigger {

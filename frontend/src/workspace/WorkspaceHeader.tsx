@@ -27,9 +27,8 @@ interface WorkspaceHeaderProps {
   projectNavOpen: boolean;
 }
 
-const sectionByLabel: Record<string, 'taskCenter' | 'experiment' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report'> = {
+const sectionByLabel: Record<string, 'taskCenter' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report'> = {
   任务中心: 'taskCenter',
-  试验管理: 'experiment',
   试验设计: 'doe',
   试验数据分析: 'analysis',
   试验数字孪生: 'digitalTwin',

@@ -161,7 +161,10 @@ const DigitalTwin: React.FC = () => {
   const persistCalibration = useCallback((projectId: string): ProjectArtifact | null => {
     if (calibrationArtifactId) {
       const existing = projects.find(project => project.id === projectId)?.artifacts.find(artifact => artifact.id === calibrationArtifactId);
-      if (existing) return existing;
+      if (existing) {
+        recordArtifactForTaskItem({ projectId, artifactId: existing.id });
+        return existing;
+      }
     }
     if (!calibrated || !activeModel) {
       message.warning('请先完成模型校准');

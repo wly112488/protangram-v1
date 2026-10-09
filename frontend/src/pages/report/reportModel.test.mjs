@@ -61,3 +61,21 @@ test('report artifact input preserves the report and selected artifact reference
   assert.deepEqual(input.payload.artifactIds, ['design-1', 'analysis-1']);
   assert.deepEqual(input.payload.tagBindings, { '{{分析结果图表}}': 'analysis-1' });
 });
+
+test('empty report inputs stay empty until demo data is explicitly enabled', () => {
+  const examples = [{ id: 'demo-1', name: '示例曲线' }];
+  assert.deepEqual(reportModel.resolveReportOutputVariables([], examples, false), []);
+  assert.deepEqual(reportModel.resolveReportOutputVariables([], examples, true), examples);
+  const real = [{ id: 'analysis-1', name: '当前分析成果' }];
+  assert.deepEqual(reportModel.resolveReportOutputVariables(real, examples, true), real);
+});
+
+test('bindings are valid only while their selected output exists', () => {
+  assert.equal(reportModel.hasUnavailableReportBindings({ tag: 'missing' }, [{ id: 'real' }]), true);
+  assert.equal(reportModel.hasUnavailableReportBindings({ tag: 'real' }, [{ id: 'real' }]), false);
+});
+
+test('empty section headings are not report evidence but written narrative is valid', () => {
+  assert.equal(reportModel.hasReportNarrative('## 背景\n\n## 结论\n'), false);
+  assert.equal(reportModel.hasReportNarrative('## 背景\n人工核对了试验对象。\n\n## 结论\n'), true);
+});

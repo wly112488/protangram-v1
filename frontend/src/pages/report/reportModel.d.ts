@@ -1,5 +1,9 @@
 import type { ProjectArtifact, ProjectArtifactType } from '../../workspace/types';
 
+export function resolveReportOutputVariables<T extends { id: string }>(actual: T[], examples: T[], demoEnabled: boolean): T[];
+export function hasUnavailableReportBindings(bindings: Record<string, string>, outputs: { id: string }[]): boolean;
+export function hasReportNarrative(content?: string): boolean;
+
 export function getReportableArtifacts(artifacts: ProjectArtifact[]): ProjectArtifact[];
 
 export function resolveReportProjectId(input: {

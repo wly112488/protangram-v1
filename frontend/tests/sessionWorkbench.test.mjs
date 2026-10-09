@@ -9,7 +9,7 @@ globalThis.localStorage = {
   removeItem: (key) => memory.delete(key),
 };
 const bundle = await build({
-  stdin: { contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionModel'; export * from './src/workspace/businessSessionModel';", resolveDir: process.cwd() },
+  stdin: { contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionModel'; export * from './src/workspace/businessSessionModel'; export * from './src/workspace/taskArtifactAssociation';", resolveDir: process.cwd() },
   bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',
 });
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
@@ -184,4 +184,34 @@ test('project deletion protects formal task ownership and cross-project evidence
     assert.equal(sessions.getState().deleteProjectGroup(source), false);
     assert.ok(projects.getState().projects.some(project => project.id === source));
   }
+});
+
+test('free task work preserves overall scope unless an item is explicitly selected', () => {
+  const projectId = projects.getState().createProject({ name: '事项关联' });
+  const tasks = api.useTaskStore;
+  const taskId = tasks.getState().createDemoTask({ projectId });
+  const task = tasks.getState().tasks.find(item => item.id === taskId);
+  const session = { mode: 'task', taskId, targetProjectId: projectId };
+  const reference = { projectId, artifactId: 'task-overall' };
+  assert.equal(api.recordTaskBusinessArtifact(session, reference), 'task');
+  assert.equal(tasks.getState().tasks.find(item => item.id === taskId).requirements[0].artifactRefs?.length ?? 0, 0);
+  const focusedRef = { projectId, artifactId: 'selected-item' };
+  api.recordTaskBusinessArtifact(session, focusedRef, task.requirements[0].id);
+  const updated = tasks.getState().tasks.find(item => item.id === taskId).requirements[0];
+  assert.equal(updated.status, '待确认');
+  assert.ok(updated.artifactRefs.some(item => item.artifactId === focusedRef.artifactId));
+  assert.notEqual(tasks.getState().tasks.find(item => item.id === taskId).status, '已完成');
+});
+
+test('focused task entry wins over free association and preserves satisfied evidence', () => {
+  const tasks = api.useTaskStore;
+  const projectId = projects.getState().createProject({ name: '指定事项' });
+  const taskId = tasks.getState().createDemoTask({ projectId });
+  const task = tasks.getState().tasks.find(item => item.id === taskId);
+  tasks.getState().setRequirementStatus(taskId, task.requirements[0].id, '已满足');
+  api.recordTaskBusinessArtifact({ mode: 'task', taskId, targetProjectId: projectId, taskItemId: task.requirements[0].id }, { projectId, artifactId: 'focused' }, task.requirements[1].id);
+  const updated = tasks.getState().tasks.find(item => item.id === taskId);
+  assert.equal(updated.requirements[0].status, '已满足');
+  assert.ok(updated.requirements[0].artifactRefs.some(item => item.artifactId === 'focused'));
+  assert.equal(updated.requirements[1].artifactRefs?.length ?? 0, 0);
 });

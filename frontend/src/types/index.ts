@@ -420,4 +420,5 @@ export interface AnalysisReport {
   status: 'draft' | 'generated';
   /** 报告文件内容 */
   reportContent?: string;
+  dataSource?: 'artifacts' | 'demo';
 }

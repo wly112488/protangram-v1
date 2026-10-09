@@ -191,7 +191,11 @@ const VirtualConditionExtension: React.FC = () => {
   const persistVirtualResult = useCallback((projectId: string, notify = true) => {
     if (predictionStatus !== 'completed') return null;
     if (persistedProjectId === projectId) {
-      return projects.find((item) => item.id === projectId)?.artifacts.find((artifact) => artifact.id === persistedArtifactId) ?? null;
+      const existing = projects.find((item) => item.id === projectId)?.artifacts.find((artifact) => artifact.id === persistedArtifactId);
+      if (existing) {
+        recordArtifactForTaskItem({ projectId, artifactId: existing.id });
+        return existing;
+      }
     }
     const project = projects.find((item) => item.id === projectId);
     if (!project) return null;

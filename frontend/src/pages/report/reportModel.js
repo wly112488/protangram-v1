@@ -6,6 +6,20 @@ const REPORTABLE_ARTIFACT_TYPES = new Set([
   'virtualCondition',
 ]);
 
+/** Demo outputs must never silently replace missing evidence. */
+export function resolveReportOutputVariables(actual, examples, demoEnabled) {
+  return actual.length > 0 ? actual : demoEnabled ? examples : [];
+}
+
+export function hasUnavailableReportBindings(bindings, outputs) {
+  const available = new Set(outputs.map((output) => output.id));
+  return Object.values(bindings).some((id) => !available.has(id));
+}
+
+export function hasReportNarrative(content) {
+  return Boolean(content?.replace(/^\s*##[^\n]*$/gm, '').trim());
+}
+
 /** @param {import('../../workspace/types').ProjectArtifact[]} artifacts */
 export function getReportableArtifacts(artifacts) {
   return artifacts.filter((artifact) => REPORTABLE_ARTIFACT_TYPES.has(artifact.type));

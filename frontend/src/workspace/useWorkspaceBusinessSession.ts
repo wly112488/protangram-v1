@@ -4,7 +4,8 @@ import type { BusinessRouteState } from '@/types/businessContext';
 import { normalizeBusinessSession } from './businessSessionModel';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
-import { getSessionIdFromLocation } from './sessionModel';
+import { getCapabilityFromPath, getSessionIdFromLocation } from './sessionModel';
+import { recordTaskBusinessArtifact } from './taskArtifactAssociation';
 import { useSessionStore } from './sessionStore';
 
 export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null) => {
@@ -39,29 +40,14 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
   const activeTaskItem = session.mode === 'task'
     ? activeTask?.requirements.find((item) => item.id === session.taskItemId) ?? null
     : null;
-  const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
-  const addArtifactToTask = useTaskStore((state) => state.addArtifactToTask);
-  const addArtifactToProfessionalProject = useTaskStore((state) => state.addArtifactToProfessionalProject);
-  const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const capability = getCapabilityFromPath(location.pathname);
+  const selectedTaskItemId = useSessionStore(state => {
+    const value = state.sessions.find(item => item.id === sessionId)?.drafts[capability]?.artifactTaskItemId;
+    return typeof value === 'string' ? value : undefined;
+  });
   const recordArtifactForTaskItem = useCallback((reference: { projectId: string; artifactId: string }) => {
-    if (session.mode !== 'task') return;
-    if (session.professionalProjectId) {
-      addArtifactToProfessionalProject(session.taskId, session.professionalProjectId, reference);
-      const professionalProject = tasks.find((task) => task.id === session.taskId)?.professionalProjects?.find((item) => item.id === session.professionalProjectId);
-      const relatedRequirement = professionalProject?.relatedRequirementId
-        ? tasks.find((task) => task.id === session.taskId)?.requirements.find((item) => item.id === professionalProject.relatedRequirementId)
-        : undefined;
-      if (professionalProject?.relatedRequirementId) {
-        addArtifactToTaskItem(session.taskId, professionalProject.relatedRequirementId, reference);
-        if (relatedRequirement && relatedRequirement.status !== '已满足') {
-          setRequirementStatus(session.taskId, professionalProject.relatedRequirementId, '待确认');
-        }
-      }
-      return;
-    }
-    if (session.taskItemId) addArtifactToTaskItem(session.taskId, session.taskItemId, reference);
-    else addArtifactToTask(session.taskId, reference);
-  }, [addArtifactToProfessionalProject, addArtifactToTask, addArtifactToTaskItem, setRequirementStatus, session, tasks]);
+    recordTaskBusinessArtifact(session, reference, selectedTaskItemId);
+  }, [session, selectedTaskItemId]);
 
   return { projects, tasks, session, targetProject, activeTask, activeTaskItem, recordArtifactForTaskItem };
 };

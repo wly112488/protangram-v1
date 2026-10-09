@@ -9,6 +9,7 @@ const ProjectResourcesPage: React.FC = () => {
   const [open, setOpen] = useState(false);
   const projectId = useProjectStore(state => state.activeProjectId);
   return <div className="session-shared-resources">
+    <p className="session-resource-description">这里只展示项目共享资源；各会话成果请在对应会话中查看。</p>
     <div className="session-shared-resource-actions"><Button icon={<DatabaseOutlined />} onClick={() => setOpen(true)}>项目资源目录</Button></div>
     <ProjectContent />
     <Drawer className="session-resource-drawer" title="项目共享数据与成果" open={open} onClose={() => setOpen(false)} size={370}>

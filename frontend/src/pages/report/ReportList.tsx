@@ -140,6 +140,7 @@ const ReportList: React.FC = () => {
                     <Tag color={report.status === 'generated' ? 'green' : 'orange'}>
                       {report.status === 'generated' ? '已生成' : '草稿'}
                     </Tag>
+                    {report.dataSource === 'demo' && <Tag color="orange">演示报告 · 模拟成果</Tag>}
                   </div>
                 </Space>
               </Card>

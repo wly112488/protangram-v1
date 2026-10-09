@@ -312,7 +312,7 @@ const TaskWorkbench: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [addArtifact, addArtifactToTaskItem, project, runningRequirement, setRequirementProgress, setRequirementStatus, task]);
 
-  if (!task) return <Card><Empty description="未找到这项任务，可能已被删除。"><Button onClick={() => navigate('/')}>返回任务中心</Button></Empty></Card>;
+  if (!task) return <Card><Empty description="未找到这项任务，可能已被删除。"><Button onClick={() => navigate('/task-center')}>返回任务中心</Button></Empty></Card>;
 
   const professionalProjects = task.professionalProjects ?? [];
   const openProfessionalProject = (professionalProject: TaskProfessionalProject) => {
@@ -531,7 +531,7 @@ const TaskWorkbench: React.FC = () => {
         )}
         actions={(
           <Space wrap>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/')}>任务中心</Button>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/task-center')}>任务中心</Button>
           <Button onClick={() => { setActiveProject(task.projectId); navigate('/projects'); }}>任务数据与成果</Button>
           <Button onClick={handleTaskCompletion}>
             {task.status === '已完成' ? '重新打开任务' : '标记任务完成'}

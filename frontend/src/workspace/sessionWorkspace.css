@@ -88,6 +88,14 @@
 .session-form-label { display: block; color: #617188; font-size: 12px; margin: 18px 0 8px; }
 .session-loading, .session-missing { padding: 60px; text-align: center; color: #8190a5; }
 .session-resource-description { font-size: 12px; color: #8492a5; }
+.task-artifact-scope { margin: 16px 28px 0; padding: 12px 16px; border: 1px solid #dce5ef; border-radius: 8px; background: #f8fafc; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.task-artifact-scope .ant-select { width: 360px; max-width: 100%; }
+.task-artifact-scope > span { flex-basis: 100%; font-size: 12px; color: #67768b; }
+.report-tag-binding { flex-wrap: wrap; gap: 12px; min-width: 0; }
+.report-tag-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
+.report-tag-controls .ant-space { flex-wrap: wrap; }
+.report-tag-controls .ant-tag { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 760px) { .task-artifact-scope { margin: 12px 14px 0; } .report-tag-controls { width: 100%; } }
 .session-shared-resources { padding: 24px; }
 .session-shared-resource-actions { display: flex; justify-content: flex-end; margin-bottom: 16px; }
 .session-assistant-body { height: 100%; }

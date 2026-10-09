@@ -3,7 +3,7 @@ import { useSessionStore } from '@/workspace/sessionStore';
 import { getSessionDraftKey } from '@/workspace/sessionModel';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert, Card, Typography, Button, Form, Input, Select, Space, Descriptions, Tag, message, Checkbox, Empty,
+  Alert, Card, Typography, Button, Form, Input, Select, Space, Descriptions, Tag, message, Checkbox, Empty, Drawer,
 } from 'antd';
 import {
   ArrowLeftOutlined, FileSyncOutlined, LinkOutlined,
@@ -14,6 +14,7 @@ import dayjs from 'dayjs';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisProjects, loadExperiments, loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
+import ProjectSidebar from '@/workspace/ProjectSidebar';
 import { useTaskStore } from '@/workspace/taskStore';
 import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js';
 import { resolveTaskReportProjectId } from './taskReportModel';
@@ -60,6 +61,8 @@ const ReportCreate: React.FC = () => {
     ? task?.projectId
     : routeState?.workspaceSession?.targetProjectId || legacyRouteProjectId;
   const [form] = Form.useForm();
+  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const sessionTitle = useSessionStore(state => state.sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.title);
   const {
     setAnalysisProjects, setExperiments, addAnalysisReport,
   } = useAppStore();
@@ -194,7 +197,7 @@ const ReportCreate: React.FC = () => {
                   <Input />
                 </Form.Item>
                 <Form.Item label={sessionBoundMode && !taskBoundMode ? "当前会话" : "所属项目"}>
-                  <Input disabled value={projects.find((project) => project.id === routeProjectId)?.name ?? '关联项目不可用'} />
+                  <Input disabled value={sessionBoundMode && !taskBoundMode ? sessionTitle : projects.find((project) => project.id === routeProjectId)?.name ?? '关联项目不可用'} />
                 </Form.Item>
                 <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{sessionBoundMode && !taskBoundMode ? '报告引用当前会话的成果，无需创建项目。' : '任务报告沿用任务关联项目，成果来自该项目以及已明确加入任务报告草稿的成果。'}</Text>
               </>
@@ -221,9 +224,9 @@ const ReportCreate: React.FC = () => {
         {selectedProject && (
           <Card title={sessionBoundMode ? "选择会话成果" : "选择项目成果"} style={{ marginBottom: 16 }}
             extra={<Button type="link" icon={<LinkOutlined />} size="small"
-              onClick={() => navigate('/analysis/projects')}>查看项目</Button>}>
+              onClick={() => setResourcesOpen(true)}>{sessionBoundMode ? '查看会话成果' : '查看项目成果'}</Button>}>
             <Descriptions column={2} size="small" style={{ marginBottom: 12 }}>
-              <Descriptions.Item label="项目名称">{selectedProject.name}</Descriptions.Item>
+              <Descriptions.Item label={sessionBoundMode && !taskBoundMode ? "会话名称" : "项目名称"}>{sessionBoundMode && !taskBoundMode ? sessionTitle : selectedProject.name}</Descriptions.Item>
               <Descriptions.Item label="项目状态"><Tag color="blue">{selectedProject.status}</Tag></Descriptions.Item>
               <Descriptions.Item label="试验对象">{selectedProject.basicInfo.testObject || '未填写'}</Descriptions.Item>
               <Descriptions.Item label="可用成果">{reportableArtifacts.length} 项</Descriptions.Item>
@@ -242,7 +245,7 @@ const ReportCreate: React.FC = () => {
                   ))}
                 </Space>
               </Checkbox.Group>
-            ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="项目暂无可纳入报告的设计、分析或校准成果" />}
+            ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={sessionBoundMode ? "当前会话暂无可纳入报告的成果" : "项目暂无可纳入报告的成果"} />}
           </Card>
         )}
 
@@ -275,6 +278,9 @@ const ReportCreate: React.FC = () => {
           </Space>
         </div>
       </div>
+      <Drawer className="session-resource-drawer" title={sessionBoundMode ? "当前会话的数据与成果" : "项目数据与成果"} open={resourcesOpen} onClose={() => setResourcesOpen(false)} size={370}>
+        <ProjectSidebar projectId={selectedProjectId} onNavigate={() => setResourcesOpen(false)} />
+      </Drawer>
     </div>
   );
 };

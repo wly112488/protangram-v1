@@ -3,7 +3,7 @@ import { useSessionStore } from '@/workspace/sessionStore';
 import { getSessionDraftKey } from '@/workspace/sessionModel';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert, Card, Typography, Button, Row, Col, Tag, message, Modal, Space,
+  Alert, Card, Typography, Button, Row, Col, Tag, message, Modal, Space, Select, Empty,
 } from 'antd';
 import {
   ArrowLeftOutlined, FileTextOutlined, CheckCircleOutlined,
@@ -14,7 +14,7 @@ import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
-import { createReportArtifactInput, getReportableArtifacts } from './reportModel.js';
+import { createReportArtifactInput, getReportableArtifacts, resolveReportOutputVariables, hasUnavailableReportBindings, hasReportNarrative } from './reportModel.js';
 import { countUnmetTaskItems } from './taskReportModel';
 import type { AnalysisReport } from '@/types';
 
@@ -63,6 +63,7 @@ const ReportGenerate: React.FC = () => {
   const [tagBindings, setTagBindings] = useSessionState<Record<string, string>>(`report:${reportId}:tagBindings`, {});
   const routeState = useSessionRouteState();
   const restoredBindings = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey(`report:${reportId}:tagBindings`, routeState?.workspaceSession)]);
+  const [demoEnabled, setDemoEnabled] = useSessionState(`report:${reportId}:demoEnabled`, () => (analysisReports.find(item => item.id === reportId) ?? loadAnalysisReports().find(item => item.id === reportId))?.dataSource === 'demo');
   const [dragItem, setDragItem] = useState<string>('');
   const [reportGenerated, setReportGenerated] = useState(false);
 
@@ -77,7 +78,13 @@ const ReportGenerate: React.FC = () => {
       .filter((artifact) => !selectedArtifactIds || selectedArtifactIds.includes(artifact.id))
       .map((artifact) => ({ id: artifact.id, name: artifact.title }))
     : [];
-  const outputVariables = projectOutputVariables.length > 0 ? projectOutputVariables : MOCK_OUTPUT_VARIABLES;
+  const hasFormalEvidence = projects.some(project => project.artifacts.some(artifact => artifact.id === reportId && artifact.type === 'report'))
+    || tasks.some(item => item.reportDraft.formalReportArtifact?.artifactId === reportId);
+  const usingDemo = projectOutputVariables.length === 0 && demoEnabled && !hasFormalEvidence;
+  const outputVariables = resolveReportOutputVariables(projectOutputVariables, MOCK_OUTPUT_VARIABLES, demoEnabled && !hasFormalEvidence);
+  const unavailableBindings = hasUnavailableReportBindings(tagBindings, outputVariables);
+  const dataSource = usingDemo ? 'demo' as const : 'artifacts' as const;
+  const hasReportContent = outputVariables.length > 0 || hasReportNarrative(report?.reportContent);
 
   useEffect(() => {
     let reports = analysisReports;
@@ -108,7 +115,7 @@ const ReportGenerate: React.FC = () => {
    * @param tagName - 标签名
    */
   const handleDropToTag = (tagName: string) => {
-    if (!dragItem) return;
+    if (!outputVariables.some(item => item.id === dragItem)) return;
     setTagBindings((prev) => ({ ...prev, [tagName]: dragItem }));
     setDragItem('');
   };
@@ -129,11 +136,13 @@ const ReportGenerate: React.FC = () => {
    * 保存绑定关系
    */
   const handleSave = () => {
-    updateAnalysisReport(reportId!, { tagBindings });
-    const current = report ? { ...report, tagBindings } : undefined;
+    // Saving configuration does not regenerate a report or change its generated provenance.
+    updateAnalysisReport(reportId!, { tagBindings, status: 'draft' });
+    const current = report ? { ...report, tagBindings, status: 'draft' as const } : undefined;
     const all = loadAnalysisReports().filter((r) => r.id !== reportId);
     if (current) all.push(current);
     saveAnalysisReports(all);
+    setReportGenerated(false);
     message.success('绑定关系已保存');
   };
 
@@ -141,12 +150,12 @@ const ReportGenerate: React.FC = () => {
    * 生成报告
    */
   const handleGenerateReport = () => {
-    updateAnalysisReport(reportId!, { tagBindings, status: 'generated' });
-    const current = report ? { ...report, tagBindings, status: 'generated' as const } : undefined;
+    updateAnalysisReport(reportId!, { tagBindings, dataSource, status: 'generated' });
+    const current = report ? { ...report, tagBindings, dataSource, status: 'generated' as const } : undefined;
     const all = loadAnalysisReports().filter((r) => r.id !== reportId);
     if (current) all.push(current);
     saveAnalysisReports(all);
-    if (workspaceProject && report) {
+    if (workspaceProject && report && !usingDemo) {
       const existingArtifact = workspaceProject.artifacts.find((artifact) => artifact.id === report.id);
       if (existingArtifact) removeArtifact(workspaceProject.id, existingArtifact.id);
       const reportArtifact = addArtifact(workspaceProject.id, createReportArtifactInput({
@@ -167,7 +176,7 @@ const ReportGenerate: React.FC = () => {
       }
     }
     setReportGenerated(true);
-    message.success('报告生成成功！');
+    message.success(usingDemo ? '演示报告已生成（模拟成果）' : '报告生成成功！');
   };
 
   /**
@@ -184,7 +193,11 @@ const ReportGenerate: React.FC = () => {
     : 0;
 
   const confirmGenerateReport = () => {
-    if (unmetTaskItemCount > 0) {
+    if (unavailableBindings || !hasReportContent) {
+      message.error('请先选择可用成果并修正失效绑定');
+      return;
+    }
+    if (!usingDemo && unmetTaskItemCount > 0) {
       Modal.confirm({
         title: '仍有任务事项未满足',
         content: `当前还有 ${unmetTaskItemCount} 项任务事项未完成。继续会正式生成报告，但不会自动标记任务完成。`,
@@ -203,18 +216,21 @@ const ReportGenerate: React.FC = () => {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}${report.taskItemId ? `?taskItemId=${encodeURIComponent(report.taskItemId)}` : ''}` : '/report/list')}>返回</Button>
         <Title level={4} style={{ margin: 0 }}>分析报告生成</Title>
         {report && <Tag color="purple">{report.name}</Tag>}
+        {report?.dataSource === 'demo' && <Tag color="orange">演示报告 · 模拟成果</Tag>}
         <Tag color={boundCount === totalTags ? 'green' : 'orange'}>
           已绑定 {boundCount}/{totalTags}
         </Tag>
       </div>
 
+      {usingDemo && <Alert type="warning" showIcon message="演示报告 · 模拟成果" description="以下数据仅用于体验绑定流程，不会作为正式任务成果，也不会改变任务事项的满足状态。" style={{ marginBottom: 12 }} action={<Button onClick={() => setDemoEnabled(false)}>退出演示</Button>} />}
+      {unavailableBindings && <Alert type="error" showIcon message="部分绑定成果已不可用，请重新选择或解绑后生成报告。" style={{ marginBottom: 12 }} />}
       {report?.reportContent && (
         <Card size="small" title="任务报告草稿内容" style={{ marginBottom: 12, maxHeight: 180, overflow: 'auto' }}>
           <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{report.reportContent}</Paragraph>
         </Card>
       )}
 
-      {report?.taskId && (
+      {report?.taskId && !usingDemo && (
         <Alert
           type="info"
           showIcon
@@ -233,9 +249,13 @@ const ReportGenerate: React.FC = () => {
           style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}
           styles={{ body: { flex: 1, minHeight: 0, overflow: 'auto' } }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
-              拖拽下方变量到右侧报告标签中进行绑定
+              可拖拽成果，也可在每个标签右侧选择成果
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {outputVariables.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前报告没有可引用的成果">
+                <Button disabled={hasFormalEvidence} onClick={() => setDemoEnabled(true)}>启用演示报告数据</Button>
+                {hasFormalEvidence && <Paragraph type="secondary" style={{ marginTop: 8 }}>此报告已有正式成果，请新建报告体验演示数据。</Paragraph>}
+              </Empty>}
               {outputVariables.map((item) => (
                 <div
                   key={item.id}
@@ -254,7 +274,7 @@ const ReportGenerate: React.FC = () => {
                 >
                   <Space>
                     <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#1890ff' }} />
-                    <Text strong style={{ fontSize: 13 }}>{item.name}</Text>
+                    <Text strong style={{ fontSize: 13 }}>{usingDemo ? `模拟成果 · ${item.name}` : item.name}</Text>
                   </Space>
                 </div>
               ))}
@@ -270,7 +290,7 @@ const ReportGenerate: React.FC = () => {
           style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}
           styles={{ body: { flex: 1, minHeight: 0, overflow: 'auto' } }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
-              将左侧输出变量拖入以下标签中，完成数据与报告的映射
+              选择或拖入成果，完成数据与报告标签的映射
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {TEMPLATE_TAGS.map((tag) => {
@@ -278,6 +298,7 @@ const ReportGenerate: React.FC = () => {
                 return (
                   <div
                     key={tag}
+                    className="report-tag-binding"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => handleDropToTag(tag)}
                     style={{
@@ -299,7 +320,10 @@ const ReportGenerate: React.FC = () => {
                       )}
                       <Text strong>{tag}</Text>
                     </Space>
-                    <div>
+                    <div className="report-tag-controls">
+                      <Select aria-label={`为${tag}选择成果`} placeholder="选择成果" allowClear value={bound || undefined} style={{ width: 220, maxWidth: '100%' }}
+                        options={outputVariables.map(item => ({ value: item.id, label: usingDemo ? `模拟成果 · ${item.name}` : item.name }))}
+                        onChange={value => value ? setTagBindings(previous => ({ ...previous, [tag]: value })) : handleUnbindTag(tag)} />
                       {bound ? (
                         <Space>
                           <Tag color="green">{getVarName(bound)}</Tag>
@@ -325,8 +349,8 @@ const ReportGenerate: React.FC = () => {
           <Button size="large" onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}` : '/report/list')}>{report?.taskId ? '返回任务工作台' : '返回列表'}</Button>
           <Button size="large" icon={<SaveOutlined />} onClick={handleSave}>保存绑定</Button>
           <Button type="primary" size="large" icon={<FileDoneOutlined />}
-            onClick={confirmGenerateReport}>
-            正式生成报告
+            disabled={!report || !hasReportContent || unavailableBindings} onClick={confirmGenerateReport}>
+            {usingDemo ? '生成演示报告' : '正式生成报告'}
           </Button>
           {reportGenerated && (
             <Button type="primary" size="large" icon={<EyeOutlined />}

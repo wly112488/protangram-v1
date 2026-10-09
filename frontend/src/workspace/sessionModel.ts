@@ -28,6 +28,8 @@ export const sessionCapabilities = [
 export const getSessionPath = (id: string, capability: SessionCapability = 'overview') =>
   `/sessions/${encodeURIComponent(id)}${capability === 'overview' ? '' : `/${sessionCapabilities.find(item => item.key === capability)?.path ?? capability}`}`;
 
+export const getSessionResourcesPath = (id: string) => getSessionPath(id, 'resources');
+
 export const getSessionIdFromLocation = (pathname: string, search = '') => {
   const segment = pathname.match(/^\/sessions\/([^/]+)/)?.[1];
   if (segment) { try { return decodeURIComponent(segment); } catch { return null; } }
@@ -42,7 +44,7 @@ export const getCapabilityFromPath = (pathname: string): SessionCapability => {
 
 export const getLegacySessionPath = (pathname: string, id: string): string | null => {
   const base = getSessionPath(id);
-  if (pathname === '/projects') return `${base}/resources`;
+  if (pathname === '/projects') return getSessionResourcesPath(id);
   if (pathname === '/experiment/design/intelligent') return `${base}/doe`;
   if (pathname === '/experiment/tasks') return `${base}/doe/result`;
   if (pathname === '/analysis/projects') return `${base}/analysis`;

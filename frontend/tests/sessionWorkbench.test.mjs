@@ -77,6 +77,7 @@ test('continuing an existing project reuses its artifact space without replacing
 
 test('session navigation preserves all legacy task item context', () => {
   assert.equal(api.getSessionPath('s 1', 'digitalTwin'), '/sessions/s%201/digital-twin');
+  assert.equal(api.getSessionResourcesPath?.('s 1'), '/sessions/s%201/resources');
   assert.equal(api.getCapabilityFromPath('/sessions/s-1/virtual-condition'), 'virtualCondition');
   assert.equal(api.getLegacySessionPath('/report/generate/r-1', 's-1'), '/sessions/s-1/report/generate/r-1');
   const input = { mode: 'task', taskId: 't', targetProjectId: 'p', taskItemId: 'i', professionalProjectId: 'work', sessionId: 's' };

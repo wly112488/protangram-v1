@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
+import { useSessionStore } from '@/workspace/sessionStore';
+import { getSessionDraftKey } from '@/workspace/sessionModel';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert, Card, Typography, Button, Form, Input, Select, Space, Descriptions, Tag, message, Checkbox, Empty,
 } from 'antd';
@@ -16,7 +19,6 @@ import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js
 import { resolveTaskReportProjectId } from './taskReportModel';
 import type { AnalysisProject, AnalysisReport } from '@/types';
 import type { ProjectArtifact } from '@/workspace/types';
-import type { BusinessRouteState } from '@/types/businessContext';
 
 const { Title, Text } = Typography;
 
@@ -42,7 +44,8 @@ const ReportCreate: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId: legacyRouteProjectId } = useParams<{ projectId: string }>();
-  const routeState = location.state as BusinessRouteState | null;
+  const routeState = useSessionRouteState();
+  const sessionBoundMode = Boolean(routeState?.workspaceSession?.sessionId);
   const taskId = routeState?.workspaceSession?.mode === 'task'
     ? routeState.workspaceSession.taskId
     : new URLSearchParams(location.search).get('taskId') ?? undefined;
@@ -62,8 +65,11 @@ const ReportCreate: React.FC = () => {
   } = useAppStore();
   const { projects, activeProjectId } = useProjectStore();
   const [legacyProjects, setLegacyProjects] = useState<AnalysisProject[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [selectedArtifactIds, setSelectedArtifactIds] = useState<string[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useSessionState('selectedProjectId', routeProjectId ?? '');
+  const [selectedArtifactIds, setSelectedArtifactIds] = useSessionState<string[]>('selectedArtifactIds', []);
+  const restoredSelection = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey('selectedArtifactIds', routeState?.workspaceSession)]);
+
+  const [formValues, setFormValues] = useSessionState<Record<string, unknown>>('formValues', {});
 
   useEffect(() => {
     const savedProjects = loadAnalysisProjects();
@@ -80,7 +86,7 @@ const ReportCreate: React.FC = () => {
         ? routeProjectId
         : resolveReportProjectId({ activeProjectId, projectIds: projects.map((project) => project.id) });
     setSelectedProjectId(initialProjectId);
-    form.setFieldsValue({ analysisProjectId: initialProjectId });
+    form.setFieldsValue({ ...formValues, analysisProjectId: initialProjectId });
 
     const initialProject = projects.find((project) => project.id === initialProjectId);
     const availableArtifactIds = initialProject
@@ -89,6 +95,7 @@ const ReportCreate: React.FC = () => {
     const requestedArtifactIds = routeState?.artifactIds ?? task?.reportDraft.sections.flatMap((section) => section.artifactRefs
       .filter((reference) => reference.projectId === initialProjectId)
       .map((reference) => reference.artifactId));
+    if (restoredSelection.current !== undefined) return;
     setSelectedArtifactIds(requestedArtifactIds && routeProjectId === initialProjectId
       ? requestedArtifactIds.filter((id) => availableArtifactIds.includes(id))
       : availableArtifactIds);
@@ -111,7 +118,7 @@ const ReportCreate: React.FC = () => {
   const handleGenerate = async () => {
     try {
       const values = await form.validateFields();
-      if (taskBoundMode && values.analysisProjectId !== task?.projectId) {
+      if ((taskBoundMode || sessionBoundMode) && values.analysisProjectId !== routeProjectId) {
         message.error('任务报告只能使用当前任务关联的项目');
         return;
       }
@@ -157,7 +164,7 @@ const ReportCreate: React.FC = () => {
   };
 
   const projectOptions = [
-    ...projects.map((project) => ({ label: `${project.name} · ${project.artifacts.length} 项成果`, value: project.id })),
+    ...projects.filter(project => !project.sessionOwnerId).map((project) => ({ label: `${project.name} · ${project.artifacts.length} 项成果`, value: project.id })),
     ...legacyProjects.map((project) => ({ label: `${project.name} · 旧分析项目`, value: project.id })),
   ];
 
@@ -180,16 +187,16 @@ const ReportCreate: React.FC = () => {
         )}
 
         <Card title={taskBoundMode ? '当前任务的正式报告' : '报告配置'} style={{ marginBottom: 16 }}>
-          <Form form={form} layout="vertical" initialValues={{ analysisProjectId: selectedProjectId }}>
-            {taskBoundMode ? (
+          <Form form={form} layout="vertical" initialValues={{ ...formValues, analysisProjectId: selectedProjectId }} onValuesChange={(_changes, values) => setFormValues(values)}>
+            {taskBoundMode || sessionBoundMode ? (
               <>
                 <Form.Item name="analysisProjectId" hidden rules={[{ required: true, message: '当前任务没有关联项目' }]}>
                   <Input />
                 </Form.Item>
-                <Form.Item label="所属项目">
-                  <Input disabled value={projects.find((project) => project.id === task?.projectId)?.name ?? '关联项目不可用'} />
+                <Form.Item label={sessionBoundMode && !taskBoundMode ? "当前会话" : "所属项目"}>
+                  <Input disabled value={projects.find((project) => project.id === routeProjectId)?.name ?? '关联项目不可用'} />
                 </Form.Item>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>任务报告沿用任务关联项目，成果来自该项目以及已明确加入任务报告草稿的成果。</Text>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{sessionBoundMode && !taskBoundMode ? '报告引用当前会话的成果，无需创建项目。' : '任务报告沿用任务关联项目，成果来自该项目以及已明确加入任务报告草稿的成果。'}</Text>
               </>
             ) : (
               <Form.Item label="选择项目" name="analysisProjectId"
@@ -212,7 +219,7 @@ const ReportCreate: React.FC = () => {
         </Card>
 
         {selectedProject && (
-          <Card title="选择项目成果" style={{ marginBottom: 16 }}
+          <Card title={sessionBoundMode ? "选择会话成果" : "选择项目成果"} style={{ marginBottom: 16 }}
             extra={<Button type="link" icon={<LinkOutlined />} size="small"
               onClick={() => navigate('/analysis/projects')}>查看项目</Button>}>
             <Descriptions column={2} size="small" style={{ marginBottom: 12 }}>

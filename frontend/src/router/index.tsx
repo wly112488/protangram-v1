@@ -35,6 +35,9 @@ import ReportGenerate from '@/pages/report/ReportGenerate';
 import TaskCenter from '@/workspace/TaskCenter';
 import TaskWorkbench from '@/workspace/TaskWorkbench';
 import ProjectContent from '@/workspace/ProjectContent';
+import ProjectResourcesPage from '@/workspace/ProjectResourcesPage';
+import SessionHome from '@/workspace/SessionHome';
+import SessionWorkbench, { SessionOverview } from '@/workspace/SessionWorkbench';
 
 /**
  * 应用路由配置
@@ -45,8 +48,29 @@ const router = createBrowserRouter([
     path: '/',
     element: <MainLayout />,
     children: [
-      { index: true, element: <TaskCenter /> },
-      { path: 'projects', element: <ProjectContent /> },
+      { index: true, element: <SessionHome /> },
+      { path: 'task-center', element: <TaskCenter /> },
+      { path: 'sessions/:sessionId', element: <SessionWorkbench />, children: [
+        { index: true, element: <SessionOverview /> },
+        { path: 'doe', element: <IntelligentExperimentDesign /> },
+        { path: 'doe/result', element: <ExperimentTaskResult /> },
+        { path: 'analysis', element: <AnalysisProjects /> },
+        { path: 'digital-twin', element: <DigitalTwin /> },
+        { path: 'virtual-condition', element: <VirtualConditionExtension /> },
+        { path: 'report', element: <ReportCreate /> },
+        { path: 'report/create', element: <ReportCreate /> },
+        { path: 'report/create/:projectId', element: <ReportCreate /> },
+        { path: 'report/list', element: <ReportList /> },
+        { path: 'report/templates', element: <ReportTemplates /> },
+        { path: 'report/generate/:reportId', element: <ReportGenerate /> },
+        { path: 'resources', element: <ProjectContent /> },
+        { path: 'tasks/:taskId', element: <TaskWorkbench /> },
+        { path: 'experiment/info/bom', element: <BOMManagement /> },
+        { path: 'experiment/info/subjects', element: <TestSubjects /> },
+        { path: 'experiment/info/methods', element: <TestMethods /> },
+        { path: 'experiment/info/sampling', element: <SamplingRequirements /> },
+      ] },
+      { path: 'projects', element: <ProjectResourcesPage /> },
       { path: 'tasks/:taskId', element: <TaskWorkbench /> },
       // 1.1 信息管理
       { path: 'experiment/info/bom', element: <BOMManagement /> },

@@ -13,12 +13,12 @@ export const createTaskNavigationState = (taskId: string, projectId: string, tas
 
 export const createTopLevelNavigationSession = (session: WorkspaceSessionState): WorkspaceSessionState =>
   session.mode === 'task'
-    ? { mode: 'task', taskId: session.taskId, targetProjectId: session.targetProjectId, professionalProjectId: session.professionalProjectId }
+    ? { mode: 'task', taskId: session.taskId, targetProjectId: session.targetProjectId, professionalProjectId: session.professionalProjectId, ...(session.sessionId ? { sessionId: session.sessionId } : {}) }
     : session;
 
 export const createTaskContextSearch = (session: BusinessSession) => session.mode === 'task'
-  ? `?taskId=${encodeURIComponent(session.taskId)}${session.taskItemId ? `&taskItemId=${encodeURIComponent(session.taskItemId)}` : ''}${session.professionalProjectId ? `&professionalProjectId=${encodeURIComponent(session.professionalProjectId)}` : ''}`
-  : '';
+  ? `?taskId=${encodeURIComponent(session.taskId)}${session.taskItemId ? `&taskItemId=${encodeURIComponent(session.taskItemId)}` : ''}${session.professionalProjectId ? `&professionalProjectId=${encodeURIComponent(session.professionalProjectId)}` : ''}${session.sessionId ? `&sessionId=${encodeURIComponent(session.sessionId)}` : ''}`
+  : session.sessionId ? `?sessionId=${encodeURIComponent(session.sessionId)}` : '';
 
 export const createTaskReturnPath = (session: BusinessSession) => session.mode === 'task'
   ? `/tasks/${encodeURIComponent(session.taskId)}${session.taskItemId ? `?taskItemId=${encodeURIComponent(session.taskItemId)}` : session.professionalProjectId ? '?' : ''}${session.professionalProjectId ? `${session.taskItemId ? '&' : ''}professionalProjectId=${encodeURIComponent(session.professionalProjectId)}` : ''}`
@@ -40,7 +40,7 @@ export const normalizeBusinessSession = (
       const professionalProjectId = session.professionalProjectId && validProfessionalProjectIds[session.taskId]?.includes(session.professionalProjectId)
         ? session.professionalProjectId
         : undefined;
-      return { mode: 'task', taskId: session.taskId, targetProjectId: taskProjectId, taskItemId, professionalProjectId };
+      return { mode: 'task', taskId: session.taskId, targetProjectId: taskProjectId, taskItemId, professionalProjectId, ...(session.sessionId ? { sessionId: session.sessionId } : {}) };
     }
   }
   if (
@@ -48,7 +48,7 @@ export const normalizeBusinessSession = (
     && session.targetProjectId
     && validProjectIds.includes(session.targetProjectId)
   ) {
-    return { mode: 'project', targetProjectId: session.targetProjectId };
+    return { mode: 'project', targetProjectId: session.targetProjectId, ...(session.sessionId ? { sessionId: session.sessionId } : {}) };
   }
   return { mode: 'standalone' };
 };

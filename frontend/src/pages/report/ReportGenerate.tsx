@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useSessionRouteState, useSessionState } from '@/workspace/useSessionState';
+import { useSessionStore } from '@/workspace/sessionStore';
+import { getSessionDraftKey } from '@/workspace/sessionModel';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert, Card, Typography, Button, Row, Col, Tag, message, Modal, Space,
 } from 'antd';
@@ -57,7 +60,9 @@ const ReportGenerate: React.FC = () => {
   const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
   const tasks = useTaskStore((state) => state.tasks);
 
-  const [tagBindings, setTagBindings] = useState<Record<string, string>>({});
+  const [tagBindings, setTagBindings] = useSessionState<Record<string, string>>(`report:${reportId}:tagBindings`, {});
+  const routeState = useSessionRouteState();
+  const restoredBindings = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey(`report:${reportId}:tagBindings`, routeState?.workspaceSession)]);
   const [dragItem, setDragItem] = useState<string>('');
   const [reportGenerated, setReportGenerated] = useState(false);
 
@@ -81,13 +86,14 @@ const ReportGenerate: React.FC = () => {
       if (reports.length > 0) setAnalysisReports(reports);
     }
     const r = reports.find((r) => r.id === reportId);
-    if (r?.tagBindings) {
+    if (r?.tagBindings && restoredBindings.current === undefined) {
       setTagBindings(r.tagBindings);
+      restoredBindings.current = r.tagBindings;
     }
     if (r?.status === 'generated') {
       setReportGenerated(true);
     }
-  }, [reportId, analysisReports, setAnalysisReports]);
+  }, [reportId, analysisReports, setAnalysisReports, setTagBindings]);
 
   /**
    * 开始拖拽输出变量

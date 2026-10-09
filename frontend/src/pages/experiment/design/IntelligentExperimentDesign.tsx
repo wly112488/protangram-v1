@@ -1,3 +1,4 @@
+import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Checkbox, Col, Descriptions, Form, InputNumber, Modal, Progress,
@@ -6,7 +7,7 @@ import {
 import {
   ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, ExperimentOutlined, ReloadOutlined,
 } from '@ant-design/icons';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import type { BusinessAction, BusinessRouteState, PlanCondition, TaskContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
@@ -16,7 +17,7 @@ import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
-import { useGlobalModelStore } from '@/workspace/globalModelStore';
+import { useSessionModels } from '@/workspace/useSessionModels';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -70,11 +71,10 @@ const createPlan = (config: typeof DEFAULT_CONFIG): PlanRow[] => {
 
 const IntelligentExperimentDesign: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const incoming = location.state as BusinessRouteState | null;
+  const incoming = useSessionRouteState();
   const { setContext } = useTrialAIAssistant();
   const { projects, session, targetProject, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
-  const globalModels = useGlobalModelStore((state) => state.models);
+  const { models: globalModels } = useSessionModels();
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
@@ -96,15 +96,15 @@ const IntelligentExperimentDesign: React.FC = () => {
     ? { ...DEFAULT_CONSTRAINTS, speedMax: incomingRange[1] }
     : DEFAULT_CONSTRAINTS;
 
-  const [selectedModel, setModel] = useState(initialModel);
+  const [selectedModel, setModel] = useSessionState('selectedModel', initialModel);
   const model = globalModels.find((item) => item.modelId === selectedModel.modelId) ?? selectedModel;
-  const [datasets, setDatasets] = useState<string[]>(incoming?.datasets ?? [DATASETS[0]]);
-  const [config, setConfig] = useState(initialConfig);
-  const [constraints, setConstraints] = useState(initialConstraints);
-  const [draftConfig, setDraftConfig] = useState(initialConfig);
-  const [draftConstraints, setDraftConstraints] = useState(initialConstraints);
-  const [draftModelId, setDraftModelId] = useState(initialModel.modelId);
-  const [draftDatasets, setDraftDatasets] = useState<string[]>(incoming?.datasets ?? [DATASETS[0]]);
+  const [datasets, setDatasets] = useSessionState<string[]>('datasets', incoming?.datasets ?? [DATASETS[0]]);
+  const [config, setConfig] = useSessionState('config', initialConfig);
+  const [constraints, setConstraints] = useSessionState('constraints', initialConstraints);
+  const [draftConfig, setDraftConfig] = useSessionState('draftConfig', initialConfig);
+  const [draftConstraints, setDraftConstraints] = useSessionState('draftConstraints', initialConstraints);
+  const [draftModelId, setDraftModelId] = useSessionState('draftModelId', initialModel.modelId);
+  const [draftDatasets, setDraftDatasets] = useSessionState<string[]>('draftDatasets', incoming?.datasets ?? [DATASETS[0]]);
   const [modelOpen, setModelOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
@@ -112,10 +112,10 @@ const IntelligentExperimentDesign: React.FC = () => {
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
-  const [activeTab, setActiveTab] = useState('plan');
-  const [plan, setPlan] = useState<PlanRow[]>(createPlan(initialConfig));
-  const [confirmed, setConfirmed] = useState(autoExecute ? { model: true, data: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
+  const [generated, setGenerated] = useSessionState('generated', false);
+  const [activeTab, setActiveTab] = useSessionState('activeTab', 'plan');
+  const [plan, setPlan] = useSessionState<PlanRow[]>('plan', createPlan(initialConfig));
+  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { model: true, data: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
   const autoStarted = useRef(false);
   const autoReturned = useRef(false);
@@ -158,7 +158,7 @@ const IntelligentExperimentDesign: React.FC = () => {
     message.success('已恢复默认智能设计配置');
   };
 
-  const persistDesign = (projectId: string) => {
+  const persistDesign = useCallback((projectId: string) => {
     const project = projects.find((item) => item.id === projectId);
     if (!project) return null;
     const artifact = addArtifact(projectId, createDesignArtifactInput({
@@ -176,9 +176,9 @@ const IntelligentExperimentDesign: React.FC = () => {
     }));
     if (!artifact) return null;
     recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
-    message.success(`推荐方案已保存到项目“${project.name}”`);
+    message.success(session.sessionId ? '推荐方案已保存到当前会话' : `推荐方案已保存到项目“${project.name}”`);
     return artifact;
-  };
+  }, [projects, addArtifact, config, plan, model, datasets, constraints, recordArtifactForTaskItem, session.sessionId]);
 
   const createTask = (workspaceSession: NonNullable<BusinessRouteState['workspaceSession']>) => {
     const task: TaskContract = {
@@ -209,14 +209,14 @@ const IntelligentExperimentDesign: React.FC = () => {
       return;
     }
     if (targetProject) {
-      if (persistDesign(targetProject.id)) createTask(session.mode === 'task' ? session : { mode: 'project', targetProjectId: targetProject.id });
+      if (persistDesign(targetProject.id)) createTask(session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: targetProject.id });
       return;
     }
     setSaveTargetOpen(true);
   };
 
   useEffect(() => {
-    if (!autoExecute || autoStarted.current || !preparationReady) return;
+    if (!autoExecute || generated || autoStarted.current || !preparationReady) return;
     autoStarted.current = true;
     generatePlan();
     return () => {
@@ -319,7 +319,7 @@ const IntelligentExperimentDesign: React.FC = () => {
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
         <div><Title level={4} style={{ margin: 0 }}>智能试验设计</Title><Text type="secondary">基于可信模型、历史数据和安全约束生成推荐试验方案</Text></div>
-        <Tag color={targetProject ? 'blue' : 'default'}>{targetProject ? `项目：${targetProject.name}` : '独立模式'}</Tag>
+        <Tag color={targetProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : targetProject ? `项目：${targetProject.name}` : '独立模式'}</Tag>
       </div>
 
       {incoming?.source && (
@@ -348,7 +348,7 @@ const IntelligentExperimentDesign: React.FC = () => {
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
         { key: 'target', label: '当前目标', children: config.target },
         { key: 'model', label: '可信模型', children: `${model.modelName} ${model.version}` },
-        { key: 'calibration', label: '全局校准数据', children: model.calibrationData ? `已更新 · ${model.calibratedAt ?? ''}` : '使用模型当前参数' },
+        { key: 'calibration', label: '会话校准数据', children: model.calibrationData ? `已更新 · ${model.calibratedAt ?? ''}` : '使用模型当前参数' },
         { key: 'data', label: '历史数据', children: datasets.join('、') },
         { key: 'factors', label: '因素', children: '转速、温度、压力' },
         { key: 'constraints', label: '约束', children: `转速 ≤ ${constraints.speedMax} rpm、温度 ≤ ${constraints.temperatureMax}℃、最多 ${config.maxRuns} 次` },
@@ -377,7 +377,7 @@ const IntelligentExperimentDesign: React.FC = () => {
         )}
       </Card>
 
-      <Modal title="选择全局模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { setModel(modelOptions.find((item) => item.modelId === draftModelId) ?? modelOptions[0]); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
+      <Modal title="选择模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { setModel(modelOptions.find((item) => item.modelId === draftModelId) ?? modelOptions[0]); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
         <Select style={{ width: '100%' }} value={draftModelId} onChange={setDraftModelId} options={modelOptions.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version}｜${item.trustedRange}｜${item.calibratedAt ?? '本次校准'}` }))} />
       </Modal>
       <Modal title="选择历史数据" open={dataOpen} onCancel={() => setDataOpen(false)} onOk={() => { setDatasets(draftDatasets); setConfirmed((prev) => ({ ...prev, data: true })); setDataOpen(false); invalidate(); }}>
@@ -412,7 +412,7 @@ const IntelligentExperimentDesign: React.FC = () => {
         onConfirm={(projectId) => {
           if (!persistDesign(projectId)) return;
           setSaveTargetOpen(false);
-          createTask(session.mode === 'task' ? session : { mode: 'project', targetProjectId: projectId });
+          createTask(session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: projectId });
         }}
         onSkip={() => {
           setSaveTargetOpen(false);
@@ -425,14 +425,15 @@ const IntelligentExperimentDesign: React.FC = () => {
 
 export const ExperimentTaskResult: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const incoming = location.state as BusinessRouteState | null;
+  const incoming = useSessionRouteState();
   const { session } = useWorkspaceBusinessSession(incoming);
   const task: TaskContract = incoming?.task ?? {
     taskId: 'intelligent-task-demo', taskName: '发动机智能推荐试验任务 #01', taskType: '智能推荐试验', source: '智能试验设计', status: '待执行',
   };
   const plan = incoming?.plan ?? DEFAULT_PLAN;
-  const [status, setStatus] = useState<TaskContract['status']>(task.status);
+  const [savedStatus, setSavedStatus] = useSessionState<TaskContract['status']>(`experiment:${task.taskId}:status`, task.status === '已完成' ? '已完成' : '待执行');
+  const [status, setLocalStatus] = useState<TaskContract['status']>(savedStatus === '执行中' ? '待执行' : savedStatus);
+  const setStatus = (next: TaskContract['status']) => { setLocalStatus(next); if (next !== '执行中') setSavedStatus(next); };
   const timer = useRef<number | null>(null);
 
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);

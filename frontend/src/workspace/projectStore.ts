@@ -20,6 +20,7 @@ export const LEGACY_EXPERIMENT_STORAGE_KEY = 'protangram-generated-experiments';
 
 interface CreateProjectInput {
   id?: string;
+  sessionOwnerId?: string;
   name: string;
   description?: string;
   status?: ProjectStatus;
@@ -53,6 +54,8 @@ interface ProjectWorkspaceState {
   setActiveView: (view: ProjectView) => void;
   createProject: (input: CreateProjectInput) => string;
   deleteProject: (projectId: string) => void;
+  renameProject: (projectId: string, name: string) => void;
+  archiveProject: (projectId: string, archived: boolean) => void;
   createProjectFromDesign: (input: CreateProjectFromDesignInput) => string;
   importLegacyExperiment: (experiment: LegacyGeneratedExperiment) => string;
   setWorksheet: (projectId: string, worksheet: ProjectWorksheet) => void;
@@ -111,6 +114,7 @@ export const useProjectStore = create<ProjectWorkspaceState>()(
         const id = input.id ?? newId('project');
         const project: Project = {
           id,
+          sessionOwnerId: input.sessionOwnerId,
           name: input.name,
           description: input.description,
           status: input.status ?? '未开始',
@@ -122,11 +126,20 @@ export const useProjectStore = create<ProjectWorkspaceState>()(
         };
         set((state) => ({
           projects: [...state.projects.filter((item) => item.id !== id), project],
-          activeProjectId: id,
+          activeProjectId: input.sessionOwnerId ? state.activeProjectId : id,
           activeView: 'overview',
         }));
         return id;
       },
+
+      renameProject: (projectId, name) => {
+        if (!name.trim()) return;
+        set(state => ({ projects: state.projects.map(project => project.id === projectId
+          ? { ...project, name: name.trim(), updatedAt: new Date().toISOString() } : project) }));
+      },
+
+      archiveProject: (projectId, archived) => set(state => ({ projects: state.projects.map(project => project.id === projectId
+        ? { ...project, archived, updatedAt: new Date().toISOString() } : project) })),
 
       deleteProject: (projectId) => set((state) => {
         const projects = state.projects.filter((project) => project.id !== projectId);
@@ -224,7 +237,11 @@ export const useProjectStore = create<ProjectWorkspaceState>()(
     {
       name: WORKSPACE_STORAGE_KEY,
       version: 1,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => ({
+        getItem: (key) => localStorage.getItem(key),
+        setItem: (key, value) => { try { localStorage.setItem(key, value); } catch { /* Session save status reports this failure and allows retry. */ } },
+        removeItem: (key) => localStorage.removeItem(key),
+      })),
       partialize: (state) => ({
         projects: state.projects,
         activeProjectId: state.activeProjectId,

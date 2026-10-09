@@ -4,18 +4,22 @@ import type { BusinessRouteState } from '@/types/businessContext';
 import { normalizeBusinessSession } from './businessSessionModel';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
+import { getSessionIdFromLocation } from './sessionModel';
+import { useSessionStore } from './sessionStore';
 
 export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null) => {
   const location = useLocation();
+  const sessionId = getSessionIdFromLocation(location.pathname, location.search);
+  const storedSession = useMemo(() => sessionId ? useSessionStore.getState().getWorkspaceSession(sessionId) : undefined, [sessionId]);
   const projects = useProjectStore((state) => state.projects);
   const tasks = useTaskStore((state) => state.tasks);
   const requestedTaskId = new URLSearchParams(location.search).get('taskId');
   const requestedTaskItemId = new URLSearchParams(location.search).get('taskItemId') ?? undefined;
   const requestedProfessionalProjectId = new URLSearchParams(location.search).get('professionalProjectId') ?? undefined;
   const requestedTask = tasks.find((task) => task.id === requestedTaskId);
-  const incomingSession = incoming?.workspaceSession ?? (requestedTask
+  const incomingSession = useMemo(() => incoming?.workspaceSession ?? storedSession ?? (requestedTask
     ? { mode: 'task' as const, taskId: requestedTask.id, targetProjectId: requestedTask.projectId, taskItemId: requestedTaskItemId, professionalProjectId: requestedProfessionalProjectId }
-    : undefined);
+    : undefined), [incoming?.workspaceSession, storedSession, requestedTask, requestedTaskItemId, requestedProfessionalProjectId]);
   const session = useMemo(
     () => normalizeBusinessSession(
       incomingSession,

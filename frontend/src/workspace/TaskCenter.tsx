@@ -89,7 +89,7 @@ const TaskCenter: React.FC = () => {
   };
 
   const taskProjectIds = new Set(tasks.map((task) => task.projectId));
-  const independentProjects = projects.filter((project) => !taskProjectIds.has(project.id));
+  const independentProjects = projects.filter((project) => !project.sessionOwnerId && !taskProjectIds.has(project.id));
   const importCandidates = useMemo(
     () => loadLegacyExperiments().filter((legacy) => !projects.some((project) => project.id === legacy.id)),
     [projects, importOpen],

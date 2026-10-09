@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 import { Button, Card, Descriptions, Drawer, Empty, Input, Space, Tag, Typography } from 'antd';
 import { ClearOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons';
 import type { BusinessAction } from '@/types/businessContext';
+import { useSessionState } from '@/workspace/useSessionState';
 
 const { Paragraph, Text } = Typography;
 
@@ -72,13 +73,13 @@ const getMockAnswer = (context: AIAssistantContext, prompt: string): ChatMessage
   return { role: 'assistant', content: `${answers[context.pageType]}\n\n当前对象：${context.taskName ?? context.projectName ?? context.pageName}；当前模型：${context.modelName ?? '未指定'}；当前结果：${context.resultSummary ?? '暂无'}。\n针对“${prompt}”，以上结论由当前页面 Mock 上下文生成。` };
 };
 
-const TrialAIAssistant: React.FC = () => {
+const TrialAIAssistant: React.FC<{ sessionId?: string; embedded?: boolean }> = ({ sessionId, embedded = false }) => {
   const { context } = useTrialAIAssistant();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [sessions, setSessions] = useState<Partial<Record<string, ChatMessage[]>>>({});
+  const [sessions, setSessions] = useSessionState<Partial<Record<string, ChatMessage[]>>>('assistantHistory', {});
   const config = context ? pageConfig[context.pageType] : null;
-  const sessionKey = context ? `${context.pageType}-${context.resultReady ? 'ready' : 'pending'}` : 'workspace-idle';
+  const sessionKey = context ? `${sessionId ?? 'legacy'}-${context.pageType}-${context.resultReady ? 'ready' : 'pending'}` : 'workspace-idle';
   const messages: ChatMessage[] = context && config
     ? sessions[sessionKey] ?? [{
         role: 'assistant',
@@ -182,6 +183,8 @@ const TrialAIAssistant: React.FC = () => {
       </div>
     );
   };
+
+  if (embedded) return <div className="session-assistant-body">{assistantBody()}</div>;
 
   return (
     <>

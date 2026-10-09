@@ -1,3 +1,4 @@
+import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Checkbox, Col, Descriptions, Form, Modal, Progress, Row,
@@ -6,7 +7,7 @@ import {
 import {
   BarChartOutlined, CheckCircleOutlined, FileTextOutlined, ReloadOutlined, SaveOutlined,
 } from '@ant-design/icons';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
 import ductFlowDiagram from '@/assets/duct_flow_diagram.png';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
@@ -18,7 +19,7 @@ import { createTaskContextSearch, createTaskReturnPath, createWorkspaceNavigatio
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
-import { useGlobalModelStore } from '@/workspace/globalModelStore';
+import { useSessionModels } from '@/workspace/useSessionModels';
 import '@/workspace/visualIntegrations.css';
 
 const { Title, Text, Paragraph } = Typography;
@@ -90,11 +91,10 @@ type SaveKind = 'analysis' | 'rootCause';
 
 const AnalysisProjects: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { setContext } = useTrialAIAssistant();
-  const incoming = location.state as BusinessRouteState | null;
+  const incoming = useSessionRouteState();
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
-  const globalModels = useGlobalModelStore((state) => state.models);
+  const { models: globalModels } = useSessionModels();
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
@@ -131,28 +131,29 @@ const AnalysisProjects: React.FC = () => {
     scope: incoming.validation.suggestedRange || DEFAULT_CONFIG.scope,
   } : DEFAULT_CONFIG;
 
-  const [task, setTask] = useState(initialTask);
-  const [data, setData] = useState(initialData);
-  const activeModel = globalModels.find((item) => item.modelId === data.modelData) ?? defaultModel;
-  const [config, setConfig] = useState(initialConfig);
-  const [draftConfig, setDraftConfig] = useState(initialConfig);
-  const [draftTaskId, setDraftTaskId] = useState(initialTask.id);
-  const [draftData, setDraftData] = useState(data);
+  const [task, setTask] = useSessionState('task', initialTask);
+  const [data, setData] = useSessionState('data', initialData);
+  const activeModel = useMemo(() => globalModels.find((item) => item.modelId === data.modelData) ?? defaultModel,
+    [globalModels, data.modelData, defaultModel]);
+  const [config, setConfig] = useSessionState('config', initialConfig);
+  const [draftConfig, setDraftConfig] = useSessionState('draftConfig', initialConfig);
+  const [draftTaskId, setDraftTaskId] = useSessionState('draftTaskId', initialTask.id);
+  const [draftData, setDraftData] = useSessionState('draftData', data);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [dataModalOpen, setDataModalOpen] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
   const [continueToReportAfterSave, setContinueToReportAfterSave] = useState(false);
   const [pendingSaveKind, setPendingSaveKind] = useState<SaveKind>('analysis');
-  const [savedProjectId, setSavedProjectId] = useState<string | undefined>(session.targetProjectId);
-  const [savedAnalysisProjectId, setSavedAnalysisProjectId] = useState<string | null>(null);
-  const [savedRootCauseProjectId, setSavedRootCauseProjectId] = useState<string | null>(null);
+  const [savedProjectId, setSavedProjectId] = useSessionState<string | undefined>('savedProjectId', session.targetProjectId);
+  const [savedAnalysisProjectId, setSavedAnalysisProjectId] = useSessionState<string | null>('savedAnalysisProjectId', null);
+  const [savedRootCauseProjectId, setSavedRootCauseProjectId] = useSessionState<string | null>('savedRootCauseProjectId', null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [analyzed, setAnalyzed] = useState(false);
-  const [activeTab, setActiveTab] = useState('trend');
-  const [selectedAnomaly, setSelectedAnomaly] = useState(ANOMALIES[0]);
-  const [selectedMeasurementPoint, setSelectedMeasurementPoint] = useState(MEASUREMENT_POINTS[3]);
-  const [confirmed, setConfirmed] = useState(autoExecute ? { task: true, data: true, config: true } : EMPTY_CONFIRMATION);
+  const [analyzed, setAnalyzed] = useSessionState('analyzed', false);
+  const [activeTab, setActiveTab] = useSessionState('activeTab', 'trend');
+  const [selectedAnomaly, setSelectedAnomaly] = useSessionState('selectedAnomaly', ANOMALIES[0]);
+  const [selectedMeasurementPoint, setSelectedMeasurementPoint] = useSessionState('selectedMeasurementPoint', MEASUREMENT_POINTS[3]);
+  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { task: true, data: true, config: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
   const autoStarted = useRef(false);
   const autoReturned = useRef(false);
@@ -160,7 +161,7 @@ const AnalysisProjects: React.FC = () => {
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
-    () => boundProject ? (session.mode === 'task' ? session : { mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
+    () => boundProject ? (session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
     [boundProject, session],
   );
 
@@ -225,7 +226,7 @@ const AnalysisProjects: React.FC = () => {
   const rootCauseRows = ROOT_CAUSES[selectedAnomaly.key] ?? ROOT_CAUSES.temperature;
   const primaryRootCause = rootCauseRows[0];
 
-  const persistResult = (projectId: string, kind: SaveKind): string | null => {
+  const persistResult = useCallback((projectId: string, kind: SaveKind): string | null => {
     if (!analyzed) return null;
     const project = projects.find((item) => item.id === projectId);
     if (!project) return null;
@@ -265,9 +266,9 @@ const AnalysisProjects: React.FC = () => {
     if (kind === 'analysis') setSavedAnalysisProjectId(projectId);
     else setSavedRootCauseProjectId(projectId);
     setSaveTargetOpen(false);
-    message.success(`${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
+    message.success(session.sessionId ? `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到当前会话` : `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
     return artifact.id;
-  };
+  }, [analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId]);
 
   const requestSave = (kind: SaveKind) => {
     if (!analyzed) return message.warning('请先完成试验数据分析');
@@ -304,10 +305,10 @@ const AnalysisProjects: React.FC = () => {
       setContinueToReportAfterSave(true);
       setSaveTargetOpen(true);
     }
-  }, [activeModel, addArtifact, addArtifactToReport, analyzed, boundProject, config, data, effectiveSession, navigate, projects, recordArtifactForTaskItem, selectedAnomaly, selectedMeasurementPoint, task]);
+  }, [persistResult, activeModel, addArtifactToReport, analyzed, boundProject, config, data, effectiveSession, navigate, selectedAnomaly, task, setContinueToReportAfterSave, setSaveTargetOpen, setPendingSaveKind]);
 
   useEffect(() => {
-    if (!autoExecute || autoStarted.current || !preparationReady) return;
+    if (!autoExecute || analyzed || autoStarted.current || !preparationReady) return;
     autoStarted.current = true;
     startAnalysis();
     return () => {
@@ -409,7 +410,7 @@ const AnalysisProjects: React.FC = () => {
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
         <div><Title level={4} style={{ margin: 0 }}>试验数据分析</Title><Text type="secondary">加载试验关联数据，识别异常并形成根因、证据与分析结论</Text></div>
-        <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
+        <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
       {incoming?.source && (incoming.task || incoming.data || incoming.model || incoming.result || incoming.validation) && (
         <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.model && `模型：${incoming.model.modelName} ${incoming.model.version}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
@@ -432,7 +433,7 @@ const AnalysisProjects: React.FC = () => {
         <Descriptions size="small" column={3} items={[
           { key: 'task', label: '当前任务', children: task.name }, { key: 'source', label: '来源方案', children: task.source },
           { key: 'status', label: '执行状态', children: <Tag color="green">{task.status}</Tag> }, { key: 'file', label: '试验数据', children: data.experimentFile },
-          { key: 'model', label: '全局模型', children: `${activeModel.modelName} ${activeModel.version}${activeModel.calibrationData ? '（已引用校准数据）' : ''}` },
+          { key: 'model', label: '会话模型', children: `${activeModel.modelName} ${activeModel.version}${activeModel.calibrationData ? '（已引用校准数据）' : ''}` },
           { key: 'conditions', label: '工况数量', children: `${task.conditions} 组` }, { key: 'count', label: '数据量', children: `${task.dataCount.toLocaleString()} 条` },
           { key: 'metrics', label: '分析指标', span: 3, children: config.metrics.join('、') },
         ]} />
@@ -517,7 +518,7 @@ const AnalysisProjects: React.FC = () => {
           <Form.Item label="试验数据"><Select value={draftData.experimentFile} onChange={(value) => setDraftData({ ...draftData, experimentFile: value })} options={[task.experimentFile, 'experiment_01.csv', 'experiment_backup.csv'].map((value) => ({ value }))} /></Form.Item>
           <Form.Item label="环境数据"><Select value={draftData.environmentFile} onChange={(value) => setDraftData({ ...draftData, environmentFile: value })} options={[task.environmentFile, 'environment_01.csv'].map((value) => ({ value }))} /></Form.Item>
           <Form.Item label="控制数据"><Select value={draftData.controlFile} onChange={(value) => setDraftData({ ...draftData, controlFile: value })} options={[task.controlFile, 'control_01.csv'].map((value) => ({ value }))} /></Form.Item>
-          <Form.Item label="全局模型"><Select value={draftData.modelData} onChange={(value) => setDraftData({ ...draftData, modelData: value })} options={globalModels.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version} · ${item.status ?? '未校准'}` }))} /></Form.Item>
+          <Form.Item label="会话模型"><Select value={draftData.modelData} onChange={(value) => setDraftData({ ...draftData, modelData: value })} options={globalModels.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version} · ${item.status ?? '未校准'}` }))} /></Form.Item>
         </Form>
       </Modal>
       <Modal title="分析配置" open={configModalOpen} width={620} onCancel={() => setConfigModalOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigModalOpen(false); invalidateResult(); }}>

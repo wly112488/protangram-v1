@@ -1,3 +1,4 @@
+import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Checkbox, Col, Descriptions, Form, InputNumber, Modal, Progress,
@@ -7,7 +8,7 @@ import {
   ExperimentOutlined, PlayCircleOutlined, ReloadOutlined, SaveOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import type { BusinessRouteState } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
@@ -17,7 +18,7 @@ import { createTaskReturnPath } from '@/workspace/businessSessionModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
-import { useGlobalModelStore } from '@/workspace/globalModelStore';
+import { useSessionModels } from '@/workspace/useSessionModels';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -54,11 +55,10 @@ const levelTag = (value?: string, reverse = false) => {
 
 const VirtualConditionExtension: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const incoming = location.state as BusinessRouteState | null;
+  const incoming = useSessionRouteState();
   const { setContext } = useTrialAIAssistant();
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
-  const globalModels = useGlobalModelStore((state) => state.models);
+  const { models: globalModels } = useSessionModels();
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
@@ -75,27 +75,27 @@ const VirtualConditionExtension: React.FC = () => {
     ? { ...DEFAULT_CONSTRAINTS, speedMax: Math.max(DEFAULT_CONSTRAINTS.speedMax, incomingRange[1]) }
     : DEFAULT_CONSTRAINTS;
 
-  const [selectedModel, setModel] = useState(initialModel);
+  const [selectedModel, setModel] = useSessionState('selectedModel', initialModel);
   const model = globalModels.find((item) => item.modelId === selectedModel.modelId) ?? selectedModel;
-  const [config, setConfig] = useState<ConditionConfig>(initialConfig);
-  const [constraints, setConstraints] = useState<ConstraintConfig>(initialConstraints);
-  const [draftModelId, setDraftModelId] = useState(initialModel.modelId);
-  const [draftConfig, setDraftConfig] = useState<ConditionConfig>(initialConfig);
-  const [draftConstraints, setDraftConstraints] = useState<ConstraintConfig>(initialConstraints);
+  const [config, setConfig] = useSessionState<ConditionConfig>('config', initialConfig);
+  const [constraints, setConstraints] = useSessionState<ConstraintConfig>('constraints', initialConstraints);
+  const [draftModelId, setDraftModelId] = useSessionState('draftModelId', initialModel.modelId);
+  const [draftConfig, setDraftConfig] = useSessionState<ConditionConfig>('draftConfig', initialConfig);
+  const [draftConstraints, setDraftConstraints] = useSessionState<ConstraintConfig>('draftConstraints', initialConstraints);
   const [modelOpen, setModelOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [constraintsOpen, setConstraintsOpen] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
-  const [savedProjectId, setSavedProjectId] = useState<string | undefined>(session.targetProjectId);
-  const [persistedProjectId, setPersistedProjectId] = useState<string | null>(null);
-  const [persistedArtifactId, setPersistedArtifactId] = useState<string | null>(null);
-  const [conditions, setConditions] = useState<VirtualCondition[]>([]);
-  const [generationStatus, setGenerationStatus] = useState<'idle' | 'generated'>('idle');
-  const [predictionStatus, setPredictionStatus] = useState<'idle' | 'loading' | 'completed'>('idle');
-  const [activeTab, setActiveTab] = useState('prediction');
-  const [filter, setFilter] = useState('全部');
-  const [selectedCondition, setSelectedCondition] = useState<VirtualCondition | null>(null);
-  const [confirmed, setConfirmed] = useState(autoExecute ? { model: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
+  const [savedProjectId, setSavedProjectId] = useSessionState<string | undefined>('savedProjectId', session.targetProjectId);
+  const [persistedProjectId, setPersistedProjectId] = useSessionState<string | null>('persistedProjectId', null);
+  const [persistedArtifactId, setPersistedArtifactId] = useSessionState<string | null>('persistedArtifactId', null);
+  const [conditions, setConditions] = useSessionState<VirtualCondition[]>('conditions', []);
+  const [generationStatus, setGenerationStatus] = useSessionState<'idle' | 'generated'>('generationStatus', 'idle');
+  const [predictionStatus, setPredictionStatus] = useState<'idle' | 'loading' | 'completed'>(conditions.length > 0 && conditions.every(row => row.status === '已完成') ? 'completed' : 'idle');
+  const [activeTab, setActiveTab] = useSessionState('activeTab', 'prediction');
+  const [filter, setFilter] = useSessionState('filter', '全部');
+  const [selectedCondition, setSelectedCondition] = useSessionState<VirtualCondition | null>('selectedCondition', null);
+  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { model: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
   const autoGenerationStarted = useRef(false);
   const autoPredictionStarted = useRef(false);
@@ -104,7 +104,7 @@ const VirtualConditionExtension: React.FC = () => {
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
-    () => boundProject ? (session.mode === 'task' ? session : { mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
+    () => boundProject ? (session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
     [boundProject, session],
   );
 
@@ -220,7 +220,7 @@ const VirtualConditionExtension: React.FC = () => {
     setSaveTargetOpen(false);
     if (notify) message.success(effectiveSession.mode === 'task' ? '虚拟工况结果已保存到当前任务' : `预测结果已保存到项目“${project.name}”`);
     return artifact;
-  }, [addArtifact, conditions, config, constraints, effectiveSession.mode, model, persistedArtifactId, persistedProjectId, predictionStatus, projects, recordArtifactForTaskItem]);
+  }, [setSavedProjectId, setPersistedProjectId, setPersistedArtifactId, addArtifact, conditions, config, constraints, effectiveSession.mode, model, persistedArtifactId, persistedProjectId, predictionStatus, projects, recordArtifactForTaskItem]);
 
   const requestSave = () => {
     if (predictionStatus !== 'completed') return message.warning('请先完成虚拟工况预测');
@@ -232,13 +232,13 @@ const VirtualConditionExtension: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!autoExecute || autoGenerationStarted.current || !preparationReady) return;
+    if (!autoExecute || generationStatus === 'generated' || autoGenerationStarted.current || !preparationReady) return;
     autoGenerationStarted.current = true;
     generateConditions();
   }, [autoExecute, preparationReady]);
 
   useEffect(() => {
-    if (!autoExecute || generationStatus !== 'generated' || autoPredictionStarted.current) return;
+    if (!autoExecute || predictionStatus === 'completed' || generationStatus !== 'generated' || autoPredictionStarted.current) return;
     autoPredictionStarted.current = true;
     startPrediction();
   }, [autoExecute, generationStatus]);
@@ -327,7 +327,7 @@ const VirtualConditionExtension: React.FC = () => {
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
         <div><Title level={4} style={{ margin: 0 }}>虚拟工况扩展</Title><Text type="secondary">使用可信数字孪生模型扩展未实测工况，并判断预测风险与可信度</Text></div>
-        <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
+        <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
 
       {sourceName && <Alert type="success" showIcon title={`已从${sourceName}带入业务上下文`} description={`${incoming?.validation ? `待验证区间：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}；` : ''}已携带可信模型：${model.modelName} ${model.version}`} style={{ marginBottom: 16 }} />}
@@ -349,7 +349,7 @@ const VirtualConditionExtension: React.FC = () => {
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
         { key: 'model', label: '当前模型', children: `${model.modelName} ${model.version}` },
         { key: 'status', label: '模型状态', children: <Tag color="green">{model.status}</Tag> },
-        { key: 'calibration', label: '全局校准数据', children: model.calibrationData ? `已更新 · ${model.calibratedAt ?? ''}` : '使用模型当前参数' },
+        { key: 'calibration', label: '会话校准数据', children: model.calibrationData ? `已更新 · ${model.calibratedAt ?? ''}` : '使用模型当前参数' },
         { key: 'measured', label: '当前实测范围', children: model.measuredRange ?? '未设置' },
         { key: 'target', label: '目标扩展范围', children: `${config.speedMin}～${config.speedMax} rpm` },
         { key: 'variables', label: '扩展变量', children: '转速、温度、压力' },
@@ -371,7 +371,7 @@ const VirtualConditionExtension: React.FC = () => {
         </Space></div>}
       </Card>
 
-      <Modal title="选择全局模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { const next = modelOptions.find((item) => item.modelId === draftModelId); if (!next || next.status === '待确认') return message.warning('只能选择已校准或已确认的模型'); setModel(next); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
+      <Modal title="选择模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { const next = modelOptions.find((item) => item.modelId === draftModelId); if (!next || next.status === '待确认') return message.warning('只能选择已校准或已确认的模型'); setModel(next); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
         <Select style={{ width: '100%' }} value={draftModelId} onChange={setDraftModelId} options={modelOptions.map((item) => ({ value: item.modelId, disabled: item.status === '待确认', label: `${item.modelName} ${item.version}｜${item.status}｜${item.measuredRange ?? item.trustedRange}｜${item.calibratedAt ?? '本次校准'}` }))} />
       </Modal>
       <Modal title="工况配置" width={650} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 6 }} wrapperCol={{ span: 17 }}>

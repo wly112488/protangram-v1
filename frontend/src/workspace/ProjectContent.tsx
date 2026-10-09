@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import ProjectOverview from './ProjectOverview';
 import { useProjectStore } from './projectStore';
 import type { ProjectArtifact, ProjectArtifactType, ProjectView } from './types';
+import { useSessionRouteState } from './useSessionState';
 
 const { Text, Title } = Typography;
 
@@ -269,9 +270,11 @@ const ChartsView: React.FC<{ projectId: string }> = ({ projectId }) => {
 };
 
 const ProjectContent: React.FC = () => {
-  const activeProjectId = useProjectStore((state) => state.activeProjectId);
+  const incoming = useSessionRouteState();
+  const storedActiveProjectId = useProjectStore((state) => state.activeProjectId);
+  const activeProjectId = incoming?.workspaceSession?.targetProjectId ?? storedActiveProjectId;
   const activeView = useProjectStore((state) => state.activeView);
-  const project = useProjectStore((state) => state.projects.find((item) => item.id === state.activeProjectId) ?? null);
+  const project = useProjectStore((state) => state.projects.find((item) => item.id === activeProjectId) ?? null);
 
   if (!project || !activeProjectId) {
     return (

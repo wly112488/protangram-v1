@@ -8,16 +8,21 @@ import { filterProjectsBySearch } from './presentationModel';
 import { useProjectStore } from './projectStore';
 import type { ProjectView } from './types';
 import { useTaskStore } from './taskStore';
+import { useLocation } from 'react-router-dom';
+import { getSessionIdFromLocation, getSessionPath } from './sessionModel';
 
 const { Text } = Typography;
 
 interface ProjectSidebarProps {
+  projectId?: string;
   mobileOpen?: boolean;
   onNavigate?: () => void;
 }
 
-const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onNavigate }) => {
+const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onNavigate, projectId }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const sessionId = getSessionIdFromLocation(location.pathname, location.search);
   const projects = useProjectStore((state) => state.projects);
   const tasks = useTaskStore((state) => state.tasks);
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
@@ -28,7 +33,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
 
   const [search, setSearch] = useState('');
 
-  const visibleProjects = useMemo(() => filterProjectsBySearch(projects, search), [projects, search]);
+  const visibleProjects = useMemo(() => filterProjectsBySearch(projects.filter(project => projectId ? project.id === projectId : !project.sessionOwnerId), search), [projects, search, projectId]);
   const treeData = useMemo<DataNode[]>(() => visibleProjects.map((project) => {
     const linkedTask = tasks.find((task) => task.projectId === project.id);
     return {
@@ -38,7 +43,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
           <span className="workspace-project-title-main">
             <FolderOpenOutlined />{project.name}{linkedTask && <span className="workspace-project-task-marker">任务项目</span>}
           </span>
-          {linkedTask ? (
+          {projectId ? null : linkedTask ? (
             <Tooltip title={`此项目支撑正式任务“${linkedTask.title}”，暂不支持单独删除，以免任务失去数据与成果。`}>
               <span className="workspace-project-delete-disabled"><Button type="text" size="small" disabled icon={<LockOutlined />} aria-label={`项目${project.name}关联正式任务，不能单独删除`} /></span>
             </Tooltip>
@@ -75,12 +80,12 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
         isLeaf: true,
       })),
     };
-  }), [deleteProject, navigate, tasks, visibleProjects]);
+  }), [deleteProject, navigate, tasks, visibleProjects, onNavigate, projectId]);
 
   const selectProjectView = (projectId: string, view: ProjectView) => {
     setActiveProject(projectId);
     setActiveView(view);
-    navigate('/projects');
+    navigate(sessionId ? getSessionPath(sessionId, 'resources') : '/projects');
     onNavigate?.();
   };
 
@@ -99,8 +104,8 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
     <aside id="workspace-project-sidebar" className={`workspace-project-sidebar ${mobileOpen ? 'is-mobile-open' : ''}`}>
       <div className="workspace-project-sidebar-head">
         <div>
-            <strong>项目数据与成果</strong>
-            <Text type="secondary">{projects.length} 个空间 · 数据、工作表与专业结果</Text>
+            <strong>{projectId ? '会话资源' : '项目数据与成果'}</strong>
+            <Text type="secondary">{visibleProjects.length} 个空间 · 数据、工作表与专业结果</Text>
         </div>
       </div>
 

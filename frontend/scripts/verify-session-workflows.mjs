@@ -1,0 +1,75 @@
+import { createRequire } from 'node:module';
+import assert from 'node:assert/strict';
+const require = createRequire(process.argv[2]);
+const { chromium } = require('playwright');
+const browser = await chromium.launch({ headless: true, channel: 'chrome' });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+page.setDefaultTimeout(12000);
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+const confirmPreparation = async () => {
+  const items = page.locator('.workspace-preparation-item');
+  await items.first().waitFor();
+  for (let i = 0; i < await items.count(); i++) {
+    await items.nth(i).click();
+    await page.getByRole('dialog').getByRole('button', { name: '确 定' }).click();
+  }
+};
+try {
+  await page.goto('http://127.0.0.1:5173/');
+  await page.getByRole('button', { name: '新建独立会话', exact: true }).click();
+  const sessionUrl = page.url();
+  await page.locator('.session-capability-tabs').getByRole('button', { name: '数据分析', exact: true }).click();
+  await confirmPreparation();
+  await page.getByRole('button', { name: /开始分析$/ }).click();
+  await page.getByRole('button', { name: '用于模型校准', exact: true }).waitFor();
+  await page.reload();
+  await page.getByRole('button', { name: '用于模型校准', exact: true }).waitFor();
+  await page.getByRole('button', { name: '虚拟工况扩展', exact: true }).last().click();
+  await page.waitForURL(url => url.pathname === `${new URL(sessionUrl).pathname}/virtual-condition`);
+  assert.ok((await page.locator('.workspace-business-page').innerText()).includes('7600～8200'));
+  await confirmPreparation();
+  await page.getByRole('button', { name: /生成虚拟工况$/ }).click();
+  await page.getByRole('button', { name: /开始预测$/ }).click();
+  await page.getByText('已完成预测', { exact: true }).waitFor();
+  await page.reload();
+  await page.getByText('已完成预测', { exact: true }).waitFor();
+  await page.locator('.session-capability-tabs').getByRole('button', { name: '试验设计', exact: true }).click();
+  await confirmPreparation();
+  await page.getByRole('button', { name: /生成推荐方案$/ }).click();
+  await page.getByRole('button', { name: '确认方案并创建试验任务', exact: true }).click();
+  await page.waitForURL('**/doe/result**');
+  await page.getByRole('button', { name: '开始执行', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: '开始执行', exact: true }).waitFor();
+  await page.getByRole('button', { name: '开始执行', exact: true }).click();
+  await page.getByRole('button', { name: '进入试验数据分析', exact: true }).click();
+  await page.waitForURL(url => url.pathname === `${new URL(sessionUrl).pathname}/analysis`);
+  assert.ok(page.url().startsWith(sessionUrl));
+  await page.getByRole('heading', { name: '试验数据分析', exact: true }).waitFor();
+  assert.ok((await page.locator('.workspace-business-page').innerText()).includes('intelligent-task-'));
+  assert.equal(await page.getByRole('button', { name: '用于模型校准', exact: true }).count(), 0);
+  await confirmPreparation();
+  await page.getByRole('button', { name: /开始分析$/ }).click();
+  await page.getByRole('button', { name: /加入报告$/ }).click();
+  await page.waitForURL(url => url.pathname === `${new URL(sessionUrl).pathname}/report/create`);
+  await page.getByText('报告引用当前会话的成果，无需创建项目。').waitFor();
+  assert.ok(await page.getByRole('checkbox').count() >= 2);
+  assert.equal(await page.locator('input[type=checkbox]:checked').count(), 1);
+  await page.locator('input[type=checkbox]:checked').uncheck();
+  await page.reload();
+  await page.getByText('报告引用当前会话的成果，无需创建项目。').waitFor();
+  assert.equal(await page.locator('input[type=checkbox]:checked').count(), 0);
+  await page.locator('.session-capability-tabs').getByRole('button', { name: '数据分析', exact: true }).click();
+  await page.getByRole('button', { name: /加入报告$/ }).click();
+  await page.waitForURL(url => url.pathname === `${new URL(sessionUrl).pathname}/report/create`);
+  await page.getByText('报告引用当前会话的成果，无需创建项目。').waitFor();
+  assert.equal(await page.locator('input[type=checkbox]:checked').count(), 1);
+  assert.deepEqual(errors, []);
+  console.log('PASS: analysis refresh, analysis-to-virtual handoff, prediction refresh, DOE creation, interrupted execution recovery, completed DOE-to-analysis fresh draft, report handoff selection refresh and renewed selection; no page errors.');
+} catch (error) {
+  console.log('URL:', page.url());
+  console.log((await page.locator('body').innerText()).slice(0, 4500));
+  console.log('PAGE ERRORS:', errors);
+  throw error;
+} finally { await browser.close(); }

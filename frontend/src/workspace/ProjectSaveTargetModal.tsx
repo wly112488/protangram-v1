@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Modal, Select } from 'antd';
 import { useProjectStore } from './projectStore';
+import { useSessionRouteState } from './useSessionState';
 
 interface ProjectSaveTargetModalProps {
   open: boolean;
@@ -21,11 +22,19 @@ const ProjectSaveTargetModal: React.FC<ProjectSaveTargetModalProps> = ({
   onConfirm,
   onSkip,
 }) => {
+  const incoming = useSessionRouteState();
+  const context = incoming?.workspaceSession;
+  const sessionTarget = context?.sessionId ? context.targetProjectId : undefined;
+  const savedOnOpen = useRef(false);
+  useEffect(() => {
+    if (!open) { savedOnOpen.current = false; return; }
+    if (sessionTarget && !savedOnOpen.current) { savedOnOpen.current = true; onConfirm(sessionTarget); }
+  }, [open, sessionTarget, onConfirm]);
   const projects = useProjectStore((state) => state.projects);
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const [selectedProjectId, setSelectedProjectId] = useState('');
 
-  const orderedProjects = useMemo(() => [...projects].sort((left, right) => {
+  const orderedProjects = useMemo(() => projects.filter(project => !project.sessionOwnerId).sort((left, right) => {
     if (left.id === activeProjectId) return -1;
     if (right.id === activeProjectId) return 1;
     return Date.parse(right.createdAt) - Date.parse(left.createdAt);
@@ -45,6 +54,7 @@ const ProjectSaveTargetModal: React.FC<ProjectSaveTargetModalProps> = ({
     onCancel();
   };
 
+  if (sessionTarget) return null;
   return (
     <Modal
       title={title}

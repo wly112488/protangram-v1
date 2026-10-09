@@ -1,3 +1,4 @@
+import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Col, Descriptions, Form, InputNumber, Modal, Progress, Row,
@@ -7,7 +8,7 @@ import {
   BarChartOutlined, DownloadOutlined, ExperimentOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import type { BusinessAction, BusinessRouteState, ModelContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
@@ -17,7 +18,7 @@ import { useTaskStore } from '@/workspace/taskStore';
 import { createTaskReturnPath } from '@/workspace/businessSessionModel';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import type { ProjectArtifact } from '@/workspace/types';
-import { useGlobalModelStore } from '@/workspace/globalModelStore';
+import { useSessionModels } from '@/workspace/useSessionModels';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -46,12 +47,10 @@ const calibrationColumns = [
 
 const DigitalTwin: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const incoming = location.state as BusinessRouteState | null;
+  const incoming = useSessionRouteState();
   const { setContext } = useTrialAIAssistant();
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
-  const globalModels = useGlobalModelStore((state) => state.models);
-  const updateCurrentModel = useGlobalModelStore((state) => state.updateCurrentModel);
+  const { models: globalModels, updateCurrentModel } = useSessionModels();
   const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
@@ -62,17 +61,18 @@ const DigitalTwin: React.FC = () => {
   const initialParams = autoExecute && recommendedSpeedRange && recommendedSpeedRange.length >= 2
     ? { ...INITIAL_PARAMS, speed: Math.round((recommendedSpeedRange[0] + recommendedSpeedRange[1]) / 2) }
     : INITIAL_PARAMS;
-  const [model, setModel] = useState<ModelContract | null>(initialModel);
-  const [simulationFile, setSimulationFile] = useState(incoming?.source === 'dataAnalysis' || autoExecute ? 'digital_twin_baseline.json' : '');
-  const [measuredFile, setMeasuredFile] = useState(incoming?.data?.dataName ?? (autoExecute ? '任务关联实测数据集（模拟）' : ''));
-  const [params, setParams] = useState(initialParams);
-  const [draftParams, setDraftParams] = useState(initialParams);
+  const [model, setModel] = useSessionState<ModelContract | null>('model', initialModel);
+  const [simulationFile, setSimulationFile] = useSessionState('simulationFile', incoming?.source === 'dataAnalysis' || autoExecute ? 'digital_twin_baseline.json' : '');
+  const [measuredFile, setMeasuredFile] = useSessionState('measuredFile', incoming?.data?.dataName ?? (autoExecute ? '任务关联实测数据集（模拟）' : ''));
+  const [params, setParams] = useSessionState('params', initialParams);
+  const [draftParams, setDraftParams] = useSessionState('draftParams', initialParams);
   const [modelModalOpen, setModelModalOpen] = useState(false);
   const [paramsModalOpen, setParamsModalOpen] = useState(false);
-  const [savedProjectId, setSavedProjectId] = useState<string | undefined>(session.targetProjectId);
+  const [savedProjectId, setSavedProjectId] = useSessionState<string | undefined>('savedProjectId', session.targetProjectId);
   const [calibrating, setCalibrating] = useState(false);
-  const [calibrated, setCalibrated] = useState(false);
-  const [confirmed, setConfirmed] = useState(autoExecute ? { model: true, simulationData: true, measuredData: true, params: true } : EMPTY_CONFIRMATION);
+  const [calibrated, setCalibrated] = useSessionState('calibrated', false);
+  const [calibrationArtifactId, setCalibrationArtifactId] = useSessionState<string | null>('calibrationArtifactId', null);
+  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { model: true, simulationData: true, measuredData: true, params: true } : EMPTY_CONFIRMATION);
   const calibrationTimer = useRef<number | null>(null);
   const autoStarted = useRef(false);
   const autoReturned = useRef(false);
@@ -87,7 +87,7 @@ const DigitalTwin: React.FC = () => {
   const preparationReady = Object.values(confirmed).every(Boolean);
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
-    () => boundProject ? (session.mode === 'task' ? session : { mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
+    () => boundProject ? (session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
     [boundProject, session],
   );
 
@@ -116,6 +116,7 @@ const DigitalTwin: React.FC = () => {
       return;
     }
     setCalibrating(true);
+    setCalibrationArtifactId(null);
     setCalibrated(false);
     calibrationTimer.current = window.setTimeout(() => {
       setCalibrating(false);
@@ -136,7 +137,7 @@ const DigitalTwin: React.FC = () => {
       if (updatedModel) setModel(updatedModel);
       setCalibrated(true);
       calibrationTimer.current = null;
-      message.success(updatedModel ? `校准完成，全局模型已更新至 ${updatedModel.version}` : '模型校准完成');
+      message.success(updatedModel ? `校准完成，当前会话模型已更新至 ${updatedModel.version}` : '模型校准完成');
     }, 1000);
   };
 
@@ -157,7 +158,11 @@ const DigitalTwin: React.FC = () => {
     message.success('结果已导出');
   };
 
-  const persistCalibration = (projectId: string): ProjectArtifact | null => {
+  const persistCalibration = useCallback((projectId: string): ProjectArtifact | null => {
+    if (calibrationArtifactId) {
+      const existing = projects.find(project => project.id === projectId)?.artifacts.find(artifact => artifact.id === calibrationArtifactId);
+      if (existing) return existing;
+    }
     if (!calibrated || !activeModel) {
       message.warning('请先完成模型校准');
       return null;
@@ -190,9 +195,16 @@ const DigitalTwin: React.FC = () => {
     }
     recordArtifactForTaskItem({ projectId, artifactId: saved.id });
     setSavedProjectId(projectId);
-    message.success('校准成果已归档到当前任务');
+    setCalibrationArtifactId(saved.id);
+    message.success(session.sessionId ? '校准成果已保存到当前会话' : '校准成果已归档到当前任务');
     return saved;
-  };
+  }, [calibrationArtifactId, projects, calibrated, activeModel, activeSimulationFile, activeMeasuredFile, params, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setCalibrationArtifactId, session.sessionId]);
+
+  useEffect(() => {
+    if (session.sessionId && calibrated && boundProject && !calibrationArtifactId) persistCalibration(boundProject.id);
+  // A completed calibration becomes a reportable artifact; preparation stays a draft.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.sessionId, calibrated, boundProject?.id, calibrationArtifactId]);
 
   const addCalibrationToTaskReport = () => {
     if (effectiveSession.mode !== 'task' || !boundProject) return;
@@ -210,7 +222,7 @@ const DigitalTwin: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!autoExecute || autoStarted.current || !preparationReady) return;
+    if (!autoExecute || calibrated || autoStarted.current || !preparationReady) return;
     autoStarted.current = true;
     startCalibration();
     return () => {
@@ -288,7 +300,7 @@ const DigitalTwin: React.FC = () => {
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
         <div><Title level={4} style={{ margin: 0 }}>试验数字孪生</Title><Text type="secondary">配置模型与数据，执行模型校准并查看分析结果</Text></div>
-        <Tag color={boundProject ? 'blue' : 'default'}>{boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
+        <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
       {incoming?.source === 'dataAnalysis' && <Alert type="success" showIcon title={`已从试验数据分析带入：${incoming.task?.taskName ?? '试验任务'}`} description={`${incoming.data?.dataName ?? '未提供数据'}；异常工况：${incoming.result?.abnormalRange ?? '未提供'}；${incoming.result?.resultSummary ?? '暂无分析摘要'}`} style={{ marginBottom: 16 }} />}
 
@@ -317,11 +329,11 @@ const DigitalTwin: React.FC = () => {
 
       <Card id="business-result" title="分析结果" size="small" className="workspace-business-card" extra={<Space><Button icon={<BarChartOutlined />} disabled={!calibrated} onClick={() => message.info('下方已显示结果对比图')}>结果对比</Button><Button icon={<DownloadOutlined />} onClick={exportResult}>导出结果</Button></Space>}>
         {calibrating ? <div style={{ padding: '40px 12%' }}><Progress percent={78} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在进行参数寻优与模型校准...</Paragraph></div>
-          : calibrated ? <><Alert type="success" showIcon title={`校准完成，全局模型 ${activeModel?.modelName ?? ''} ${activeModel?.version ?? ''} 已更新，拟合度 R² = 0.946`} style={{ marginBottom: 16 }} /><Tabs items={resultTabs} /><Card size="small" title="结果对比" style={{ marginTop: 16 }}><ReactECharts option={comparisonChart} style={{ height: 280 }} /></Card>{effectiveSession.mode === 'task' && <div className="workspace-result-actions"><Button type="primary" onClick={addCalibrationToTaskReport}>加入任务报告</Button></div>}</>
+          : calibrated ? <><Alert type="success" showIcon title={`校准完成，当前会话模型 ${activeModel?.modelName ?? ''} ${activeModel?.version ?? ''} 已更新，拟合度 R² = 0.946`} style={{ marginBottom: 16 }} /><Tabs items={resultTabs} /><Card size="small" title="结果对比" style={{ marginTop: 16 }}><ReactECharts option={comparisonChart} style={{ height: 280 }} /></Card>{effectiveSession.mode === 'task' && <div className="workspace-result-actions"><Button type="primary" onClick={addCalibrationToTaskReport}>加入任务报告</Button></div>}</>
             : <Alert type="info" showIcon title="完成模型、数据和参数配置后，点击“开始校准”查看结果" />}
       </Card>
 
-      <Modal title="选择全局模型" open={modelModalOpen} onCancel={() => setModelModalOpen(false)} onOk={() => { if (!activeModel) return message.warning('请选择模型'); setConfirmed((prev) => ({ ...prev, model: true })); setModelModalOpen(false); setCalibrated(false); }}>
+      <Modal title="选择模型" open={modelModalOpen} onCancel={() => setModelModalOpen(false)} onOk={() => { if (!activeModel) return message.warning('请选择模型'); setConfirmed((prev) => ({ ...prev, model: true })); setModelModalOpen(false); setCalibrated(false); }}>
         <Select style={{ width: '100%' }} placeholder="请选择模型" value={activeModel?.modelId} options={globalModels.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version}｜可信范围 ${item.trustedRange}` }))} onChange={(value) => setModel(globalModels.find((item) => item.modelId === value) ?? null)} />
       </Modal>
       <Modal title="参数配置" open={paramsModalOpen} onCancel={() => setParamsModalOpen(false)} onOk={() => { setParams(draftParams); setConfirmed((prev) => ({ ...prev, params: true })); setParamsModalOpen(false); setCalibrated(false); message.success('参数配置已保存'); }}>

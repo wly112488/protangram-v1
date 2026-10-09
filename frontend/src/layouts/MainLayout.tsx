@@ -1,12 +1,12 @@
 import React from 'react';
 import { Layout } from 'antd';
 import { TrialAIAssistantProvider } from '@/components/TrialAIAssistant';
-import WorkspaceShell from '@/workspace/WorkspaceShell';
+import SessionShell from '@/workspace/SessionShell';
 
 const MainLayout: React.FC = () => (
   <Layout className="app-shell">
     <TrialAIAssistantProvider>
-      <WorkspaceShell />
+      <SessionShell />
     </TrialAIAssistantProvider>
   </Layout>
 );

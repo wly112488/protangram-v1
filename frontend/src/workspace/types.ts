@@ -47,6 +47,8 @@ export interface ProjectArtifact {
 
 export interface Project {
   id: string;
+  sessionOwnerId?: string;
+  archived?: boolean;
   name: string;
   description?: string;
   status: ProjectStatus;
@@ -72,7 +74,7 @@ export interface ProjectStats {
   artifactCount: number;
 }
 
-export type BusinessSession =
+export type BusinessSession = ({ sessionId?: string } & (
   | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string; professionalProjectId?: string }
   | { mode: 'project'; targetProjectId: string }
-  | { mode: 'standalone'; targetProjectId?: string };
+  | { mode: 'standalone'; targetProjectId?: string }));

@@ -1,16 +1,17 @@
+import { useSessionRouteState } from '@/workspace/useSessionState';
+import type { AnalysisReport } from '@/types';
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Button, Row, Col, Tag, Empty, Space } from 'antd';
 import {
   PlusOutlined, EyeOutlined, FileTextOutlined, CalendarOutlined,
 } from '@ant-design/icons';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisReports } from '@/utils/storage';
 import { loadBusinessReportItems } from '@/types/businessContext';
 import type { BusinessReportItem } from '@/types/businessContext';
 import { useProjectStore } from '@/workspace/projectStore';
 import { getReportableArtifacts } from './reportModel.js';
-import type { BusinessRouteState } from '@/types/businessContext';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -20,10 +21,10 @@ const { Title, Text, Paragraph } = Typography;
  */
 const ReportList: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { analysisReports, setAnalysisReports } = useAppStore();
   const { projects, activeProjectId } = useProjectStore();
-  const routeProjectId = (location.state as BusinessRouteState | null)?.workspaceSession?.targetProjectId;
+  const sessionState = useSessionRouteState();
+  const routeProjectId = sessionState?.workspaceSession?.targetProjectId;
   const currentProjectId = routeProjectId && projects.some((project) => project.id === routeProjectId)
     ? routeProjectId
     : activeProjectId;
@@ -97,7 +98,7 @@ const ReportList: React.FC = () => {
         </Card>
       ) : (
         <Row gutter={[16, 16]}>
-          {analysisReports.map((report) => (
+          {analysisReports.filter(report => !sessionState?.workspaceSession?.sessionId || (report as AnalysisReport & { workspaceProjectId?: string }).workspaceProjectId === currentProjectId).map((report) => (
             <Col key={report.id} xs={24} sm={12} lg={8} xl={6}>
               <Card
                 className="experiment-card"

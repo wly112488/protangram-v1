@@ -92,7 +92,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
             </div>
             {(expanded[project.id] ?? true) && <div className="session-group-children">
               {children.map(row)}
-              {!showArchived && children.length === 0 && <button className="session-group-empty" onClick={() => create(project.id)}>开始项目内的工作</button>}
+              {!showArchived && children.length === 0 && <p className="session-group-empty">还没有项目内会话</p>}
               {!showArchived && <button className="session-group-resources" onClick={() => { useSessionStore.getState().openSession(null); useProjectStore.getState().setActiveProject(project.id); open('/projects'); }}>项目共享数据与成果</button>}
             </div>}
           </div>;

@@ -114,31 +114,33 @@ const ProjectOverview: React.FC<{ project: Project; isSessionWorkspace?: boolean
         ))}
       </section>
 
-      <Card className="workspace-card workspace-next-steps-card" title={linkedTask ? '可按需使用专业能力' : '可按需使用专业能力'} bordered={false}>
-        {linkedTask && (
-          <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-            {isSessionWorkspace ? '在这里重新打开专业能力时，生成的成果会保存在当前会话。' : '这些入口不会自动完成任务事项；结果先保存到项目。需要纳入正式任务时，可在任务工作台引用成果并人工确认。'}
-          </Text>
-        )}
-        <div className="workspace-next-steps">
-          {nextSteps.map((step) => (
-            <div className="workspace-next-step" key={step.key}>
-              <div>
-                <strong>{step.title}</strong>
-                <Text type="secondary">{step.description}</Text>
+      {!isSessionWorkspace && (
+        <Card className="workspace-card workspace-next-steps-card" title="可按需使用专业能力" bordered={false}>
+          {linkedTask && (
+            <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+              这些入口不会自动完成任务事项；结果先保存到项目。需要纳入正式任务时，可在任务工作台引用成果并人工确认。
+            </Text>
+          )}
+          <div className="workspace-next-steps">
+            {nextSteps.map((step) => (
+              <div className="workspace-next-step" key={step.key}>
+                <div>
+                  <strong>{step.title}</strong>
+                  <Text type="secondary">{step.description}</Text>
+                </div>
+                <Button
+                  type="primary"
+                  ghost
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate(step.route, { state: { workspaceSession: { mode: 'project', targetProjectId: project.id } } })}
+                >
+                  {linkedTask ? '独立分析' : step.key === 'analysis' ? '进入试验数据分析' : step.title}
+                </Button>
               </div>
-              <Button
-                type="primary"
-                ghost
-                icon={<PlusOutlined />}
-                onClick={() => navigate(step.route, { state: { workspaceSession: { mode: 'project', targetProjectId: project.id } } })}
-              >
-                {linkedTask ? '独立分析' : step.key === 'analysis' ? '进入试验数据分析' : step.title}
-              </Button>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="workspace-card workspace-recent-card" title="最近结果" bordered={false}>
         {recentArtifacts.length > 0 ? (

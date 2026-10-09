@@ -9,11 +9,34 @@ globalThis.localStorage = {
   removeItem: (key) => memory.delete(key),
 };
 const bundle = await build({
-  stdin: { contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionModel'; export * from './src/workspace/businessSessionModel'; export * from './src/workspace/taskArtifactAssociation';", resolveDir: process.cwd() },
+  stdin: { contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionModel'; export * from './src/workspace/businessSessionModel'; export * from './src/workspace/taskArtifactAssociation'; export * from './src/workspace/sessionSidebarModel';", resolveDir: process.cwd() },
   bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',
 });
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const { useSessionStore: sessions, useProjectStore: projects } = api;
+
+test('sidebar keeps formal-task projects and their task sessions under the task entry', () => {
+  const task = { id: 'task-1', title: '正式验证', projectId: 'task-project', status: '进行中' };
+  const taskProject = { id: 'task-project' };
+  const ordinaryProject = { id: 'ordinary-project' };
+  const taskSession = { id: 'task-session', taskId: task.id, projectId: task.projectId, capability: 'task', title: task.title, updatedAt: '2026-01-02', archived: false };
+  const capabilitySession = { ...taskSession, id: 'task-capability-session', capability: 'analysis', title: '数据分析会话' };
+  const content = api.getSessionSidebarContent([taskProject, ordinaryProject], [taskSession, capabilitySession], [task], '', false);
+
+  assert.deepEqual(content.visibleProjects.map(project => project.id), ['ordinary-project']);
+  assert.deepEqual(content.independentSessions, []);
+  assert.equal(api.getTaskNavigationSession([taskSession, capabilitySession], task.id).id, capabilitySession.id);
+});
+
+test('sidebar task entries respect search and the archive view', () => {
+  const active = { id: 'task-active', title: '风扇验证', projectId: 'p1', status: '进行中' };
+  const archived = { id: 'task-archived', title: '泵体验证', projectId: 'p2', status: '已归档' };
+  const activeContent = api.getSessionSidebarContent([], [], [active, archived], '风扇', false);
+  const archivedContent = api.getSessionSidebarContent([], [], [active, archived], '', true);
+
+  assert.deepEqual(activeContent.visibleTasks.map(task => task.id), ['task-active']);
+  assert.deepEqual(archivedContent.visibleTasks.map(task => task.id), ['task-archived']);
+});
 
 test('independent sessions own separate artifact spaces without changing active organizational project', () => {
   const group = projects.getState().createProject({ name: '研究项目' });

@@ -6,6 +6,7 @@ import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import { getProjectDeletionBlock, getSessionPath, getSessionResumePath, type WorkSession } from './sessionModel';
+import { getSessionSidebarContent, getTaskNavigationSession } from './sessionSidebarModel';
 import type { Project } from './types';
 
 const isArchivedProject = (project: Project) => project.archived ?? project.status === '已归档';
@@ -15,6 +16,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
   const location = useLocation();
   const sessions = useSessionStore(state => state.sessions);
   const projects = useProjectStore(state => state.projects);
+  const activeProjectId = useProjectStore(state => state.activeProjectId);
   const tasks = useTaskStore(state => state.tasks);
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -23,11 +25,9 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
   const [renameTarget, setRenameTarget] = useState<{ kind: 'session' | 'project'; id: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const allGroups = projects.filter(project => !project.sessionOwnerId);
+  const { visibleProjects: allGroups, visibleSessions: sorted, independentSessions: independent, visibleTasks } =
+    getSessionSidebarContent(projects, sessions, tasks, search, showArchived);
   const matchesSearch = (session: WorkSession) => session.title.toLowerCase().includes(search.trim().toLowerCase());
-  const sorted = [...sessions].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const independent = sorted.filter(session => !allGroups.some(project => project.id === session.projectId)
-    && session.archived === showArchived && matchesSearch(session));
   const groups = allGroups.filter(project => showArchived
     ? isArchivedProject(project) || sessions.some(session => session.projectId === project.id && session.archived && matchesSearch(session))
     : !isArchivedProject(project));
@@ -99,8 +99,39 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
         })}
         {groups.length === 0 && <p className="session-nav-empty">{showArchived ? '暂无归档项目' : '需要时再用项目归类会话'}</p>}
       </section>
+      <section className="session-nav-section">
+        <div className="session-section-label">
+          <span>{showArchived ? '已归档正式任务' : '正式任务'} <small>{visibleTasks.length}</small></span>
+          {!showArchived && <Tooltip title="打开任务中心以新建任务"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建正式任务" onClick={() => open('/task-center')} /></Tooltip>}
+        </div>
+        {visibleTasks.map(task => {
+          const taskKey = `task:${task.id}`;
+          const taskExpanded = expanded[taskKey] ?? true;
+          const taskSession = getTaskNavigationSession(sessions, task.id);
+          const taskWorkbenchActive = location.pathname === `/tasks/${task.id}` || location.pathname.endsWith(`/tasks/${task.id}`);
+          const taskResultsActive = location.pathname === '/projects' && activeProjectId === task.projectId;
+          return <div key={task.id} className="session-project-group">
+            <div className="session-project-heading">
+              <button title={task.title} onClick={() => setExpanded(previous => ({ ...previous, [taskKey]: !taskExpanded }))} aria-expanded={taskExpanded}>
+                <UnorderedListOutlined /><span>{task.title}</span><small>{task.status}</small>
+              </button>
+            </div>
+            {taskExpanded && <div className="session-group-children">
+              <button className={`session-group-resources session-group-task-link ${taskWorkbenchActive ? 'is-active' : ''}`} aria-current={taskWorkbenchActive ? 'page' : undefined} onClick={() => { useSessionStore.getState().openSession(null); open(`/tasks/${encodeURIComponent(task.id)}`); }}>任务工作台</button>
+              {taskSession && <button className={`session-group-resources session-group-task-link ${activeId === taskSession.id ? 'is-active' : ''}`} aria-current={activeId === taskSession.id ? 'page' : undefined} onClick={() => open(getSessionResumePath(taskSession))}>专业会话：{taskSession.title}</button>}
+              <button className={`session-group-resources session-group-task-link ${taskResultsActive ? 'is-active' : ''}`} aria-current={taskResultsActive ? 'page' : undefined} onClick={() => {
+                useSessionStore.getState().openSession(null);
+                useProjectStore.getState().setActiveProject(task.projectId);
+                useProjectStore.getState().setActiveView('overview');
+                open('/projects');
+              }}>任务数据与成果</button>
+            </div>}
+          </div>;
+        })}
+        {visibleTasks.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的正式任务' : showArchived ? '暂无归档任务' : '还没有正式任务'}</p>}
+      </section>
     </div>
-    <div className="session-sidebar-footer"><button className="session-sidebar-link" onClick={() => { useSessionStore.getState().openSession(null); open('/task-center'); }}><UnorderedListOutlined />正式任务<span>{tasks.length}</span></button><button className="session-sidebar-link" onClick={() => setShowArchived(!showArchived)}><InboxOutlined />{showArchived ? '返回最近会话' : '已归档'}</button></div>
+    <div className="session-sidebar-footer"><button className="session-sidebar-link" onClick={() => setShowArchived(!showArchived)}><InboxOutlined />{showArchived ? '返回最近会话' : '已归档'}</button></div>
     <Modal title="新建项目" open={projectOpen} okText="创建项目" cancelText="取消" onCancel={() => setProjectOpen(false)} onOk={() => { if (!projectName.trim()) return; useProjectStore.getState().createProject({ name: projectName.trim(), description: '组织研究会话与共享成果' }); setProjectName(''); setProjectOpen(false); }}><Input placeholder="项目名称" aria-label="项目名称" value={projectName} onChange={event => setProjectName(event.target.value)} /></Modal>
     <Modal title={renameTarget?.kind === 'project' ? '重命名项目' : '重命名会话'} open={Boolean(renameTarget)} okText="保存" cancelText="取消" onCancel={() => setRenameTarget(null)} onOk={saveRename}><Input aria-label="名称" autoFocus value={renameValue} onChange={event => setRenameValue(event.target.value)} onPressEnter={saveRename} /></Modal>
   </aside>;

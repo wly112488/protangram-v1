@@ -32,7 +32,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
     ? isArchivedProject(project) || sessions.some(session => session.projectId === project.id && session.archived && matchesSearch(session))
     : !isArchivedProject(project));
   const open = (path: string) => { navigate(path); onNavigate(); };
-  const create = (projectId?: string) => open(getSessionPath(useSessionStore.getState().createSession({ projectId })));
+  const create = (projectId?: string) => open(getSessionPath(useSessionStore.getState().createSession({ projectId }), 'doe'));
   const rename = (kind: 'session' | 'project', id: string, value: string) => { setRenameTarget({ kind, id }); setRenameValue(value); };
   const saveRename = () => {
     if (!renameTarget || !renameValue.trim()) return;

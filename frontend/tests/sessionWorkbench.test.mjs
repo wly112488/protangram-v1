@@ -46,6 +46,11 @@ test('workbench recent activity omits the formal-task shell session', () => {
   assert.deepEqual(api.getRecentSessionsForHome([taskShell, taskAnalysis, independent]).map(session => session.id), ['task-analysis', 'independent']);
 });
 
+test('session entry skips the redundant overview and opens the proper workbench', () => {
+  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session/doe');
+  assert.equal(api.getSessionEntryPath({ id: 'task-session', taskId: 'task / 1' }), '/sessions/task-session/tasks/task%20%2F%201');
+});
+
 test('independent sessions own separate artifact spaces without changing active organizational project', () => {
   const group = projects.getState().createProject({ name: '研究项目' });
   const a = sessions.getState().createSession({ title: '独立分析 A' });

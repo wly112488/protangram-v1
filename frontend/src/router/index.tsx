@@ -36,7 +36,7 @@ import TaskWorkbench from '@/workspace/TaskWorkbench';
 import ProjectContent from '@/workspace/ProjectContent';
 import ProjectResourcesPage from '@/workspace/ProjectResourcesPage';
 import SessionHome from '@/workspace/SessionHome';
-import SessionWorkbench, { SessionOverview } from '@/workspace/SessionWorkbench';
+import SessionWorkbench, { SessionEntryRedirect } from '@/workspace/SessionWorkbench';
 
 /**
  * 应用路由配置
@@ -50,7 +50,7 @@ const router = createBrowserRouter([
       { index: true, element: <SessionHome /> },
       { path: 'task-center', element: <Navigate to="/" replace /> },
       { path: 'sessions/:sessionId', element: <SessionWorkbench />, children: [
-        { index: true, element: <SessionOverview /> },
+        { index: true, element: <SessionEntryRedirect /> },
         { path: 'doe', element: <IntelligentExperimentDesign /> },
         { path: 'doe/result', element: <ExperimentTaskResult /> },
         { path: 'analysis', element: <AnalysisProjects /> },

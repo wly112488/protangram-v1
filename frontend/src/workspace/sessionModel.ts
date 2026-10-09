@@ -67,6 +67,10 @@ export const readSessionDraft = <T,>(session: WorkSession | undefined, capabilit
 export const getSessionResumePath = (session: WorkSession) => session.capability === 'task' && session.taskId
   ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}` : getSessionPath(session.id, session.capability);
 
+export const getSessionEntryPath = (session: WorkSession) => session.taskId
+  ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}`
+  : getSessionPath(session.id, 'doe');
+
 export const resolveSessionHandoff = (context: WorkspaceSessionState, saved?: BusinessRouteState, incoming?: BusinessRouteState | null): BusinessRouteState => {
   const workspaceSession = { ...context, ...(incoming?.workspaceSession ?? saved?.workspaceSession) };
   if (incoming?.workspaceSession && !incoming.source && workspaceSession.mode === 'task') {

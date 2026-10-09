@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, Dropdown, Empty, Input, Modal, Select, Tag } from 'antd';
-import { ArrowLeftOutlined, ArrowRightOutlined, BarChartOutlined, DatabaseOutlined, EllipsisOutlined, ExperimentOutlined, FileOutlined, FileTextOutlined, LineChartOutlined, PushpinOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { getCapabilityFromPath, getSessionPath, getSessionResourcesPath, sessionCapabilities } from './sessionModel';
+import { ArrowLeftOutlined, ArrowRightOutlined, BarChartOutlined, DatabaseOutlined, EllipsisOutlined, ExperimentOutlined, FileTextOutlined, LineChartOutlined, PushpinOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { getCapabilityFromPath, getSessionEntryPath, getSessionPath, getSessionResourcesPath, sessionCapabilities } from './sessionModel';
 import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
 import TaskArtifactScope from './TaskArtifactScope';
@@ -90,9 +90,10 @@ const SessionWorkbench: React.FC = () => {
     <Modal title="会话设置" open={editOpen} okText="保存" cancelText="取消" onCancel={() => setEditOpen(false)} onOk={() => { if (!title.trim()) return; useSessionStore.getState().renameSession(session.id, title); if (!session.taskId) useSessionStore.getState().moveSession(session.id, projectId); setEditOpen(false); }}><label className="session-form-label" htmlFor="session-title-input">会话名称</label><Input id="session-title-input" value={title} onChange={event => setTitle(event.target.value)} /><label className="session-form-label" htmlFor="session-project-input">所属项目</label><Select id="session-project-input" style={{ width: '100%' }} allowClear placeholder="独立会话，无需项目" value={projectId} disabled={Boolean(session.taskId)} onChange={setProjectId} options={projects.filter(item => !item.sessionOwnerId).map(item => ({ value: item.id, label: item.name }))} /><p className="session-resource-description">项目用于归类会话，会话成果仍保留在当前会话中。</p></Modal>
   </div>;
 };
-export const SessionOverview: React.FC = () => {
+export const SessionEntryRedirect: React.FC = () => {
   const { sessionId } = useParams();
-  const navigate = useNavigate();
-  return <div className="session-overview"><span className="session-eyebrow">工作会话</span><h2>这次想开展什么工作？</h2><p>选择一个专业能力开始，之后可以随时切换。输入、配置与成果将保留在当前会话。</p><div className="session-capability-cards">{sessionCapabilities.map((item, index) => <button key={item.key} onClick={() => navigate(getSessionPath(sessionId!, item.key))}><span className="session-capability-number">0{index + 1}</span><strong>{item.label}</strong><p>{item.description}</p><FileOutlined /></button>)}</div></div>;
+  const session = useSessionStore(state => state.sessions.find(item => item.id === sessionId));
+  if (!session) return <Navigate to="/" replace />;
+  return <Navigate to={getSessionEntryPath(session)} replace />;
 };
 export default SessionWorkbench;

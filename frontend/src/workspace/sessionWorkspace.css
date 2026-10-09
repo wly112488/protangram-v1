@@ -59,7 +59,7 @@
 .session-capability-cards strong { font-size: 14px; }
 .session-capability-cards p { margin: 9px 0 0; color: #8793a5; line-height: 1.7; font-size: 11px; }
 .session-capability-cards .anticon { position: absolute; top: 20px; right: 16px; color: #8da4c5; font-size: 11px; }
-.session-home .session-home-section-heading { display: flex; justify-content: space-between; align-items: center; min-height: 22px; margin-bottom: 18px; }
+.session-home .session-home-section-heading { display: flex; justify-content: flex-start; align-items: center; gap: 12px; min-height: 22px; margin-bottom: 18px; text-align: left; }
 .session-home .session-home-section-heading h2 { margin: 0; font-size: 14px; line-height: 22px; font-weight: 600; }
 .session-home .session-home-section-heading > span { font-size: 11px; line-height: 22px; color: #8b97a8; }
 .session-home-empty { padding: 30px 20px; border: 1px dashed #dbe3ee; border-radius: 10px; color: #8b97a8; font-size: 12px; }

@@ -85,7 +85,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
   const selectProjectView = (projectId: string, view: ProjectView) => {
     setActiveProject(projectId);
     setActiveView(view);
-    navigate(sessionId ? getSessionPath(sessionId, 'resources') : '/projects');
+    navigate(sessionId ? getSessionPath(sessionId, 'resources') : '/projects', sessionId ? { state: location.state } : undefined);
     onNavigate?.();
   };
 

@@ -1,16 +1,15 @@
 import React, { useRef, useState } from 'react';
 import { Alert, Button, Card, Empty, Input, List, Modal, Space, Tag, Typography, message } from 'antd';
-import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import { DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import { saveTaskBookFile } from './taskBookStorage';
-import WorkspacePageHeader from './WorkspacePageHeader';
 import './taskWorkspace.css';
 
 const { Text } = Typography;
 
-const TaskCenter: React.FC<{ embedded?: boolean; openCreateOnMount?: boolean }> = ({ embedded = false, openCreateOnMount = false }) => {
+const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMount = false }) => {
   const navigate = useNavigate();
   const tasks = useTaskStore((state) => state.tasks);
   const createDemoTask = useTaskStore((state) => state.createDemoTask);
@@ -65,23 +64,9 @@ const TaskCenter: React.FC<{ embedded?: boolean; openCreateOnMount?: boolean }> 
   };
 
   return (
-    <div className={`task-center-page${embedded ? ' task-center-embedded' : ''}`}>
-      <WorkspacePageHeader
-        title={embedded ? '正式任务' : '任务中心'}
-        description={embedded ? '任务书驱动的工作、分析成果与报告集中在这里。' : '围绕任务书组织业务事项、分析成果与报告'}
-        level={3}
-        actions={(
-          <Space wrap>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建正式任务</Button>
-          </Space>
-        )}
-      />
-
+    <div className="task-center-page task-center-embedded">
       <section className="task-center-section">
-        <div className="task-center-section-heading">
-          <div><Text strong>正式任务</Text><Text type="secondary">任务书驱动 · AI 拆解与复核 · 专业分析 · 任务报告</Text></div>
-          <Tag>{tasks.length} 项</Tag>
-        </div>
+        <div className="session-home-section-heading"><h2>正式任务</h2><span>{tasks.length} 项任务</span></div>
         {tasks.length === 0 ? (
           <Card className="task-center-empty">
             <Empty description="导入任务书并命名后，正式任务会显示在这里。当前任务拆解和分析结果使用模拟数据。" />

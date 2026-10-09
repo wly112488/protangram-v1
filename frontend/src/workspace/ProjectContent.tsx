@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { Button, Card, Empty, Popconfirm, Space, Tag, Typography, message } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { DeleteOutlined } from '@ant-design/icons';
 import ProjectOverview from './ProjectOverview';
 import { useProjectStore } from './projectStore';
 import type { ProjectArtifact, ProjectArtifactType, ProjectView } from './types';
@@ -20,15 +19,6 @@ const viewLabels: Record<ProjectView, string> = {
   calibration: '模型校准',
   virtualCondition: '虚拟工况',
   report: '报告',
-};
-
-const routeByArtifactView: Partial<Record<ProjectArtifactType, string>> = {
-  design: '/experiment/design/intelligent',
-  analysis: '/analysis/projects',
-  rootCause: '/analysis/projects',
-  calibration: '/analysis/digital-twin',
-  virtualCondition: '/analysis/virtual-condition',
-  report: '/report/list',
 };
 
 const formatTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false });
@@ -103,7 +93,6 @@ const ArtifactHistory: React.FC<{
   view: ProjectArtifactType;
   isSessionWorkspace: boolean;
 }> = ({ artifacts, projectId, view, isSessionWorkspace }) => {
-  const navigate = useNavigate();
   const removeArtifact = useProjectStore((state) => state.removeArtifact);
   const setActiveView = useProjectStore((state) => state.setActiveView);
   const sorted = useMemo(
@@ -111,7 +100,6 @@ const ArtifactHistory: React.FC<{
     [artifacts],
   );
   const latest = sorted[0];
-  const route = routeByArtifactView[view];
   const latestFacts = latest ? getArtifactFacts(latest) : [];
 
   const deleteArtifact = (artifactId: string) => {
@@ -128,15 +116,6 @@ const ArtifactHistory: React.FC<{
           <Title level={3}>{viewLabels[view]}</Title>
           <Text type="secondary">{isSessionWorkspace ? '这里展示当前会话保存的结果和历史版本。' : '左侧只保留内容类别，具体执行结果和历史版本在这里管理。'}</Text>
         </div>
-        {route && (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate(route, { state: { workspaceSession: { mode: 'project', targetProjectId: projectId } } })}
-          >
-            {latest ? `继续${viewLabels[view]}` : `新建${viewLabels[view]}`}
-          </Button>
-        )}
       </div>
 
       {latest ? (
@@ -285,7 +264,7 @@ const ProjectContent: React.FC = () => {
       <div className="workspace-empty-center">
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={<div><strong>选择或新建一个项目</strong><p>项目用于沉淀工作表和已确认的业务结果；顶部业务能力仍可独立使用。</p></div>}
+          description={<div><strong>当前没有可展示的数据与成果</strong><p>请从左侧项目列表选择一个数据与成果空间。</p></div>}
         />
       </div>
     );

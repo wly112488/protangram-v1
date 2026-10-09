@@ -14,6 +14,7 @@ const SessionWorkbench: React.FC = () => {
   const session = useSessionStore(state => state.sessions.find(item => item.id === sessionId));
   const saveError = useSessionStore(state => state.saveError);
   const projects = useProjectStore(state => state.projects);
+  const activeResourceView = useProjectStore(state => state.activeView);
   const [editOpen, setEditOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [projectId, setProjectId] = useState<string | undefined>();
@@ -46,6 +47,10 @@ const SessionWorkbench: React.FC = () => {
   };
   const openSessionResources = () => {
     if (capability === 'resources') {
+      if (activeResourceView !== 'overview') {
+        useProjectStore.getState().setActiveView('overview');
+        return;
+      }
       navigate(returnTo ?? getSessionPath(session.id), {
         state: routeState?.returnState ?? { workspaceSession: context },
       });
@@ -60,7 +65,7 @@ const SessionWorkbench: React.FC = () => {
     } });
   };
   return <div className="session-workbench">
-    <header className="session-workbench-header"><div><div className="session-title-line"><h1>{session.title}</h1>{session.pinned && <PushpinOutlined />}{session.archived && <Tag>已归档</Tag>}</div><div className="session-meta"><span>{session.taskId ? '正式任务会话' : project ? project.name : '独立会话'}</span><span className={saveError ? 'session-save-error' : 'session-saved'}>{saveError ? '尚未保存' : '已保存到本机'}</span></div></div><div className="session-header-actions"><Button icon={capability === 'resources' ? <ArrowLeftOutlined /> : <DatabaseOutlined />} onClick={openSessionResources}>{capability === 'resources' ? '返回原工作界面' : '数据与成果'}</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'edit', label: '重命名与项目归属' }, { key: 'pin', label: session.pinned ? '取消置顶' : '置顶会话' }, { key: 'archive', label: session.archived ? '恢复会话' : '归档会话' }], onClick: ({ key }) => { if (key === 'edit') { setTitle(session.title); setProjectId(session.projectId); setEditOpen(true); } if (key === 'pin') useSessionStore.getState().togglePinned(session.id); if (key === 'archive') useSessionStore.getState().archiveSession(session.id, !session.archived); } }}><Button icon={<EllipsisOutlined />} aria-label="会话操作" /></Dropdown></div></header>
+    <header className="session-workbench-header"><div><div className="session-title-line"><h1>{session.title}</h1>{session.pinned && <PushpinOutlined />}{session.archived && <Tag>已归档</Tag>}</div><div className="session-meta"><span>{session.taskId ? '正式任务会话' : project ? project.name : '独立会话'}</span><span className={saveError ? 'session-save-error' : 'session-saved'}>{saveError ? '尚未保存' : '已保存到本机'}</span></div></div><div className="session-header-actions"><Button icon={capability === 'resources' ? <ArrowLeftOutlined /> : <DatabaseOutlined />} onClick={openSessionResources}>{capability === 'resources' ? activeResourceView === 'overview' ? '返回原工作界面' : '返回成果总览' : '数据与成果'}</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'edit', label: '重命名与项目归属' }, { key: 'pin', label: session.pinned ? '取消置顶' : '置顶会话' }, { key: 'archive', label: session.archived ? '恢复会话' : '归档会话' }], onClick: ({ key }) => { if (key === 'edit') { setTitle(session.title); setProjectId(session.projectId); setEditOpen(true); } if (key === 'pin') useSessionStore.getState().togglePinned(session.id); if (key === 'archive') useSessionStore.getState().archiveSession(session.id, !session.archived); } }}><Button icon={<EllipsisOutlined />} aria-label="会话操作" /></Dropdown></div></header>
     {saveError && <Alert type="error" showIcon title={saveError} action={<Button size="small" onClick={() => useSessionStore.getState().retrySave()}>重试保存</Button>} />}
     {lastSavedArtifact && <Alert type="success" showIcon closable title={`“${lastSavedArtifact.title}”已保存到当前会话`} action={<Button type="link" icon={<ArrowRightOutlined />} onClick={() => openSavedArtifact(lastSavedArtifact)}>查看刚保存的结果</Button>} />}
     {capability !== 'overview' && capability !== 'resources' && <nav className="session-capability-tabs" aria-label="当前会话专业能力">{session.taskId && <button className={capability === 'task' ? 'is-active' : ''} onClick={() => navigate(`${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId!)}`, { state: { workspaceSession: context } })}>任务工作台</button>}{sessionCapabilities.map(item => <button key={item.key} className={capability === item.key ? 'is-active' : ''} aria-current={capability === item.key ? 'page' : undefined} onClick={() => navigate(getSessionPath(session.id, item.key), { state: { workspaceSession: context } })}>{item.label}</button>)}</nav>}

@@ -47,6 +47,11 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
   });
   const recordArtifactForTaskItem = useCallback((reference: { projectId: string; artifactId: string }) => {
     recordTaskBusinessArtifact(session, reference, selectedTaskItemId);
+    if (session.sessionId) {
+      window.dispatchEvent(new CustomEvent('protangram:session-artifact-saved', {
+        detail: { sessionId: session.sessionId, artifactId: reference.artifactId },
+      }));
+    }
   }, [session, selectedTaskItemId]);
 
   return { projects, tasks, session, targetProject, activeTask, activeTaskItem, recordArtifactForTaskItem };

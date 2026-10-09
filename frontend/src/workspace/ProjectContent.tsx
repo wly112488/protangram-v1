@@ -6,6 +6,7 @@ import ProjectOverview from './ProjectOverview';
 import { useProjectStore } from './projectStore';
 import type { ProjectArtifact, ProjectArtifactType, ProjectView } from './types';
 import { useSessionRouteState } from './useSessionState';
+import { useSessionStore } from './sessionStore';
 
 const { Text, Title } = Typography;
 
@@ -100,7 +101,8 @@ const ArtifactHistory: React.FC<{
   artifacts: ProjectArtifact[];
   projectId: string;
   view: ProjectArtifactType;
-}> = ({ artifacts, projectId, view }) => {
+  isSessionWorkspace: boolean;
+}> = ({ artifacts, projectId, view, isSessionWorkspace }) => {
   const navigate = useNavigate();
   const removeArtifact = useProjectStore((state) => state.removeArtifact);
   const setActiveView = useProjectStore((state) => state.setActiveView);
@@ -122,9 +124,9 @@ const ArtifactHistory: React.FC<{
     <div className="workspace-content-stack">
       <div className="workspace-content-heading">
         <div>
-          <div className="workspace-kicker">项目内容</div>
+          <div className="workspace-kicker">{isSessionWorkspace ? '当前会话成果' : '项目内容'}</div>
           <Title level={3}>{viewLabels[view]}</Title>
-          <Text type="secondary">左侧只保留内容类别，具体执行结果和历史版本在这里管理。</Text>
+          <Text type="secondary">{isSessionWorkspace ? '这里展示当前会话保存的结果和历史版本。' : '左侧只保留内容类别，具体执行结果和历史版本在这里管理。'}</Text>
         </div>
         {route && (
           <Button
@@ -271,6 +273,8 @@ const ChartsView: React.FC<{ projectId: string }> = ({ projectId }) => {
 
 const ProjectContent: React.FC = () => {
   const incoming = useSessionRouteState();
+  const sessionId = incoming?.workspaceSession?.sessionId;
+  const sessionTitle = useSessionStore(state => state.sessions.find(item => item.id === sessionId)?.title);
   const storedActiveProjectId = useProjectStore((state) => state.activeProjectId);
   const activeProjectId = incoming?.workspaceSession?.targetProjectId ?? storedActiveProjectId;
   const activeView = useProjectStore((state) => state.activeView);
@@ -287,12 +291,12 @@ const ProjectContent: React.FC = () => {
     );
   }
 
-  if (activeView === 'overview') return <ProjectOverview project={project} />;
+  if (activeView === 'overview') return <ProjectOverview project={project} isSessionWorkspace={Boolean(sessionId)} sessionTitle={sessionTitle} />;
   if (activeView === 'worksheet') return <WorksheetView projectId={activeProjectId} />;
   if (activeView === 'charts') return <ChartsView projectId={activeProjectId} />;
 
   const artifacts = project.artifacts.filter((artifact) => artifact.type === activeView);
-  return <ArtifactHistory artifacts={artifacts} projectId={activeProjectId} view={activeView} />;
+  return <ArtifactHistory artifacts={artifacts} projectId={activeProjectId} view={activeView} isSessionWorkspace={Boolean(sessionId)} />;
 };
 
 export default ProjectContent;

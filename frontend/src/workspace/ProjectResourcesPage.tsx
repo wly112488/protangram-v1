@@ -29,13 +29,13 @@ const ProjectResourcesPage: React.FC = () => {
   const importCandidates = loadLegacyExperiments().filter(legacy => !projects.some(project => project.id === legacy.id));
   const isSessionResources = location.pathname.startsWith('/sessions/');
   return <div className="session-shared-resources">
-    <p className="session-resource-description">这里只展示项目共享资源；各会话成果请在对应会话中查看。</p>
+    <p className="session-resource-description">{isSessionResources ? '这里展示当前会话保存的数据与成果。' : '这里只展示项目共享资源；各会话成果请在对应会话中查看。'}</p>
     <div className="session-shared-resource-actions">
       {!isSessionResources && <Button icon={<FolderOpenOutlined />} onClick={() => setImportOpen(true)}>导入旧版项目</Button>}
-      <Button icon={<DatabaseOutlined />} onClick={() => setOpen(true)}>项目资源目录</Button>
+      <Button icon={<DatabaseOutlined />} onClick={() => setOpen(true)}>{isSessionResources ? '查看成果目录' : '项目资源目录'}</Button>
     </div>
     <ProjectContent />
-    <Drawer className="session-resource-drawer" title="项目共享数据与成果" open={open} onClose={() => setOpen(false)} size={370}>
+    <Drawer className="session-resource-drawer" title={isSessionResources ? '当前会话已保存成果' : '项目共享数据与成果'} open={open} onClose={() => setOpen(false)} size={370}>
       <ProjectSidebar projectId={projectId ?? undefined} onNavigate={() => setOpen(false)} />
     </Drawer>
     <Modal title="导入旧版试验项目" open={importOpen} footer={null} onCancel={() => setImportOpen(false)}>

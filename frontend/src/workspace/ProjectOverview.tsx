@@ -26,7 +26,7 @@ const statusColor: Record<Project['status'], string> = {
 
 type NextStep = { key: string; title: string; description: string; route: string };
 
-const getNextSteps = (_project: Project): NextStep[] => {
+const getNextSteps = (): NextStep[] => {
   return [
     { key: 'design', title: '试验设计', description: '根据需要规划或补充试验工况。', route: '/experiment/design/intelligent' },
     { key: 'analysis', title: '试验数据分析', description: '分析试验数据并形成结构化结果。', route: '/analysis/projects' },
@@ -35,7 +35,7 @@ const getNextSteps = (_project: Project): NextStep[] => {
   ];
 };
 
-const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
+const ProjectOverview: React.FC<{ project: Project; isSessionWorkspace?: boolean; sessionTitle?: string }> = ({ project, isSessionWorkspace = false, sessionTitle }) => {
   const navigate = useNavigate();
   const setActiveView = useProjectStore((state) => state.setActiveView);
   const linkedTask = useTaskStore((state) => state.tasks.find((task) => task.projectId === project.id));
@@ -44,7 +44,7 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
     () => [...project.artifacts].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)).slice(0, 4),
     [project.artifacts],
   );
-  const nextSteps = useMemo(() => getNextSteps(project), [project]);
+  const nextSteps = useMemo(() => getNextSteps(), []);
 
   const metricCards = [
     { key: 'datasets', label: '数据集', value: stats.datasetCount, icon: <DatabaseOutlined /> },
@@ -57,9 +57,9 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
     <div className="workspace-overview">
       <section className="workspace-overview-hero">
         <div>
-          <div className="workspace-kicker">{linkedTask ? '任务关联的数据与成果空间' : '独立项目的数据与成果空间'}</div>
-          <Title level={2}>{project.name}</Title>
-          <Text type="secondary">{project.description || '暂无项目说明'}</Text>
+          <div className="workspace-kicker">{isSessionWorkspace ? '当前会话的数据与成果' : linkedTask ? '任务关联的数据与成果空间' : '独立项目的数据与成果空间'}</div>
+          <Title level={2}>{isSessionWorkspace ? sessionTitle || project.name : project.name}</Title>
+          <Text type="secondary">{isSessionWorkspace ? '本会话生成并保存的结果会显示在下方，可从左侧按类别查看。' : project.description || '暂无项目说明'}</Text>
         </div>
         <div className="workspace-overview-status">
           <Tag color={statusColor[project.status]}>{project.status}</Tag>
@@ -117,7 +117,7 @@ const ProjectOverview: React.FC<{ project: Project }> = ({ project }) => {
       <Card className="workspace-card workspace-next-steps-card" title={linkedTask ? '可按需使用专业能力' : '可按需使用专业能力'} bordered={false}>
         {linkedTask && (
           <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-            这些入口不会自动完成任务事项；结果先保存到项目。需要纳入正式任务时，可在任务工作台引用成果并人工确认。
+            {isSessionWorkspace ? '在这里重新打开专业能力时，生成的成果会保存在当前会话。' : '这些入口不会自动完成任务事项；结果先保存到项目。需要纳入正式任务时，可在任务工作台引用成果并人工确认。'}
           </Text>
         )}
         <div className="workspace-next-steps">

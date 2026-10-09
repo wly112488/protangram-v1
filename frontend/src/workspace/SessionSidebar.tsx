@@ -102,7 +102,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
       <section className="session-nav-section">
         <div className="session-section-label">
           <span>{showArchived ? '已归档正式任务' : '正式任务'} <small>{visibleTasks.length}</small></span>
-          {!showArchived && <Tooltip title="打开任务中心以新建任务"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建正式任务" onClick={() => open('/task-center')} /></Tooltip>}
+          {!showArchived && <Tooltip title="在工作台中新建正式任务"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建正式任务" onClick={() => open('/?newTask=1')} /></Tooltip>}
         </div>
         {visibleTasks.map(task => {
           const taskKey = `task:${task.id}`;

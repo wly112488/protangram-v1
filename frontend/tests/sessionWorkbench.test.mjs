@@ -38,6 +38,14 @@ test('sidebar task entries respect search and the archive view', () => {
   assert.deepEqual(archivedContent.visibleTasks.map(task => task.id), ['task-archived']);
 });
 
+test('workbench recent activity omits the formal-task shell session', () => {
+  const taskShell = { id: 'task-shell', taskId: 'task-1', capability: 'task', title: '正式任务', updatedAt: '2026-01-03', archived: false };
+  const taskAnalysis = { ...taskShell, id: 'task-analysis', capability: 'analysis', title: '任务数据分析' };
+  const independent = { ...taskShell, id: 'independent', taskId: undefined, capability: 'overview', title: '独立研究' };
+
+  assert.deepEqual(api.getRecentSessionsForHome([taskShell, taskAnalysis, independent]).map(session => session.id), ['task-analysis', 'independent']);
+});
+
 test('independent sessions own separate artifact spaces without changing active organizational project', () => {
   const group = projects.getState().createProject({ name: '研究项目' });
   const a = sessions.getState().createSession({ title: '独立分析 A' });

@@ -67,6 +67,9 @@
 .session-recent-grid strong { display: block; margin-bottom: 12px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-recent-grid small { font-size: 10px; color: #8b97a8; }
 .session-recent-grid .anticon { position: absolute; top: 22px; right: 20px; color: #94a7c1; }
+.session-home .task-center-embedded { width: 100%; margin: 36px 0 0; padding: 0; }
+.session-home .task-center-embedded .task-center-section { margin-top: 0; }
+.session-home .task-center-embedded > .workspace-page-heading { margin-bottom: 14px; }
 .session-workbench { min-height: 100%; }
 .session-workbench-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 25px 30px 22px; background: white; }
 .session-workbench-header > div:first-child { min-width: 0; }

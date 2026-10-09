@@ -24,3 +24,8 @@ export const getSessionSidebarContent = (
 
 export const getTaskNavigationSession = (sessions: WorkSession[], taskId: string) =>
   sessions.find(session => session.taskId === taskId && session.capability !== 'task');
+
+export const getRecentSessionsForHome = (sessions: WorkSession[]) => sessions
+  .filter(session => !session.archived && !(session.taskId && session.capability === 'task'))
+  .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  .slice(0, 6);

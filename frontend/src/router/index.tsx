@@ -32,7 +32,6 @@ import ReportTemplates from '@/pages/report/ReportTemplates';
 import ReportList from '@/pages/report/ReportList';
 import ReportCreate from '@/pages/report/ReportCreate';
 import ReportGenerate from '@/pages/report/ReportGenerate';
-import TaskCenter from '@/workspace/TaskCenter';
 import TaskWorkbench from '@/workspace/TaskWorkbench';
 import ProjectContent from '@/workspace/ProjectContent';
 import ProjectResourcesPage from '@/workspace/ProjectResourcesPage';
@@ -49,7 +48,7 @@ const router = createBrowserRouter([
     element: <MainLayout />,
     children: [
       { index: true, element: <SessionHome /> },
-      { path: 'task-center', element: <TaskCenter /> },
+      { path: 'task-center', element: <Navigate to="/" replace /> },
       { path: 'sessions/:sessionId', element: <SessionWorkbench />, children: [
         { index: true, element: <SessionOverview /> },
         { path: 'doe', element: <IntelligentExperimentDesign /> },

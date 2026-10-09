@@ -10,13 +10,13 @@ import './taskWorkspace.css';
 
 const { Text } = Typography;
 
-const TaskCenter: React.FC = () => {
+const TaskCenter: React.FC<{ embedded?: boolean; openCreateOnMount?: boolean }> = ({ embedded = false, openCreateOnMount = false }) => {
   const navigate = useNavigate();
   const tasks = useTaskStore((state) => state.tasks);
   const createDemoTask = useTaskStore((state) => state.createDemoTask);
   const createProject = useProjectStore((state) => state.createProject);
   const projects = useProjectStore((state) => state.projects);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(openCreateOnMount);
   const [title, setTitle] = useState('');
   const [taskBookFile, setTaskBookFile] = useState<File | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
@@ -65,14 +65,14 @@ const TaskCenter: React.FC = () => {
   };
 
   return (
-    <div className="task-center-page">
+    <div className={`task-center-page${embedded ? ' task-center-embedded' : ''}`}>
       <WorkspacePageHeader
-        title="任务中心"
-        description="围绕任务书组织业务事项、分析成果与报告"
+        title={embedded ? '正式任务' : '任务中心'}
+        description={embedded ? '任务书驱动的工作、分析成果与报告集中在这里。' : '围绕任务书组织业务事项、分析成果与报告'}
         level={3}
         actions={(
           <Space wrap>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建任务</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建正式任务</Button>
           </Space>
         )}
       />

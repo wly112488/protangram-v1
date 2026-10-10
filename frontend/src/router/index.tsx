@@ -37,7 +37,6 @@ import ProjectContent from '@/workspace/ProjectContent';
 import ProjectResourcesPage from '@/workspace/ProjectResourcesPage';
 import SessionHome from '@/workspace/SessionHome';
 import SessionWorkbench, { SessionEntryRedirect } from '@/workspace/SessionWorkbench';
-import DoeDesign from '@/workspace/DoeDesign';
 
 /**
  * 应用路由配置
@@ -52,7 +51,7 @@ const router = createBrowserRouter([
       { path: 'task-center', element: <Navigate to="/" replace /> },
       { path: 'sessions/:sessionId', element: <SessionWorkbench />, children: [
         { index: true, element: <SessionEntryRedirect /> },
-        { path: 'doe-design', element: <DoeDesign /> },
+        { path: 'doe-design', element: <IntelligentExperimentDesign /> },
         { path: 'doe', element: <IntelligentExperimentDesign /> },
         { path: 'doe/result', element: <ExperimentTaskResult /> },
         { path: 'analysis', element: <AnalysisProjects /> },

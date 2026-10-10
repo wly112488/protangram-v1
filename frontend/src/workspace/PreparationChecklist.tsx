@@ -7,6 +7,7 @@ export interface PreparationItem {
   key: string;
   label: string;
   value?: React.ReactNode;
+  preview?: React.ReactNode;
   confirmed: boolean;
   onClick?: () => void;
 }
@@ -19,7 +20,7 @@ interface PreparationChecklistProps {
 
 const PreparationChecklist: React.FC<PreparationChecklistProps> = ({ title = '准备状态', items, actions }) => (
   <Card size="small" className="workspace-business-card workspace-preparation-card" title={title}>
-    <div className="workspace-preparation-grid">
+    <div className="workspace-preparation-list">
       {items.map((item) => {
         const content = (
           <>
@@ -33,13 +34,16 @@ const PreparationChecklist: React.FC<PreparationChecklistProps> = ({ title = '�
           </>
         );
 
-        return item.onClick ? (
-          <button key={item.key} type="button" className="workspace-preparation-item" onClick={item.onClick}>
-            {content}
-          </button>
-        ) : (
-          <div key={item.key} className="workspace-preparation-item">
-            {content}
+        return (
+          <div key={item.key} className={`workspace-preparation-row${item.confirmed ? ' confirmed' : ''}`}>
+            {item.onClick ? (
+              <button type="button" className="workspace-preparation-item" onClick={item.onClick}>{content}</button>
+            ) : (
+              <div className="workspace-preparation-item">{content}</div>
+            )}
+            <div className="workspace-preparation-preview" aria-live="polite">
+              {item.confirmed ? item.preview ?? item.value : <span className="workspace-preparation-preview-empty">确认后在此显示成果预览</span>}
+            </div>
           </div>
         );
       })}

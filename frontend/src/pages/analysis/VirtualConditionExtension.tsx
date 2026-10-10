@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import type { BusinessRouteState } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
+import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createVirtualConditionArtifactInput } from '@/workspace/projectModel';
 import { createTaskReturnPath } from '@/workspace/businessSessionModel';
@@ -20,7 +21,7 @@ import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { useSessionModels } from '@/workspace/useSessionModels';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 const DEFAULT_CONFIG = { method: '范围扩展', speedMin: 8000, speedMax: 10000, temperatureMin: 80, temperatureMax: 120, pressureMin: 1.5, pressureMax: 2.2, count: 36, sampling: '自动生成' };
 const DEFAULT_CONSTRAINTS = { speedMax: 10000, temperatureMax: 120, pressureMin: 1.5, pressureMax: 2.2, withinScope: true, excludeAbnormal: true, markOutsideTrusted: true };
@@ -79,10 +80,8 @@ const VirtualConditionExtension: React.FC = () => {
   const model = globalModels.find((item) => item.modelId === selectedModel.modelId) ?? selectedModel;
   const [config, setConfig] = useSessionState<ConditionConfig>('config', initialConfig);
   const [constraints, setConstraints] = useSessionState<ConstraintConfig>('constraints', initialConstraints);
-  const [draftModelId, setDraftModelId] = useSessionState('draftModelId', initialModel.modelId);
   const [draftConfig, setDraftConfig] = useSessionState<ConditionConfig>('draftConfig', initialConfig);
   const [draftConstraints, setDraftConstraints] = useSessionState<ConstraintConfig>('draftConstraints', initialConstraints);
-  const [modelOpen, setModelOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [constraintsOpen, setConstraintsOpen] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
@@ -180,7 +179,6 @@ const VirtualConditionExtension: React.FC = () => {
     setModel(initialModel);
     setConfig(initialConfig);
     setConstraints(DEFAULT_CONSTRAINTS);
-    setDraftModelId(initialModel.modelId);
     setDraftConfig(initialConfig);
     setDraftConstraints(DEFAULT_CONSTRAINTS);
     setConfirmed(EMPTY_CONFIRMATION);
@@ -323,14 +321,25 @@ const VirtualConditionExtension: React.FC = () => {
     ? `试验数据分析${incoming.task ? ` / ${incoming.task.taskName}` : ''}`
     : incoming?.source === 'digitalTwin' ? '试验数字孪生' : '';
   const modelOptions = globalModels;
-  const openModel = () => { setDraftModelId(model.modelId); setModelOpen(true); };
   const openConfig = () => { setDraftConfig(config); setConfigOpen(true); };
   const openConstraints = () => { setDraftConstraints(constraints); setConstraintsOpen(true); };
 
   return (
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
-        <div><Title level={4} style={{ margin: 0 }}>虚拟工况扩展</Title><Text type="secondary">使用可信数字孪生模型扩展未实测工况，并判断预测风险与可信度</Text></div>
+        <div className="workspace-top-choice-row">
+          <ModelChoiceStrip
+            models={modelOptions}
+            value={model.modelId}
+            ariaLabel="虚拟工况扩展模型选择"
+            isDisabled={(item) => item.status === '待确认'}
+            onChange={(nextModel) => {
+              setModel(nextModel);
+              setConfirmed((prev) => ({ ...prev, model: true }));
+              invalidate();
+            }}
+          />
+        </div>
         <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
 
@@ -339,9 +348,8 @@ const VirtualConditionExtension: React.FC = () => {
       <PreparationChecklist
         title="工况扩展准备"
         items={[
-          { key: 'model', label: '可信模型', value: `${model.modelName} ${model.version}`, confirmed: confirmed.model, onClick: openModel },
-          { key: 'config', label: '工况配置', value: `${config.speedMin}～${config.speedMax} rpm / ${config.count} 组`, confirmed: confirmed.config, onClick: openConfig },
-          { key: 'constraints', label: '约束设置', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints },
+          { key: 'config', label: '工况配置', value: `${config.speedMin}～${config.speedMax} rpm / ${config.count} 组`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">{config.method}</Tag><Tag>转速 {config.speedMin}～{config.speedMax} rpm</Tag><Tag>温度 {config.temperatureMin}～{config.temperatureMax} ℃</Tag><Tag>压力 {config.pressureMin}～{config.pressureMax} MPa</Tag><Tag>{config.count} 组 · {config.sampling}</Tag></Space> },
+          { key: 'constraints', label: '约束设置', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints, preview: <Space size={[4, 4]} wrap><Tag color="green">转速 ≤ {constraints.speedMax} rpm</Tag><Tag>温度 ≤ {constraints.temperatureMax} ℃</Tag><Tag>压力 {constraints.pressureMin}～{constraints.pressureMax} MPa</Tag><Tag>{constraints.withinScope ? '限制在可信范围内' : '允许超出可信范围'}</Tag><Tag>{constraints.excludeAbnormal ? '排除异常工况' : '保留异常工况'}</Tag><Tag>{constraints.markOutsideTrusted ? '标记可信范围外工况' : '不标记范围外工况'}</Tag></Space> },
         ]}
         actions={<Space size={6}>
           <Button type={preparationReady && generationStatus !== 'generated' ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} onClick={generateConditions}>生成虚拟工况</Button>
@@ -375,9 +383,6 @@ const VirtualConditionExtension: React.FC = () => {
         </Space></div>}
       </Card>
 
-      <Modal title="选择模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { const next = modelOptions.find((item) => item.modelId === draftModelId); if (!next || next.status === '待确认') return message.warning('只能选择已校准或已确认的模型'); setModel(next); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
-        <Select style={{ width: '100%' }} value={draftModelId} onChange={setDraftModelId} options={modelOptions.map((item) => ({ value: item.modelId, disabled: item.status === '待确认', label: `${item.modelName} ${item.version}｜${item.status}｜${item.measuredRange ?? item.trustedRange}｜${item.calibratedAt ?? '本次校准'}` }))} />
-      </Modal>
       <Modal title="工况配置" width={650} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 6 }} wrapperCol={{ span: 17 }}>
         <Form.Item label="扩展方式"><Select value={draftConfig.method} onChange={(value) => setDraftConfig({ ...draftConfig, method: value })} options={['范围扩展', '指定区域扩展'].map((value) => ({ value }))} /></Form.Item>
         {[[ '转速（rpm）', 'speedMin', 'speedMax' ], [ '温度（℃）', 'temperatureMin', 'temperatureMax' ], [ '压力（MPa）', 'pressureMin', 'pressureMax' ]].map(([label, minKey, maxKey]) => <Form.Item label={label} key={label}><Space><InputNumber value={draftConfig[minKey as keyof ConditionConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [minKey]: value ?? 0 })} /><Text>～</Text><InputNumber value={draftConfig[maxKey as keyof ConditionConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [maxKey]: value ?? 0 })} /></Space></Form.Item>)}

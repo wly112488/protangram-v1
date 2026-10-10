@@ -128,7 +128,7 @@ interface FunctionBarProps {
   researchObjects: ResearchObject[];
   onResearchObjectsChange: (objects: ResearchObject[]) => void;
   onDesignGenerated?: (designName: string) => void;
-  onDoeDesignConfirmed?: (design: { method: string; response: string; factors: MethodFactorRow[] }) => void;
+  onDoeDesignConfirmed?: (design: { method: string; response: string; factors: MethodFactorRow[] }) => boolean | void;
   experiments: Array<{ id: string; name: string; associationObjectId?: string }>;
   activeProjectId?: string | null;
   workspaceSession?: WorkspaceSessionState;
@@ -215,11 +215,12 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
 
   const handleMethodConfirm = () => {
     if (!selectedMethod) return;
-    onDoeDesignConfirmed?.({
+    const saved = onDoeDesignConfirmed?.({
       method: selectedMethod.description,
       response: methodResponseName.trim() || '响应变量',
       factors: methodFactorRows.map(row => ({ ...row, name: row.name.trim() || '未命名因子' })),
     });
+    if (saved === false) return;
     onDesignGenerated?.(selectedMethod.description);
     message.success('当前设计流程已完成');
     setSelectedMethod(null);
@@ -339,19 +340,13 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
 
   return (
     <>
-      {displayMode === 'doe-design' ? <section className="doe-design-hub">
-        <div className="doe-design-hub-heading">
-          <div><Title level={3}>DOE 设计</Title><Text type="secondary">选择合适的试验设计方法，配置因子与水平并生成设计方案。</Text></div>
-        </div>
-        <div className="doe-design-hub-grid">
-          {quickMethodOptions.map((row, index) => <button type="button" className="doe-design-hub-card" key={row.description} onClick={() => openMethod(row)}>
-            <span className="doe-design-hub-index">{String(index + 1).padStart(2, '0')}</span>
-            <span className={`doe-small-icon ${row.icon}`} />
-            <span className="doe-design-hub-copy"><strong>{row.description.replace('创建', '')}</strong><small>{row.title}</small></span>
-            <span className="doe-design-hub-arrow">›</span>
+      {displayMode === 'doe-design' ? <div className="workspace-top-choice-group workspace-doe-choice-group" role="group" aria-label="DOE 设计方法">
+        <div className="workspace-top-choice-options">
+          {quickMethodOptions.map((row) => <button type="button" className="workspace-top-choice" key={row.description} title={row.title} onClick={() => openMethod(row)}>
+            {row.description.replace('创建', '')}
           </button>)}
         </div>
-      </section> : <div className="layout-function-bar">
+      </div> : <div className="layout-function-bar">
         {primaryNavigationItems.map((item) => {
           const button = (
             <button

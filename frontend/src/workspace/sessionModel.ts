@@ -18,16 +18,17 @@ export interface WorkSession {
 }
 
 export const sessionCapabilities = [
-  { key: 'doeMethods', path: 'doe-design', label: 'DOE设计', description: '选择田口、全因子等经典设计方法' },
-  { key: 'doe', path: 'doe', label: '智能试验设计', description: '配置模型与约束，生成推荐方案' },
+  { key: 'doe', path: 'doe', label: '智能实验设计', description: '配置可信模型与 DOE 方法，生成试验方案' },
   { key: 'analysis', path: 'analysis', label: '数据分析', description: '分析趋势、异常与根因' },
   { key: 'digitalTwin', path: 'digital-twin', label: '数字孪生', description: '导入数据，校准并验证模型' },
   { key: 'virtualCondition', path: 'virtual-condition', label: '虚拟工况', description: '扩展工况范围，查看预测与风险' },
   { key: 'report', path: 'report', label: '报告', description: '引用当前成果，生成专业报告' },
 ] as const;
 
-export const getSessionPath = (id: string, capability: SessionCapability = 'overview') =>
-  `/sessions/${encodeURIComponent(id)}${capability === 'overview' ? '' : `/${sessionCapabilities.find(item => item.key === capability)?.path ?? capability}`}`;
+export const getSessionPath = (id: string, capability: SessionCapability = 'overview') => {
+  const canonicalCapability = capability === 'doeMethods' ? 'doe' : capability;
+  return `/sessions/${encodeURIComponent(id)}${canonicalCapability === 'overview' ? '' : `/${sessionCapabilities.find(item => item.key === canonicalCapability)?.path ?? canonicalCapability}`}`;
+};
 
 export const getSessionResourcesPath = (id: string) => getSessionPath(id, 'resources');
 
@@ -40,7 +41,7 @@ export const getSessionIdFromLocation = (pathname: string, search = '') => {
 export const getCapabilityFromPath = (pathname: string): SessionCapability => {
   const path = pathname.replace(/^\/sessions\/[^/]+\/?/, '').split('/')[0];
   return sessionCapabilities.find(item => item.path === path)?.key
-    ?? (path === 'resources' ? 'resources' : path === 'tasks' ? 'task' : 'overview');
+    ?? (path === 'doe-design' ? 'doe' : path === 'resources' ? 'resources' : path === 'tasks' ? 'task' : 'overview');
 };
 
 export const getLegacySessionPath = (pathname: string, id: string): string | null => {
@@ -70,7 +71,7 @@ export const getSessionResumePath = (session: WorkSession) => session.capability
 
 export const getSessionEntryPath = (session: WorkSession) => session.taskId
   ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}`
-  : getSessionPath(session.id, 'doeMethods');
+  : getSessionPath(session.id, 'doe');
 
 export const resolveSessionHandoff = (context: WorkspaceSessionState, saved?: BusinessRouteState, incoming?: BusinessRouteState | null): BusinessRouteState => {
   const workspaceSession = { ...context, ...(incoming?.workspaceSession ?? saved?.workspaceSession) };

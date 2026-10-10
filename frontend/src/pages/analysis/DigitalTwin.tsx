@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import type { BusinessAction, BusinessRouteState, ModelContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
+import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
 import { createCalibrationArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
@@ -20,7 +21,7 @@ import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSes
 import type { ProjectArtifact } from '@/workspace/types';
 import { useSessionModels } from '@/workspace/useSessionModels';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 const INITIAL_PARAMS = { temperature: 25, pressure: 101.3, speed: 3000 };
 const EMPTY_CONFIRMATION = { model: false, simulationData: false, measuredData: false, params: false };
@@ -66,7 +67,6 @@ const DigitalTwin: React.FC = () => {
   const [measuredFile, setMeasuredFile] = useSessionState('measuredFile', incoming?.data?.dataName ?? (autoExecute ? '任务关联实测数据集（模拟）' : ''));
   const [params, setParams] = useSessionState('params', initialParams);
   const [draftParams, setDraftParams] = useSessionState('draftParams', initialParams);
-  const [modelModalOpen, setModelModalOpen] = useState(false);
   const [paramsModalOpen, setParamsModalOpen] = useState(false);
   const [savedProjectId, setSavedProjectId] = useSessionState<string | undefined>('savedProjectId', session.targetProjectId);
   const [calibrating, setCalibrating] = useState(false);
@@ -302,7 +302,13 @@ const DigitalTwin: React.FC = () => {
   return (
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
-        <div><Title level={4} style={{ margin: 0 }}>试验数字孪生</Title><Text type="secondary">配置模型与数据，执行模型校准并查看分析结果</Text></div>
+        <div className="workspace-top-choice-row">
+          <ModelChoiceStrip models={globalModels} value={activeModel?.modelId} ariaLabel="试验数字孪生模型选择" onChange={(nextModel) => {
+            setModel(nextModel);
+            setConfirmed((prev) => ({ ...prev, model: true }));
+            setCalibrated(false);
+          }} />
+        </div>
         <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
       {incoming?.source === 'dataAnalysis' && <Alert type="success" showIcon title={`已从试验数据分析带入：${incoming.task?.taskName ?? '试验任务'}`} description={`${incoming.data?.dataName ?? '未提供数据'}；异常工况：${incoming.result?.abnormalRange ?? '未提供'}；${incoming.result?.resultSummary ?? '暂无分析摘要'}`} style={{ marginBottom: 16 }} />}
@@ -310,10 +316,9 @@ const DigitalTwin: React.FC = () => {
       <PreparationChecklist
         title="校准准备"
         items={[
-          { key: 'model', label: '模型', value: activeModel ? `${activeModel.modelName} ${activeModel.version}` : '未选择', confirmed: confirmed.model, onClick: () => setModelModalOpen(true) },
-          { key: 'simulation', label: '仿真数据', value: activeSimulationFile || '未导入', confirmed: confirmed.simulationData, onClick: () => confirmOrChooseData('simulationData', Boolean(activeSimulationFile)) },
-          { key: 'measured', label: '实测数据', value: activeMeasuredFile || '未导入', confirmed: confirmed.measuredData, onClick: () => confirmOrChooseData('measuredData', Boolean(activeMeasuredFile)) },
-          { key: 'params', label: '参数配置', value: `温度 ${params.temperature}℃ / 转速 ${params.speed}`, confirmed: confirmed.params, onClick: () => { setDraftParams(params); setParamsModalOpen(true); } },
+          { key: 'simulation', label: '仿真数据', value: activeSimulationFile || '未导入', confirmed: confirmed.simulationData, onClick: () => confirmOrChooseData('simulationData', Boolean(activeSimulationFile)), preview: <Space size={[4, 4]} wrap><Tag color="blue">基准输入</Tag><span>{activeSimulationFile || '请导入仿真数据文件'}</span></Space> },
+          { key: 'measured', label: '实测数据', value: activeMeasuredFile || '未导入', confirmed: confirmed.measuredData, onClick: () => confirmOrChooseData('measuredData', Boolean(activeMeasuredFile)), preview: <Space size={[4, 4]} wrap><Tag color="blue">校准对照</Tag><span>{activeMeasuredFile || '请导入实测数据文件'}</span></Space> },
+          { key: 'params', label: '参数配置', value: `温度 ${params.temperature}℃ / 转速 ${params.speed}`, confirmed: confirmed.params, onClick: () => { setDraftParams(params); setParamsModalOpen(true); }, preview: <Space size={[4, 4]} wrap><Tag>温度 {params.temperature} ℃</Tag><Tag>压力 {params.pressure} kPa</Tag><Tag>转速 {params.speed} r/min</Tag></Space> },
         ]}
         actions={<Space size={6}>
           <Button type={preparationReady ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} loading={calibrating} onClick={startCalibration}>开始校准</Button>
@@ -336,9 +341,6 @@ const DigitalTwin: React.FC = () => {
             : <Alert type="info" showIcon title="完成模型、数据和参数配置后，点击“开始校准”查看结果" />}
       </Card>
 
-      <Modal title="选择模型" open={modelModalOpen} onCancel={() => setModelModalOpen(false)} onOk={() => { if (!activeModel) return message.warning('请选择模型'); setConfirmed((prev) => ({ ...prev, model: true })); setModelModalOpen(false); setCalibrated(false); }}>
-        <Select style={{ width: '100%' }} placeholder="请选择模型" value={activeModel?.modelId} options={globalModels.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version}｜可信范围 ${item.trustedRange}` }))} onChange={(value) => setModel(globalModels.find((item) => item.modelId === value) ?? null)} />
-      </Modal>
       <Modal title="参数配置" open={paramsModalOpen} onCancel={() => setParamsModalOpen(false)} onOk={() => { setParams(draftParams); setConfirmed((prev) => ({ ...prev, params: true })); setParamsModalOpen(false); setCalibrated(false); message.success('参数配置已保存'); }}>
         <Form labelCol={{ span: 7 }} wrapperCol={{ span: 14 }}>
           <Form.Item label="环境温度（℃）"><InputNumber style={{ width: '100%' }} value={draftParams.temperature} onChange={(value) => setDraftParams({ ...draftParams, temperature: value ?? 25 })} /></Form.Item>

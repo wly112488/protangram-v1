@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { build } from 'esbuild';
 
@@ -47,15 +48,47 @@ test('workbench recent activity omits the formal-task shell session', () => {
 });
 
 test('session entry skips the redundant overview and opens the proper workbench', () => {
-  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session/doe-design');
+  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session/doe');
   assert.equal(api.getSessionEntryPath({ id: 'task-session', taskId: 'task / 1' }), '/sessions/task-session/tasks/task%20%2F%201');
 });
 
-test('DOE methods and intelligent experiment design have separate session routes', () => {
-  assert.equal(api.getSessionPath('new-session', 'doeMethods'), '/sessions/new-session/doe-design');
-  assert.equal(api.getCapabilityFromPath('/sessions/new-session/doe-design'), 'doeMethods');
+test('DOE methods share the intelligent experiment design capability and legacy routes resume there', () => {
+  assert.equal(api.getSessionPath('new-session', 'doeMethods'), '/sessions/new-session/doe');
+  assert.equal(api.getCapabilityFromPath('/sessions/new-session/doe-design'), 'doe');
   assert.equal(api.getSessionPath('new-session', 'doe'), '/sessions/new-session/doe');
   assert.equal(api.getCapabilityFromPath('/sessions/new-session/doe'), 'doe');
+  assert.equal(api.getSessionResumePath({ id: 'legacy-session', capability: 'doeMethods' }), '/sessions/legacy-session/doe');
+  assert.equal(api.sessionCapabilities.filter(item => item.key === 'doe' || item.key === 'doeMethods').length, 1);
+});
+
+test('primary capability pages place model choices in the heading and keep them out of preparation checklists', () => {
+  const designSource = readFileSync(new URL('../src/pages/experiment/design/IntelligentExperimentDesign.tsx', import.meta.url), 'utf8');
+  const twinSource = readFileSync(new URL('../src/pages/analysis/DigitalTwin.tsx', import.meta.url), 'utf8');
+  const virtualSource = readFileSync(new URL('../src/pages/analysis/VirtualConditionExtension.tsx', import.meta.url), 'utf8');
+  const modelChoiceSource = readFileSync(new URL('../src/workspace/ModelChoiceStrip.tsx', import.meta.url), 'utf8');
+  const functionBarSource = readFileSync(new URL('../src/workbench/FunctionBar.tsx', import.meta.url), 'utf8');
+
+  for (const source of [designSource, twinSource, virtualSource]) {
+    assert.match(source, /<ModelChoiceStrip/);
+    assert.doesNotMatch(source, /key: 'model', label: '(?:可信模型|模型)'[^\n]*onClick:/);
+  }
+  assert.match(designSource, /displayMode="doe-design"/);
+  assert.match(designSource, /ariaLabel="智能实验设计模型选择"/);
+  assert.match(twinSource, /ariaLabel="试验数字孪生模型选择"/);
+  assert.match(virtualSource, /ariaLabel="虚拟工况扩展模型选择"/);
+  assert.match(modelChoiceSource, /model-choice-strip/);
+  assert.match(modelChoiceSource, /aria-pressed=\{selected\}/);
+  assert.match(functionBarSource, /if \(saved === false\) return;/);
+});
+
+test('session sidebar separates navigation sections and exposes collapsible section and tree controls', () => {
+  const sidebarSource = readFileSync(new URL('../src/workspace/SessionSidebar.tsx', import.meta.url), 'utf8');
+  const styleSource = readFileSync(new URL('../src/workspace/sessionWorkspace.css', import.meta.url), 'utf8');
+
+  assert.match(sidebarSource, /session-section-toggle/);
+  assert.match(sidebarSource, /RightOutlined/);
+  assert.match(sidebarSource, /aria-expanded=\{sectionExpanded\./);
+  assert.match(styleSource, /session-nav-section--separated/);
 });
 
 test('independent sessions own separate artifact spaces without changing active organizational project', () => {

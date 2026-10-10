@@ -9,10 +9,12 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
+import FunctionBar from '@/workbench/FunctionBar';
 import type { BusinessAction, BusinessRouteState, PlanCondition, TaskContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
+import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
-import { createDesignArtifactInput } from '@/workspace/projectModel';
+import { createDesignArtifactInput, createDoeArtifactInput } from '@/workspace/projectModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
@@ -103,9 +105,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   const [constraints, setConstraints] = useSessionState('constraints', initialConstraints);
   const [draftConfig, setDraftConfig] = useSessionState('draftConfig', initialConfig);
   const [draftConstraints, setDraftConstraints] = useSessionState('draftConstraints', initialConstraints);
-  const [draftModelId, setDraftModelId] = useSessionState('draftModelId', initialModel.modelId);
   const [draftDatasets, setDraftDatasets] = useSessionState<string[]>('draftDatasets', incoming?.datasets ?? [DATASETS[0]]);
-  const [modelOpen, setModelOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [constraintsOpen, setConstraintsOpen] = useState(false);
@@ -180,6 +180,25 @@ const IntelligentExperimentDesign: React.FC = () => {
     return artifact;
   }, [projects, addArtifact, config, plan, model, datasets, constraints, recordArtifactForTaskItem, session.sessionId]);
 
+  const persistDoeDesign = useCallback((design: { method: string; response: string; factors: Array<{ name: string; type: string; lowLevel: string; highLevel: string; levels: string[]; changeType: string }> }) => {
+    if (!targetProject) {
+      message.error('当前会话没有可保存成果的项目空间');
+      return false;
+    }
+    const artifact = addArtifact(targetProject.id, createDoeArtifactInput({
+      title: design.method,
+      summary: `${design.method} · ${design.factors.length} 个因子 · 响应：${design.response}`,
+      payload: { designMethod: design.method, response: design.response, factors: design.factors },
+    }));
+    if (!artifact) {
+      message.error('DOE 设计保存失败');
+      return false;
+    }
+    recordArtifactForTaskItem({ projectId: targetProject.id, artifactId: artifact.id });
+    message.success('DOE 设计方案已保存到当前会话');
+    return true;
+  }, [addArtifact, recordArtifactForTaskItem, targetProject]);
+
   const createTask = (workspaceSession: NonNullable<BusinessRouteState['workspaceSession']>) => {
     const task: TaskContract = {
       taskId: `intelligent-task-${Date.now()}`,
@@ -251,7 +270,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   useEffect(() => {
     setContext({
       pageType: 'intelligentDesign',
-      pageName: '智能试验设计',
+      pageName: '智能实验设计',
       projectName: targetProject?.name,
       modelName: `${model.modelName} ${model.version}`,
       resultSummary: generated ? `推荐 ${plan.length} 个试验工况` : '等待生成推荐方案',
@@ -310,7 +329,13 @@ const IntelligentExperimentDesign: React.FC = () => {
     ]} /> },
   ];
 
-  const openModel = () => { setDraftModelId(model.modelId); setModelOpen(true); };
+  const selectModel = (nextModel: typeof model) => {
+    if (nextModel.modelId !== model.modelId) {
+      setModel(nextModel);
+      invalidate();
+    }
+    setConfirmed((prev) => ({ ...prev, model: true }));
+  };
   const openData = () => { setDraftDatasets(datasets); setDataOpen(true); };
   const openConfig = () => { setDraftConfig(config); setConfigOpen(true); };
   const openConstraints = () => { setDraftConstraints(constraints); setConstraintsOpen(true); };
@@ -318,7 +343,21 @@ const IntelligentExperimentDesign: React.FC = () => {
   return (
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
-        <div><Title level={4} style={{ margin: 0 }}>智能试验设计</Title><Text type="secondary">基于可信模型、历史数据和安全约束生成推荐试验方案</Text></div>
+        <div className="workspace-top-choice-row">
+          <ModelChoiceStrip models={modelOptions} value={model.modelId} onChange={selectModel} ariaLabel="智能实验设计模型选择" />
+          <FunctionBar
+            displayMode="doe-design"
+            researchObjects={[]}
+            onResearchObjectsChange={() => undefined}
+            experiments={[]}
+            activeProjectId={targetProject?.id}
+            workspaceSession={session}
+            onAssociateObjectToExperiment={() => undefined}
+            onMergeObjects={() => undefined}
+            onImportExperiment={() => undefined}
+            onDoeDesignConfirmed={persistDoeDesign}
+          />
+        </div>
         <Tag color={targetProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : targetProject ? `项目：${targetProject.name}` : '独立模式'}</Tag>
       </div>
 
@@ -334,10 +373,9 @@ const IntelligentExperimentDesign: React.FC = () => {
       <PreparationChecklist
         title="方案生成准备"
         items={[
-          { key: 'model', label: '可信模型', value: `${model.modelName} ${model.version}`, confirmed: confirmed.model, onClick: openModel },
-          { key: 'data', label: '历史数据', value: datasets.join('、'), confirmed: confirmed.data, onClick: openData },
-          { key: 'config', label: '试验配置', value: `${config.target} / 最多 ${config.maxRuns} 次`, confirmed: confirmed.config, onClick: openConfig },
-          { key: 'constraints', label: '约束', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints },
+          { key: 'data', label: '历史数据', value: datasets.join('、'), confirmed: confirmed.data, onClick: openData, preview: <Space size={[4, 4]} wrap><Tag color="blue">已关联 {datasets.length} 组数据</Tag>{datasets.map((dataset) => <Tag key={dataset}>{dataset}</Tag>)}</Space> },
+          { key: 'config', label: '试验配置', value: `${config.target} / 最多 ${config.maxRuns} 次`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">目标：{config.target}</Tag><Tag>转速 {config.speedMin}～{config.speedMax} rpm</Tag><Tag>温度 {config.temperatureMin}～{config.temperatureMax} ℃</Tag><Tag>压力 {config.pressureMin}～{config.pressureMax} MPa</Tag><Tag>最多 {config.maxRuns} 次 · {config.strategy}</Tag></Space> },
+          { key: 'constraints', label: '约束', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints, preview: <Space size={[4, 4]} wrap><Tag color="green">转速 ≤ {constraints.speedMax} rpm</Tag><Tag>温度 ≤ {constraints.temperatureMax} ℃</Tag><Tag>压力 ≥ {constraints.pressureMin} MPa</Tag><Tag>{constraints.safety ? '启用安全约束' : '未启用安全约束'}</Tag><Tag>{constraints.excludeAbnormal ? '排除异常工况' : '保留异常工况'}</Tag></Space> },
         ]}
         actions={<Space size={6}>
           <Button type={preparationReady ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} loading={generating} onClick={generatePlan}>生成推荐方案</Button>
@@ -377,9 +415,6 @@ const IntelligentExperimentDesign: React.FC = () => {
         )}
       </Card>
 
-      <Modal title="选择模型" open={modelOpen} onCancel={() => setModelOpen(false)} onOk={() => { setModel(modelOptions.find((item) => item.modelId === draftModelId) ?? modelOptions[0]); setConfirmed((prev) => ({ ...prev, model: true })); setModelOpen(false); invalidate(); }}>
-        <Select style={{ width: '100%' }} value={draftModelId} onChange={setDraftModelId} options={modelOptions.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version}｜${item.trustedRange}｜${item.calibratedAt ?? '本次校准'}` }))} />
-      </Modal>
       <Modal title="选择历史数据" open={dataOpen} onCancel={() => setDataOpen(false)} onOk={() => { setDatasets(draftDatasets); setConfirmed((prev) => ({ ...prev, data: true })); setDataOpen(false); invalidate(); }}>
         <Select mode="multiple" style={{ width: '100%' }} value={draftDatasets} onChange={setDraftDatasets} options={DATASETS.map((value) => ({ value }))} />
       </Modal>

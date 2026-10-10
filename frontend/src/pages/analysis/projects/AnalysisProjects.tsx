@@ -419,9 +419,9 @@ const AnalysisProjects: React.FC = () => {
       <PreparationChecklist
         title="分析准备"
         items={[
-          { key: 'task', label: '试验任务', value: task.name, confirmed: confirmed.task, onClick: openTask },
-          { key: 'data', label: '关联数据', value: data.experimentFile, confirmed: confirmed.data, onClick: openData },
-          { key: 'config', label: '分析配置', value: `${config.scope} / ${config.sensitivity}敏感度`, confirmed: confirmed.config, onClick: openConfig },
+          { key: 'task', label: '试验任务', value: task.name, confirmed: confirmed.task, onClick: openTask, preview: <Space size={[4, 4]} wrap><Tag color="blue">{task.status}</Tag><Tag>{task.conditions} 组工况</Tag><Tag>{task.dataCount.toLocaleString()} 条记录</Tag><span>{task.name}</span></Space> },
+          { key: 'data', label: '关联数据', value: data.experimentFile, confirmed: confirmed.data, onClick: openData, preview: <Space size={[4, 4]} wrap><Tag color="blue">试验数据</Tag><span>{data.experimentFile}</span><span>环境：{data.environmentFile}</span><span>控制：{data.controlFile}</span></Space> },
+          { key: 'config', label: '分析配置', value: `${config.scope} / ${config.sensitivity}敏感度`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">范围：{config.scope}</Tag><Tag>敏感度：{config.sensitivity}</Tag><Tag>对比：{config.comparison}</Tag><Tag>指标：{config.metrics.join('、')}</Tag><Tag>内容：{config.contents.join('、')}</Tag></Space> },
         ]}
         actions={<Space size={6}>
           <Button type={preparationReady ? 'primary' : 'default'} icon={<BarChartOutlined />} disabled={!preparationReady} loading={analyzing} onClick={startAnalysis}>开始分析</Button>

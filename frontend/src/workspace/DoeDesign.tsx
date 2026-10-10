@@ -14,7 +14,7 @@ const DoeDesign: React.FC = () => {
   const saveDesign = useCallback((design: { method: string; response: string; factors: Array<{ name: string; type: string; lowLevel: string; highLevel: string; levels: string[]; changeType: string }> }) => {
     if (!targetProject) {
       message.error('当前会话没有可保存成果的项目空间');
-      return;
+      return false;
     }
     const artifact = addArtifact(targetProject.id, createDoeArtifactInput({
       title: design.method,
@@ -23,10 +23,11 @@ const DoeDesign: React.FC = () => {
     }));
     if (!artifact) {
       message.error('DOE 设计保存失败');
-      return;
+      return false;
     }
     recordArtifactForTaskItem({ projectId: targetProject.id, artifactId: artifact.id });
     message.success('DOE 设计方案已保存到当前会话');
+    return true;
   }, [addArtifact, recordArtifactForTaskItem, targetProject]);
 
   return <FunctionBar

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Input, Modal, Tooltip } from 'antd';
-import { DeleteOutlined, EditOutlined, FolderOutlined, HomeOutlined, InboxOutlined, PlusOutlined, PushpinOutlined, SearchOutlined, UndoOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, HomeOutlined, InboxOutlined, PlusOutlined, PushpinOutlined, RightOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
@@ -25,9 +25,11 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
   const [renameTarget, setRenameTarget] = useState<{ kind: 'session' | 'project'; id: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [sectionExpanded, setSectionExpanded] = useState({ pinned: true, recent: true, projects: true, tasks: true });
   const { visibleProjects: allGroups, visibleSessions: sorted, independentSessions: independent, visibleTasks } =
     getSessionSidebarContent(projects, sessions, tasks, search, showArchived);
   const matchesSearch = (session: WorkSession) => session.title.toLowerCase().includes(search.trim().toLowerCase());
+  const toggleSection = (key: keyof typeof sectionExpanded) => setSectionExpanded(previous => ({ ...previous, [key]: !previous[key] }));
   const groups = allGroups.filter(project => showArchived
     ? isArchivedProject(project) || sessions.some(session => session.projectId === project.id && session.archived && matchesSearch(session))
     : !isArchivedProject(project));
@@ -67,22 +69,24 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
     <Input prefix={<SearchOutlined />} placeholder="搜索会话" aria-label="搜索会话" value={search} onChange={event => setSearch(event.target.value)} allowClear />
     <div className="session-sidebar-scroll">
       <button className={`session-sidebar-link ${location.pathname === '/' ? 'is-active' : ''}`} onClick={() => open('/')}><HomeOutlined />工作台</button>
-      {!showArchived && independent.some(session => session.pinned) && <section className="session-nav-section"><div className="session-section-label">置顶</div>{independent.filter(session => session.pinned).map(row)}</section>}
-      <section className="session-nav-section session-recent-list">
-        <div className="session-section-label"><span>{showArchived ? '已归档会话' : '最近会话'}</span>{!showArchived && <Tooltip title="新建会话"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建独立会话" onClick={() => create()} /></Tooltip>}</div>
-        {independent.filter(session => showArchived || !session.pinned).slice(0, 30).map(row)}
-        {independent.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的独立会话' : showArchived ? '暂无归档会话' : '从一项工作开始'}</p>}
+      {!showArchived && independent.some(session => session.pinned) && <section className="session-nav-section session-nav-section--separated"><div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.pinned} onClick={() => toggleSection('pinned')}><RightOutlined className={sectionExpanded.pinned ? 'is-expanded' : ''} /><span>置顶</span></button></div>{sectionExpanded.pinned && independent.filter(session => session.pinned).map(row)}</section>}
+      <section className="session-nav-section session-nav-section--separated session-nav-section--label-highlight session-recent-list">
+        <div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.recent} onClick={() => toggleSection('recent')}><RightOutlined className={sectionExpanded.recent ? 'is-expanded' : ''} /><span>{showArchived ? '已归档会话' : '最近会话'}</span></button>{!showArchived && <Tooltip title="新建会话"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建独立会话" onClick={() => create()} /></Tooltip>}</div>
+        {sectionExpanded.recent && <>
+          {independent.filter(session => showArchived || !session.pinned).slice(0, 30).map(row)}
+          {independent.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的独立会话' : showArchived ? '暂无归档会话' : '从一项工作开始'}</p>}
+        </>}
       </section>
-      <section className="session-nav-section">
-        <div className="session-section-label"><span>{showArchived ? '已归档项目与会话' : '项目'}</span>{!showArchived && <Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建项目" onClick={() => setProjectOpen(true)} />}</div>
-        {groups.map(project => {
+      <section className="session-nav-section session-nav-section--separated session-nav-section--label-highlight">
+        <div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.projects} onClick={() => toggleSection('projects')}><RightOutlined className={sectionExpanded.projects ? 'is-expanded' : ''} /><span>{showArchived ? '已归档项目与会话' : '项目'}</span></button>{!showArchived && <Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建项目" onClick={() => setProjectOpen(true)} />}</div>
+        {sectionExpanded.projects && groups.map(project => {
           const archived = isArchivedProject(project);
           const children = sorted.filter(session => session.projectId === project.id && matchesSearch(session)
             && (showArchived && archived || session.archived === showArchived));
           const deletionBlock = getProjectDeletionBlock(project.id, sessions, tasks);
           return <div key={project.id} className="session-project-group">
             <div className="session-project-heading">
-              <button title={project.name} onClick={() => setExpanded(previous => ({ ...previous, [project.id]: !(previous[project.id] ?? true) }))} aria-expanded={expanded[project.id] ?? true}><FolderOutlined /><span>{project.name}</span><small>{children.length}</small></button>
+              <button title={project.name} onClick={() => setExpanded(previous => ({ ...previous, [project.id]: !(previous[project.id] ?? true) }))} aria-expanded={expanded[project.id] ?? true}><RightOutlined className={`session-tree-toggle ${expanded[project.id] ?? true ? 'is-expanded' : ''}`} /><span>{project.name}</span><small>{children.length}</small></button>
               <div className="session-row-actions">
                 <Tooltip title="重命名"><Button type="text" size="small" icon={<EditOutlined />} aria-label={`重命名项目${project.name}`} onClick={() => rename('project', project.id, project.name)} /></Tooltip>
                 <Tooltip title={archived ? '恢复项目' : '归档'}><Button type="text" size="small" icon={archived ? <UndoOutlined /> : <InboxOutlined />} aria-label={`${archived ? '恢复' : '归档'}项目${project.name}`} onClick={() => useProjectStore.getState().archiveProject(project.id, !archived)} /></Tooltip>
@@ -97,14 +101,14 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
             </div>}
           </div>;
         })}
-        {groups.length === 0 && <p className="session-nav-empty">{showArchived ? '暂无归档项目' : '需要时再用项目归类会话'}</p>}
+        {sectionExpanded.projects && groups.length === 0 && <p className="session-nav-empty">{showArchived ? '暂无归档项目' : '需要时再用项目归类会话'}</p>}
       </section>
-      <section className="session-nav-section">
+      <section className="session-nav-section session-nav-section--separated session-nav-section--label-highlight">
         <div className="session-section-label">
-          <span>{showArchived ? '已归档正式任务' : '正式任务'} <small>{visibleTasks.length}</small></span>
+          <button className="session-section-toggle" aria-expanded={sectionExpanded.tasks} onClick={() => toggleSection('tasks')}><RightOutlined className={sectionExpanded.tasks ? 'is-expanded' : ''} /><span>{showArchived ? '已归档正式任务' : '正式任务'} <small>{visibleTasks.length}</small></span></button>
           {!showArchived && <Tooltip title="在工作台中新建正式任务"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建正式任务" onClick={() => open('/?newTask=1')} /></Tooltip>}
         </div>
-        {visibleTasks.map(task => {
+        {sectionExpanded.tasks && visibleTasks.map(task => {
           const taskKey = `task:${task.id}`;
           const taskExpanded = expanded[taskKey] ?? true;
           const taskSession = getTaskNavigationSession(sessions, task.id);
@@ -113,7 +117,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
           return <div key={task.id} className="session-project-group">
             <div className="session-project-heading">
               <button title={task.title} onClick={() => setExpanded(previous => ({ ...previous, [taskKey]: !taskExpanded }))} aria-expanded={taskExpanded}>
-                <UnorderedListOutlined /><span>{task.title}</span><small>{task.status}</small>
+                <RightOutlined className={`session-tree-toggle ${taskExpanded ? 'is-expanded' : ''}`} /><span>{task.title}</span><small>{task.status}</small>
               </button>
             </div>
             {taskExpanded && <div className="session-group-children">
@@ -128,7 +132,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
             </div>}
           </div>;
         })}
-        {visibleTasks.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的正式任务' : showArchived ? '暂无归档任务' : '还没有正式任务'}</p>}
+        {sectionExpanded.tasks && visibleTasks.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的正式任务' : showArchived ? '暂无归档任务' : '还没有正式任务'}</p>}
       </section>
     </div>
     <div className="session-sidebar-footer"><button className="session-sidebar-link" onClick={() => setShowArchived(!showArchived)}><InboxOutlined />{showArchived ? '返回最近会话' : '已归档'}</button></div>

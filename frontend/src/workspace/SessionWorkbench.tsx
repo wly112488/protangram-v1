@@ -8,6 +8,7 @@ import { useProjectStore } from './projectStore';
 import TaskArtifactScope from './TaskArtifactScope';
 
 const capabilityIcons = {
+  doeMethods: <ExperimentOutlined />,
   doe: <ExperimentOutlined />,
   analysis: <BarChartOutlined />,
   digitalTwin: <DatabaseOutlined />,

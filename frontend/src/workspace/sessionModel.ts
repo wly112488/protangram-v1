@@ -1,7 +1,7 @@
 import type { BusinessRouteState, WorkspaceSessionState } from '../types/businessContext';
 import type { TaskRecord } from './taskTypes';
 
-export type SessionCapability = 'overview' | 'doe' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | 'resources' | 'task';
+export type SessionCapability = 'overview' | 'doe' | 'doeMethods' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | 'resources' | 'task';
 export interface WorkSession {
   id: string;
   title: string;
@@ -18,7 +18,8 @@ export interface WorkSession {
 }
 
 export const sessionCapabilities = [
-  { key: 'doe', path: 'doe', label: '试验设计', description: '配置因子与约束，生成试验方案' },
+  { key: 'doeMethods', path: 'doe-design', label: 'DOE设计', description: '选择田口、全因子等经典设计方法' },
+  { key: 'doe', path: 'doe', label: '智能试验设计', description: '配置模型与约束，生成推荐方案' },
   { key: 'analysis', path: 'analysis', label: '数据分析', description: '分析趋势、异常与根因' },
   { key: 'digitalTwin', path: 'digital-twin', label: '数字孪生', description: '导入数据，校准并验证模型' },
   { key: 'virtualCondition', path: 'virtual-condition', label: '虚拟工况', description: '扩展工况范围，查看预测与风险' },
@@ -69,7 +70,7 @@ export const getSessionResumePath = (session: WorkSession) => session.capability
 
 export const getSessionEntryPath = (session: WorkSession) => session.taskId
   ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}`
-  : getSessionPath(session.id, 'doe');
+  : getSessionPath(session.id, 'doeMethods');
 
 export const resolveSessionHandoff = (context: WorkspaceSessionState, saved?: BusinessRouteState, incoming?: BusinessRouteState | null): BusinessRouteState => {
   const workspaceSession = { ...context, ...(incoming?.workspaceSession ?? saved?.workspaceSession) };

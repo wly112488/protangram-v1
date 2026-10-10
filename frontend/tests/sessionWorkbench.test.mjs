@@ -47,8 +47,15 @@ test('workbench recent activity omits the formal-task shell session', () => {
 });
 
 test('session entry skips the redundant overview and opens the proper workbench', () => {
-  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session/doe');
+  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session/doe-design');
   assert.equal(api.getSessionEntryPath({ id: 'task-session', taskId: 'task / 1' }), '/sessions/task-session/tasks/task%20%2F%201');
+});
+
+test('DOE methods and intelligent experiment design have separate session routes', () => {
+  assert.equal(api.getSessionPath('new-session', 'doeMethods'), '/sessions/new-session/doe-design');
+  assert.equal(api.getCapabilityFromPath('/sessions/new-session/doe-design'), 'doeMethods');
+  assert.equal(api.getSessionPath('new-session', 'doe'), '/sessions/new-session/doe');
+  assert.equal(api.getCapabilityFromPath('/sessions/new-session/doe'), 'doe');
 });
 
 test('independent sessions own separate artifact spaces without changing active organizational project', () => {

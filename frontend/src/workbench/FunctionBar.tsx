@@ -128,24 +128,28 @@ interface FunctionBarProps {
   researchObjects: ResearchObject[];
   onResearchObjectsChange: (objects: ResearchObject[]) => void;
   onDesignGenerated?: (designName: string) => void;
+  onDoeDesignConfirmed?: (design: { method: string; response: string; factors: MethodFactorRow[] }) => void;
   experiments: Array<{ id: string; name: string; associationObjectId?: string }>;
   activeProjectId?: string | null;
   workspaceSession?: WorkspaceSessionState;
   onAssociateObjectToExperiment: (objectId: string, experimentId: string) => void;
   onMergeObjects: (sourceObjectId: string, targetObjectId: string) => void;
   onImportExperiment: (experimentId: string) => void;
+  displayMode?: 'toolbar' | 'doe-design';
 }
 
 const FunctionBar: React.FC<FunctionBarProps> = ({
   researchObjects,
   onResearchObjectsChange,
   onDesignGenerated,
+  onDoeDesignConfirmed,
   experiments,
   activeProjectId = null,
   workspaceSession,
   onAssociateObjectToExperiment,
   onMergeObjects,
   onImportExperiment,
+  displayMode = 'toolbar',
 }) => {
   const navigate = useNavigate();
   const getNavigation = () => createTopLevelNavigationSession(
@@ -211,6 +215,11 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
 
   const handleMethodConfirm = () => {
     if (!selectedMethod) return;
+    onDoeDesignConfirmed?.({
+      method: selectedMethod.description,
+      response: methodResponseName.trim() || '响应变量',
+      factors: methodFactorRows.map(row => ({ ...row, name: row.name.trim() || '未命名因子' })),
+    });
     onDesignGenerated?.(selectedMethod.description);
     message.success('当前设计流程已完成');
     setSelectedMethod(null);
@@ -330,7 +339,19 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
 
   return (
     <>
-      <div className="layout-function-bar">
+      {displayMode === 'doe-design' ? <section className="doe-design-hub">
+        <div className="doe-design-hub-heading">
+          <div><Title level={3}>DOE 设计</Title><Text type="secondary">选择合适的试验设计方法，配置因子与水平并生成设计方案。</Text></div>
+        </div>
+        <div className="doe-design-hub-grid">
+          {quickMethodOptions.map((row, index) => <button type="button" className="doe-design-hub-card" key={row.description} onClick={() => openMethod(row)}>
+            <span className="doe-design-hub-index">{String(index + 1).padStart(2, '0')}</span>
+            <span className={`doe-small-icon ${row.icon}`} />
+            <span className="doe-design-hub-copy"><strong>{row.description.replace('创建', '')}</strong><small>{row.title}</small></span>
+            <span className="doe-design-hub-arrow">›</span>
+          </button>)}
+        </div>
+      </section> : <div className="layout-function-bar">
         {primaryNavigationItems.map((item) => {
           const button = (
             <button
@@ -371,9 +392,9 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
             </Popover>
           );
         })}
-      </div>
+      </div>}
 
-      <EquipmentManagerWindow
+      {displayMode === 'toolbar' && <EquipmentManagerWindow
         open={equipmentManagerOpen}
         researchObjects={researchObjects}
         onResearchObjectsChange={onResearchObjectsChange}
@@ -382,9 +403,9 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
         onMergeObjects={onMergeObjects}
         onImportExperiment={onImportExperiment}
         onClose={() => setEquipmentManagerOpen(false)}
-      />
+      />}
 
-      <Modal
+      {displayMode === 'toolbar' && <Modal
         title="快速设计"
         open={quickDesignOpen}
         width={980}
@@ -415,7 +436,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
             ))}
             </div>
         </div>
-      </Modal>
+      </Modal>}
 
       <Modal
         title={selectedMethod ? selectedMethod.description : '试验设计'}

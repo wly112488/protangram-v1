@@ -47,6 +47,9 @@ export const createCalibrationArtifactInput = (input: FactoryInput): ProjectArti
 export const createDesignArtifactInput = (input: FactoryInput): ProjectArtifactInput =>
   createArtifactInput('design', '智能试验设计', input);
 
+export const createDoeArtifactInput = (input: FactoryInput): ProjectArtifactInput =>
+  createArtifactInput('design', 'DOE设计', input);
+
 export const createAnalysisArtifactInput = (input: FactoryInput): ProjectArtifactInput =>
   createArtifactInput('analysis', '试验数据分析', input);
 

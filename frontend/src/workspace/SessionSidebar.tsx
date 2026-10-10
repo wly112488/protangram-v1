@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Input, Modal, Tooltip } from 'antd';
+import { Alert, Button, Card, Input, Modal, Radio, Select, Tooltip, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, HomeOutlined, InboxOutlined, PlusOutlined, PushpinOutlined, RightOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSessionStore } from './sessionStore';
@@ -8,8 +8,10 @@ import { useTaskStore } from './taskStore';
 import { getProjectDeletionBlock, getSessionPath, getSessionResumePath, type WorkSession } from './sessionModel';
 import { getSessionSidebarContent, getTaskNavigationSession } from './sessionSidebarModel';
 import type { Project } from './types';
+import { createDoeTemplateSessionDraft, loadDoeTemplates, type DoeTemplate } from './experimentTemplateModel';
 
 const isArchivedProject = (project: Project) => project.archived ?? project.status === '已归档';
+const { Text } = Typography;
 
 const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => void; mobileOpen: boolean }> = ({ activeId, onNavigate, mobileOpen }) => {
   const navigate = useNavigate();
@@ -21,6 +23,11 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
+  const [createExperimentOpen, setCreateExperimentOpen] = useState(false);
+  const [createProjectId, setCreateProjectId] = useState<string | undefined>();
+  const [createMode, setCreateMode] = useState<'blank' | 'template'>('blank');
+  const [doeTemplates, setDoeTemplates] = useState<DoeTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [projectName, setProjectName] = useState('');
   const [renameTarget, setRenameTarget] = useState<{ kind: 'session' | 'project'; id: string } | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -34,7 +41,25 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
     ? isArchivedProject(project) || sessions.some(session => session.projectId === project.id && session.archived && matchesSearch(session))
     : !isArchivedProject(project));
   const open = (path: string) => { navigate(path); onNavigate(); };
-  const create = (projectId?: string) => open(getSessionPath(useSessionStore.getState().createSession({ projectId }), 'doe'));
+  const create = (projectId?: string) => {
+    const templates = loadDoeTemplates();
+    setDoeTemplates(templates);
+    setSelectedTemplateId(templates[0]?.id ?? '');
+    setCreateProjectId(projectId);
+    setCreateMode('blank');
+    setCreateExperimentOpen(true);
+  };
+  const confirmCreateExperiment = () => {
+    const template = createMode === 'template' ? doeTemplates.find((item) => item.id === selectedTemplateId) : undefined;
+    if (createMode === 'template' && !template) return;
+    const id = useSessionStore.getState().createSession({
+      title: template ? `${template.name}（新实验）` : '新实验',
+      projectId: createProjectId,
+      ...(template ? { initialDrafts: createDoeTemplateSessionDraft(template) } : {}),
+    });
+    setCreateExperimentOpen(false);
+    open(getSessionPath(id, 'doe'));
+  };
   const rename = (kind: 'session' | 'project', id: string, value: string) => { setRenameTarget({ kind, id }); setRenameValue(value); };
   const saveRename = () => {
     if (!renameTarget || !renameValue.trim()) return;
@@ -71,7 +96,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
       <button className={`session-sidebar-link ${location.pathname === '/' ? 'is-active' : ''}`} onClick={() => open('/')}><HomeOutlined />工作台</button>
       {!showArchived && independent.some(session => session.pinned) && <section className="session-nav-section session-nav-section--separated"><div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.pinned} onClick={() => toggleSection('pinned')}><RightOutlined className={sectionExpanded.pinned ? 'is-expanded' : ''} /><span>置顶</span></button></div>{sectionExpanded.pinned && independent.filter(session => session.pinned).map(row)}</section>}
       <section className="session-nav-section session-nav-section--separated session-nav-section--label-highlight session-recent-list">
-        <div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.recent} onClick={() => toggleSection('recent')}><RightOutlined className={sectionExpanded.recent ? 'is-expanded' : ''} /><span>{showArchived ? '已归档会话' : '最近会话'}</span></button>{!showArchived && <Tooltip title="新建会话"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建独立会话" onClick={() => create()} /></Tooltip>}</div>
+        <div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.recent} onClick={() => toggleSection('recent')}><RightOutlined className={sectionExpanded.recent ? 'is-expanded' : ''} /><span>{showArchived ? '已归档会话' : '最近会话'}</span></button>{!showArchived && <Tooltip title="新建对话或实验"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建对话或实验" onClick={() => create()} /></Tooltip>}</div>
         {sectionExpanded.recent && <>
           {independent.filter(session => showArchived || !session.pinned).slice(0, 30).map(row)}
           {independent.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的独立会话' : showArchived ? '暂无归档会话' : '从一项工作开始'}</p>}
@@ -92,7 +117,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
                 <Tooltip title={archived ? '恢复项目' : '归档'}><Button type="text" size="small" icon={archived ? <UndoOutlined /> : <InboxOutlined />} aria-label={`${archived ? '恢复' : '归档'}项目${project.name}`} onClick={() => useProjectStore.getState().archiveProject(project.id, !archived)} /></Tooltip>
                 <Tooltip title={deletionBlock ?? '删除'}><Button type="text" size="small" danger disabled={Boolean(deletionBlock)} icon={<DeleteOutlined />} aria-label={`删除项目${project.name}`} onClick={() => deleteProject(project)} /></Tooltip>
               </div>
-              {!showArchived && <Button type="text" size="small" icon={<PlusOutlined />} aria-label={`在${project.name}中新建会话`} onClick={() => create(project.id)} />}
+              {!showArchived && <Button type="text" size="small" icon={<PlusOutlined />} aria-label={`在${project.name}中新建实验`} onClick={() => create(project.id)} />}
             </div>
             {(expanded[project.id] ?? true) && <div className="session-group-children">
               {children.map(row)}
@@ -136,6 +161,39 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
       </section>
     </div>
     <div className="session-sidebar-footer"><button className="session-sidebar-link" onClick={() => setShowArchived(!showArchived)}><InboxOutlined />{showArchived ? '返回最近会话' : '已归档'}</button></div>
+    <Modal
+      title="新建实验"
+      open={createExperimentOpen}
+      okText={createMode === 'template' ? '基于模板创建' : '全新创建'}
+      cancelText="取消"
+      okButtonProps={{ disabled: createMode === 'template' && !selectedTemplateId }}
+      onCancel={() => setCreateExperimentOpen(false)}
+      onOk={confirmCreateExperiment}
+    >
+      <Radio.Group value={createMode} onChange={(event) => setCreateMode(event.target.value)} style={{ width: '100%' }}>
+        <Card size="small" hoverable onClick={() => setCreateMode('blank')} style={{ marginBottom: 10, borderColor: createMode === 'blank' ? '#3479e5' : undefined }}>
+          <Radio value="blank">全新创建（从 0 到 1）</Radio>
+          <Text type="secondary" style={{ display: 'block', margin: '4px 0 0 24px', fontSize: 12 }}>创建空白实验，从头配置并开展专业工作。</Text>
+        </Card>
+        <Card size="small" hoverable onClick={() => setCreateMode('template')} style={{ borderColor: createMode === 'template' ? '#3479e5' : undefined }}>
+          <Radio value="template">基于模板创建（从 1 到 100）</Radio>
+          <Text type="secondary" style={{ display: 'block', margin: '4px 0 10px 24px', fontSize: 12 }}>继承模板中的设计和配置，作为独立实验继续修改。</Text>
+          {doeTemplates.length > 0 ? <Select
+            aria-label="选择实验模板"
+            value={selectedTemplateId || undefined}
+            placeholder="选择 DOE 实验模板"
+            disabled={createMode !== 'template'}
+            style={{ width: '100%' }}
+            options={doeTemplates.map((template) => ({
+              value: template.id,
+              label: `${template.name} · ${template.designMethod} · ${template.factorCount} 个因子`,
+            }))}
+            onChange={setSelectedTemplateId}
+            onClick={(event) => event.stopPropagation()}
+          /> : <Alert type="info" showIcon title="暂无 DOE 模板，可先全新创建并在设计配置中保存模板。" />}
+        </Card>
+      </Radio.Group>
+    </Modal>
     <Modal title="新建项目" open={projectOpen} okText="创建项目" cancelText="取消" onCancel={() => setProjectOpen(false)} onOk={() => { if (!projectName.trim()) return; useProjectStore.getState().createProject({ name: projectName.trim(), description: '组织研究会话与共享成果' }); setProjectName(''); setProjectOpen(false); }}><Input placeholder="项目名称" aria-label="项目名称" value={projectName} onChange={event => setProjectName(event.target.value)} /></Modal>
     <Modal title={renameTarget?.kind === 'project' ? '重命名项目' : '重命名会话'} open={Boolean(renameTarget)} okText="保存" cancelText="取消" onCancel={() => setRenameTarget(null)} onOk={saveRename}><Input aria-label="名称" autoFocus value={renameValue} onChange={event => setRenameValue(event.target.value)} onPressEnter={saveRename} /></Modal>
   </aside>;

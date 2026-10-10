@@ -22,7 +22,7 @@ interface SessionStore {
   sessions: WorkSession[];
   activeSessionId: string | null;
   saveError: string | null;
-  createSession: (input?: { title?: string; projectId?: string }) => string;
+  createSession: (input?: { title?: string; projectId?: string; initialDrafts?: WorkSession['drafts'] }) => string;
   ensureTaskSession: (task: { id: string; title: string; projectId: string }) => string;
   ensureProjectSession: (projectId: string) => string;
   getWorkspaceSession: (id: string) => WorkspaceSessionState | undefined;
@@ -55,7 +55,7 @@ export const useSessionStore = create<SessionStore>((set, get) => {
   };
   const update = (id: string, fn: (session: WorkSession) => WorkSession) => commit(get().sessions.map(session =>
     session.id === id ? { ...fn(session), updatedAt: new Date().toISOString() } : session));
-  const create = (input: { title?: string; projectId?: string; taskId?: string; storageProjectId?: string }) => {
+  const create = (input: { title?: string; projectId?: string; taskId?: string; storageProjectId?: string; initialDrafts?: WorkSession['drafts'] }) => {
     const id = `session-${crypto.randomUUID()}`;
     const title = input.title?.trim() || '新会话';
     const storageProjectId = input.storageProjectId ?? useProjectStore.getState().createProject({
@@ -64,7 +64,9 @@ export const useSessionStore = create<SessionStore>((set, get) => {
     const now = new Date().toISOString();
     commit([...get().sessions, { id, title, projectId: input.projectId, taskId: input.taskId, storageProjectId,
       capability: input.taskId ? 'task' : 'overview', pinned: false, archived: false,
-      createdAt: now, updatedAt: now, drafts: {}, handoffs: {},
+      createdAt: now, updatedAt: now,
+      drafts: input.initialDrafts ? JSON.parse(JSON.stringify(input.initialDrafts)) as WorkSession['drafts'] : {},
+      handoffs: {},
     }], id);
     return id;
   };

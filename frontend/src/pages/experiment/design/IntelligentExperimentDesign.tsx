@@ -20,6 +20,7 @@ import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
 import { useSessionModels } from '@/workspace/useSessionModels';
+import type { DoeTemplate } from '@/workspace/experimentTemplateModel';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -115,6 +116,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   const [generated, setGenerated] = useSessionState('generated', false);
   const [activeTab, setActiveTab] = useSessionState('activeTab', 'plan');
   const [plan, setPlan] = useSessionState<PlanRow[]>('plan', createPlan(initialConfig));
+  const [startingTemplate, setStartingTemplate] = useSessionState<DoeTemplate | null>('startingTemplate', null);
   const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { model: true, data: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
   const autoStarted = useRef(false);
@@ -180,7 +182,12 @@ const IntelligentExperimentDesign: React.FC = () => {
     return artifact;
   }, [projects, addArtifact, config, plan, model, datasets, constraints, recordArtifactForTaskItem, session.sessionId]);
 
-  const persistDoeDesign = useCallback((design: { method: string; response: string; factors: Array<{ name: string; type: string; lowLevel: string; highLevel: string; levels: string[]; changeType: string }> }) => {
+  const persistDoeDesign = useCallback((design: {
+    method: string;
+    response: string;
+    factors: Array<{ name: string; type: string; lowLevel: string; highLevel: string; levels: string[]; changeType: string }>;
+    replicates?: { count?: number; hardToChange?: number; easyToChange?: string };
+  }) => {
     if (!targetProject) {
       message.error('当前会话没有可保存成果的项目空间');
       return false;
@@ -188,7 +195,7 @@ const IntelligentExperimentDesign: React.FC = () => {
     const artifact = addArtifact(targetProject.id, createDoeArtifactInput({
       title: design.method,
       summary: `${design.method} · ${design.factors.length} 个因子 · 响应：${design.response}`,
-      payload: { designMethod: design.method, response: design.response, factors: design.factors },
+      payload: { designMethod: design.method, response: design.response, factors: design.factors, replicates: design.replicates },
     }));
     if (!artifact) {
       message.error('DOE 设计保存失败');
@@ -356,6 +363,8 @@ const IntelligentExperimentDesign: React.FC = () => {
             onMergeObjects={() => undefined}
             onImportExperiment={() => undefined}
             onDoeDesignConfirmed={persistDoeDesign}
+            initialTemplate={startingTemplate}
+            onInitialTemplateConfirmed={() => setStartingTemplate(null)}
           />
         </div>
         <Tag color={targetProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : targetProject ? `项目：${targetProject.name}` : '独立模式'}</Tag>

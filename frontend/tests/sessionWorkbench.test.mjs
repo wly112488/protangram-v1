@@ -9,8 +9,9 @@ globalThis.localStorage = {
   setItem: (key, value) => memory.set(key, value),
   removeItem: (key) => memory.delete(key),
 };
+globalThis.window = { localStorage: globalThis.localStorage };
 const bundle = await build({
-  stdin: { contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionModel'; export * from './src/workspace/businessSessionModel'; export * from './src/workspace/taskArtifactAssociation'; export * from './src/workspace/sessionSidebarModel';", resolveDir: process.cwd() },
+  stdin: { contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionModel'; export * from './src/workspace/businessSessionModel'; export * from './src/workspace/taskArtifactAssociation'; export * from './src/workspace/sessionSidebarModel'; export * from './src/workspace/experimentTemplateModel';", resolveDir: process.cwd() },
   bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',
 });
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
@@ -52,6 +53,82 @@ test('session entry skips the redundant overview and opens the proper workbench'
   assert.equal(api.getSessionEntryPath({ id: 'task-session', taskId: 'task / 1' }), '/sessions/task-session/tasks/task%20%2F%201');
 });
 
+test('blank experiment creation enters DOE without adding a template draft', () => {
+  const id = sessions.getState().createSession({ title: '全新实验' });
+  const created = sessions.getState().sessions.find(session => session.id === id);
+
+  assert.equal(api.getSessionEntryPath(created), `/sessions/${id}/doe`);
+  assert.equal(created.drafts.doe, undefined);
+  assert.notEqual(created.storageProjectId, created.projectId);
+});
+
+test('template experiment creation clones its starting DOE draft into a separate session', () => {
+  const template = {
+    id: 'doe-template-source',
+    name: '高温转速试验',
+    designMethod: '创建两水平因子设计',
+    factorCount: 1,
+    factors: ['转速'],
+    responses: ['推力'],
+    factorSettings: [{ name: '转速', type: '连续', lowLevel: '6000', highLevel: '8000', levels: ['6000', '8000'] }],
+  };
+  const initialDrafts = { doe: { startingTemplate: template } };
+  const firstId = sessions.getState().createSession({ title: '高温转速试验副本 A', initialDrafts });
+  const secondId = sessions.getState().createSession({ title: '高温转速试验副本 B', initialDrafts });
+  const first = sessions.getState().sessions.find(session => session.id === firstId);
+  const second = sessions.getState().sessions.find(session => session.id === secondId);
+
+  assert.deepEqual(first.drafts.doe?.startingTemplate, template);
+  assert.notEqual(first.storageProjectId, second.storageProjectId);
+  template.factorSettings[0].levels[0] = '9000';
+  assert.equal(first.drafts.doe?.startingTemplate?.factorSettings[0].levels[0], '6000');
+  sessions.getState().updateDraft(firstId, 'doe', 'startingTemplate', { ...first.drafts.doe?.startingTemplate, name: '副本 A 修改' });
+  assert.equal(sessions.getState().sessions.find(session => session.id === secondId).drafts.doe?.startingTemplate?.name, '高温转速试验');
+});
+
+test('DOE template loading preserves legacy templates and carries saved configuration into a detached draft', () => {
+  const legacyTemplate = {
+    id: 'legacy-doe-template',
+    name: '旧模板',
+    designMethod: '创建两水平因子设计',
+    factorCount: 1,
+    factors: ['转速'],
+    responses: ['推力'],
+  };
+  const fullTemplate = {
+    ...legacyTemplate,
+    id: 'configured-doe-template',
+    name: '完整模板',
+    factorSettings: [{ name: '转速', type: '连续', lowLevel: '6000', highLevel: '8000', levels: ['6000', '8000'] }],
+    levelCount: 2,
+    replicateCount: 4,
+  };
+  localStorage.setItem(api.DOE_TEMPLATE_STORAGE_KEY, JSON.stringify([legacyTemplate, fullTemplate, null]));
+
+  const loaded = api.loadDoeTemplates();
+  const draft = api.createDoeTemplateSessionDraft(loaded[1]);
+
+  assert.equal(loaded.length, 2);
+  assert.deepEqual(loaded[0].factorSettings, undefined);
+  assert.equal(draft.doe.startingTemplate.factorSettings[0].levels[0], '6000');
+  draft.doe.startingTemplate.factorSettings[0].levels[0] = '9000';
+  assert.equal(loaded[1].factorSettings[0].levels[0], '6000');
+});
+
+test('new experiment entry offers blank and existing-template paths into the same DOE workbench', () => {
+  const sidebarSource = readFileSync(new URL('../src/workspace/SessionSidebar.tsx', import.meta.url), 'utf8');
+  const designSource = readFileSync(new URL('../src/pages/experiment/design/IntelligentExperimentDesign.tsx', import.meta.url), 'utf8');
+  const functionBarSource = readFileSync(new URL('../src/workbench/FunctionBar.tsx', import.meta.url), 'utf8');
+
+  assert.match(sidebarSource, /全新创建/);
+  assert.match(sidebarSource, /基于模板创建/);
+  assert.match(sidebarSource, /loadDoeTemplates/);
+  assert.match(sidebarSource, /initialDrafts/);
+  assert.match(sidebarSource, /open\(getSessionPath\(id, 'doe'\)\)/);
+  assert.match(designSource, /startingTemplate/);
+  assert.match(functionBarSource, /initialTemplate/);
+});
+
 test('DOE methods share the intelligent experiment design capability and legacy routes resume there', () => {
   assert.equal(api.getSessionPath('new-session', 'doeMethods'), '/sessions/new-session/doe');
   assert.equal(api.getCapabilityFromPath('/sessions/new-session/doe-design'), 'doe');
@@ -76,7 +153,7 @@ test('primary capability pages place model choices in the heading and keep them 
   assert.match(designSource, /ariaLabel="智能实验设计模型选择"/);
   assert.match(twinSource, /ariaLabel="试验数字孪生模型选择"/);
   assert.match(virtualSource, /ariaLabel="虚拟工况扩展模型选择"/);
-  assert.match(modelChoiceSource, /model-choice-strip/);
+  assert.match(modelChoiceSource, /workspace-top-choice-group/);
   assert.match(modelChoiceSource, /aria-pressed=\{selected\}/);
   assert.match(functionBarSource, /if \(saved === false\) return;/);
 });

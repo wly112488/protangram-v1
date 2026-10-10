@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Button, Form, Input, Modal, Popover, Select, Typography, message } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Button, Form, Input, Modal, Popover, Select, Typography, message } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { primaryNavigationItems } from '@/workspace/presentationModel';
 import { createTaskContextSearch, createTopLevelNavigationSession, createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
+import { loadDoeTemplates, saveDoeTemplates, type DoeFactorType, type DoeTemplate } from '@/workspace/experimentTemplateModel';
 import type { WorkspaceSessionState } from '@/types/businessContext';
 import EquipmentManagerWindow, { type ResearchObject } from './EquipmentManagerWindow';
 
@@ -20,7 +21,7 @@ interface MethodRow {
   hasChangeType?: boolean;
 }
 
-type FactorType = '连续' | '类别' | '混料';
+type FactorType = DoeFactorType;
 
 interface MethodFactorRow {
   name: string;
@@ -31,36 +32,12 @@ interface MethodFactorRow {
   levels: string[];
 }
 
-interface DoeTemplate {
-  id: string;
-  name: string;
-  designMethod: string;
-  factorCount: number;
-  factors: string[];
-  responses: string[];
-}
-
 interface TemplateLevelRow {
   factorName: string;
   lowLevel: string;
   highLevel: string;
   changeType?: string;
 }
-
-const TEMPLATE_STORAGE_KEY = 'protangram-doe-templates';
-
-const loadDoeTemplates = (): DoeTemplate[] => {
-  try {
-    const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY);
-    return raw ? JSON.parse(raw) as DoeTemplate[] : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveDoeTemplates = (templates: DoeTemplate[]) => {
-  localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
-};
 
 const getQuickMethodOptions = (): MethodRow[] => [
   {
@@ -128,7 +105,12 @@ interface FunctionBarProps {
   researchObjects: ResearchObject[];
   onResearchObjectsChange: (objects: ResearchObject[]) => void;
   onDesignGenerated?: (designName: string) => void;
-  onDoeDesignConfirmed?: (design: { method: string; response: string; factors: MethodFactorRow[] }) => boolean | void;
+  onDoeDesignConfirmed?: (design: {
+    method: string;
+    response: string;
+    factors: MethodFactorRow[];
+    replicates?: { count?: number; hardToChange?: number; easyToChange?: string };
+  }) => boolean | void;
   experiments: Array<{ id: string; name: string; associationObjectId?: string }>;
   activeProjectId?: string | null;
   workspaceSession?: WorkspaceSessionState;
@@ -136,6 +118,8 @@ interface FunctionBarProps {
   onMergeObjects: (sourceObjectId: string, targetObjectId: string) => void;
   onImportExperiment: (experimentId: string) => void;
   displayMode?: 'toolbar' | 'doe-design';
+  initialTemplate?: DoeTemplate | null;
+  onInitialTemplateConfirmed?: () => void;
 }
 
 const FunctionBar: React.FC<FunctionBarProps> = ({
@@ -150,6 +134,8 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   onMergeObjects,
   onImportExperiment,
   displayMode = 'toolbar',
+  initialTemplate,
+  onInitialTemplateConfirmed,
 }) => {
   const navigate = useNavigate();
   const getNavigation = () => createTopLevelNavigationSession(
@@ -176,6 +162,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   const [templateEasyReplicateCount, setTemplateEasyReplicateCount] = useState('无');
   const [methodResponseName, setMethodResponseName] = useState('');
   const [methodFactorRows, setMethodFactorRows] = useState<MethodFactorRow[]>([]);
+  const appliedInitialTemplate = useRef<string | null>(null);
 
   const handleGroupClick = (group: string) => {
     const groupRoutes: Record<string, string> = {
@@ -204,6 +191,42 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   };
 
   const quickMethodOptions = getQuickMethodOptions();
+
+  useEffect(() => {
+    if (!initialTemplate || appliedInitialTemplate.current === initialTemplate.id) return;
+    appliedInitialTemplate.current = initialTemplate.id;
+    const method = quickMethodOptions.find((item) => item.description === initialTemplate.designMethod);
+    if (!method) {
+      message.warning(`模板“${initialTemplate.name}”中的设计方法当前不可用`);
+      return;
+    }
+    const savedLevelCount = initialTemplate.levelCount
+      ?? Math.max(0, ...(initialTemplate.factorSettings ?? []).map((factor) => factor.levels.length));
+    const levelCount = Math.min(5, Math.max(2, savedLevelCount || 4));
+    const factorCount = Math.min(6, Math.max(1, initialTemplate.factorCount || initialTemplate.factors.length));
+    const defaults = createMethodFactorRows(factorCount, method, levelCount);
+    const rows = defaults.map((row, index) => {
+      const saved = initialTemplate.factorSettings?.[index];
+      return saved ? {
+        ...row,
+        name: saved.name || initialTemplate.factors[index] || row.name,
+        type: method.fixedFactorType ?? saved.type ?? row.type,
+        lowLevel: saved.lowLevel ?? row.lowLevel,
+        highLevel: saved.highLevel ?? row.highLevel,
+        changeType: saved.changeType ?? row.changeType,
+        levels: Array.from({ length: levelCount }, (_, levelIndex) => saved.levels[levelIndex] ?? ''),
+      } : { ...row, name: initialTemplate.factors[index] || row.name };
+    });
+    setActiveFactorCount(factorCount);
+    setGeneralLevelCount(levelCount);
+    setSelectedMethod(method);
+    setMethodResponseName(initialTemplate.responses[0] ?? '响应变量');
+    setMethodFactorRows(rows);
+    setTemplateReplicateCount(initialTemplate.replicateCount ?? 2);
+    setTemplateHardReplicateCount(initialTemplate.hardReplicateCount ?? 2);
+    setTemplateEasyReplicateCount(initialTemplate.easyReplicateCount ?? '无');
+  }, [initialTemplate, quickMethodOptions]);
+
   const factorCount = activeFactorCount;
   const isSplitPlotMethod = Boolean(selectedMethod?.hasChangeType);
   const isGeneralFactorialMethod = selectedMethod?.levelMode === 'multi-level';
@@ -219,12 +242,16 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       method: selectedMethod.description,
       response: methodResponseName.trim() || '响应变量',
       factors: methodFactorRows.map(row => ({ ...row, name: row.name.trim() || '未命名因子' })),
+      replicates: isSplitPlotMethod
+        ? { hardToChange: templateHardReplicateCount, easyToChange: templateEasyReplicateCount }
+        : { count: templateReplicateCount },
     });
     if (saved === false) return;
     onDesignGenerated?.(selectedMethod.description);
     message.success('当前设计流程已完成');
     setSelectedMethod(null);
     setQuickDesignOpen(false);
+    onInitialTemplateConfirmed?.();
   };
 
   const openMethod = (method: MethodRow, nextFactorCount = factorCount) => {
@@ -301,6 +328,11 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
         methodFactorRows[index]?.name?.trim() || `因子${index + 1}`,
       ),
       responses: [methodResponseName.trim() || '响应变量'],
+      factorSettings: methodFactorRows.slice(0, factorCount).map((row) => ({ ...row, levels: [...row.levels] })),
+      levelCount: generalLevelCount,
+      replicateCount: templateReplicateCount,
+      hardReplicateCount: templateHardReplicateCount,
+      easyReplicateCount: templateEasyReplicateCount,
     };
     const nextTemplates = [...templates, template];
     setTemplates(nextTemplates);
@@ -312,14 +344,14 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
   const openTemplateDesign = (template: DoeTemplate) => {
     setSelectedTemplate(template);
     setTemplateResponseName(template.responses[0] ?? '响应变量');
-    setTemplateReplicateCount(2);
-    setTemplateHardReplicateCount(2);
-    setTemplateEasyReplicateCount('无');
+    setTemplateReplicateCount(template.replicateCount ?? 2);
+    setTemplateHardReplicateCount(template.hardReplicateCount ?? 2);
+    setTemplateEasyReplicateCount(template.easyReplicateCount ?? '无');
     setTemplateLevelRows(template.factors.map((factorName, index) => ({
-      factorName,
-      lowLevel: '',
-      highLevel: '',
-      changeType: index === 0 ? '难以改变' : '易于改变',
+      factorName: template.factorSettings?.[index]?.name ?? factorName,
+      lowLevel: template.factorSettings?.[index]?.lowLevel ?? '',
+      highLevel: template.factorSettings?.[index]?.highLevel ?? '',
+      changeType: template.factorSettings?.[index]?.changeType ?? (index === 0 ? '难以改变' : '易于改变'),
     })));
   };
 
@@ -331,11 +363,25 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
 
   const confirmTemplateDesign = () => {
     if (!selectedTemplate) return;
+    const saved = onDoeDesignConfirmed?.({
+      method: selectedTemplate.designMethod,
+      response: templateResponseName.trim() || selectedTemplate.responses[0] || '响应变量',
+      factors: templateLevelRows.map((row, index) => ({
+        name: row.factorName.trim() || `因子${index + 1}`,
+        type: selectedTemplate.factorSettings?.[index]?.type ?? '连续',
+        lowLevel: row.lowLevel,
+        highLevel: row.highLevel,
+        levels: [row.lowLevel, row.highLevel],
+        changeType: row.changeType ?? (index === 0 ? '难以改变' : '易于改变'),
+      })),
+    });
+    if (saved === false) return;
     onDesignGenerated?.(selectedTemplate.designMethod);
     message.success('已根据模板生成实验');
     setSelectedTemplate(null);
     setTemplateLevelRows([]);
     setTemplateLibraryOpen(false);
+    onInitialTemplateConfirmed?.();
   };
 
   return (
@@ -455,6 +501,12 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       >
         {selectedMethod && (
           <div className="doe-method-body">
+            {initialTemplate && <Alert
+              type="info"
+              showIcon
+              title={`已载入模板“${initialTemplate.name}”作为当前实验副本，后续修改不会影响原模板。`}
+              style={{ marginBottom: 12 }}
+            />}
             <Form className="doe-method-form">
               <div className="doe-method-section-title">响应</div>
               <div className="doe-method-row">
@@ -606,7 +658,8 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                     <label>难以改变因子的仿行数:</label>
                     <Select
                       className="doe-replicate-select"
-                      defaultValue={2}
+                      value={templateHardReplicateCount}
+                      onChange={setTemplateHardReplicateCount}
                       options={[1, 2, 3, 4, 5].map((value) => ({ value, label: String(value) }))}
                     />
                   </div>
@@ -614,7 +667,8 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                     <label>易改变因子的仿行数:</label>
                     <Select
                       className="doe-replicate-select"
-                      defaultValue="无"
+                      value={templateEasyReplicateCount}
+                      onChange={setTemplateEasyReplicateCount}
                       options={['无', '2', '3', '4'].map((value) => ({ value, label: value }))}
                     />
                   </div>
@@ -624,7 +678,8 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
                   <label>仿行数:</label>
                   <Select
                     className="doe-replicate-select"
-                    defaultValue={2}
+                    value={templateReplicateCount}
+                    onChange={setTemplateReplicateCount}
                     options={[1, 2, 3, 4, 5].map((value) => ({ value, label: String(value) }))}
                   />
                 </div>

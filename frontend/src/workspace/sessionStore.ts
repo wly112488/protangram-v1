@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { WorkspaceSessionState } from '../types/businessContext';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
-import { getProjectDeletionBlock, getSessionWorkspaceContext, getSessionDraftKey, type SessionCapability, type WorkSession } from './sessionModel';
+import { getProjectDeletionBlock, getSessionWorkspaceContext, getSessionDraftKey, type SessionCapability, type PhysicalBusinessScope, type WorkSession } from './sessionModel';
 
 export const SESSION_STORAGE_KEY = 'protangram-work-sessions-v1';
 
@@ -22,7 +22,7 @@ interface SessionStore {
   sessions: WorkSession[];
   activeSessionId: string | null;
   saveError: string | null;
-  createSession: (input?: { title?: string; projectId?: string; initialDrafts?: WorkSession['drafts'] }) => string;
+  createSession: (input?: { title?: string; projectId?: string; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => string;
   ensureTaskSession: (task: { id: string; title: string; projectId: string }) => string;
   ensureProjectSession: (projectId: string) => string;
   getWorkspaceSession: (id: string) => WorkspaceSessionState | undefined;
@@ -55,14 +55,14 @@ export const useSessionStore = create<SessionStore>((set, get) => {
   };
   const update = (id: string, fn: (session: WorkSession) => WorkSession) => commit(get().sessions.map(session =>
     session.id === id ? { ...fn(session), updatedAt: new Date().toISOString() } : session));
-  const create = (input: { title?: string; projectId?: string; taskId?: string; storageProjectId?: string; initialDrafts?: WorkSession['drafts'] }) => {
+  const create = (input: { title?: string; projectId?: string; taskId?: string; storageProjectId?: string; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => {
     const id = `session-${crypto.randomUUID()}`;
     const title = input.title?.trim() || '新会话';
     const storageProjectId = input.storageProjectId ?? useProjectStore.getState().createProject({
       name: title, sessionOwnerId: id, description: '会话数据与成果', status: '进行中',
     });
     const now = new Date().toISOString();
-    commit([...get().sessions, { id, title, projectId: input.projectId, taskId: input.taskId, storageProjectId,
+    commit([...get().sessions, { id, title, projectId: input.projectId, taskId: input.taskId, storageProjectId, businessScope: input.businessScope,
       capability: input.taskId ? 'task' : 'overview', pinned: false, archived: false,
       createdAt: now, updatedAt: now,
       drafts: input.initialDrafts ? JSON.parse(JSON.stringify(input.initialDrafts)) as WorkSession['drafts'] : {},

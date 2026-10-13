@@ -37,6 +37,7 @@ import ProjectContent from '@/workspace/ProjectContent';
 import ProjectResourcesPage from '@/workspace/ProjectResourcesPage';
 import SessionHome from '@/workspace/SessionHome';
 import SessionWorkbench, { SessionEntryRedirect } from '@/workspace/SessionWorkbench';
+import PhysicalObjectsPage from '@/workspace/PhysicalObjectsPage';
 
 /**
  * 应用路由配置
@@ -47,8 +48,9 @@ const router = createBrowserRouter([
     path: '/',
     element: <MainLayout />,
     children: [
-      { index: true, element: <SessionHome /> },
-      { path: 'task-center', element: <Navigate to="/" replace /> },
+      { index: true, element: <PhysicalObjectsPage /> },
+      { path: 'physical-objects', element: <PhysicalObjectsPage /> },
+      { path: 'task-center', element: <SessionHome /> },
       { path: 'sessions/:sessionId', element: <SessionWorkbench />, children: [
         { index: true, element: <SessionEntryRedirect /> },
         { path: 'doe-design', element: <IntelligentExperimentDesign /> },

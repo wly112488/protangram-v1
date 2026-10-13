@@ -4,7 +4,7 @@ import { MenuOutlined, RobotOutlined } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import TrialAIAssistant from '@/components/TrialAIAssistant';
 import ThemeToggle from '@/components/ThemeToggle';
-import SessionSidebar from './SessionSidebar';
+import BusinessSidebar from './BusinessSidebar';
 import { useSessionStore } from './sessionStore';
 import { useTaskStore } from './taskStore';
 import { getCapabilityFromPath, getLegacySessionPath, getSessionIdFromLocation, getSessionPath } from './sessionModel';
@@ -60,8 +60,8 @@ const SessionShell: React.FC = () => {
   // Navigation changes own the bridge; draft writes must not retrigger it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
-  return <div className="workspace-shell session-shell"><SessionSidebar activeId={routeId} mobileOpen={mobileOpen} onNavigate={() => setMobileOpen(false)} />{mobileOpen && <button className="session-sidebar-backdrop" aria-label="关闭会话导航" onClick={() => setMobileOpen(false)} />}
-    <div className="session-main"><div className="session-topbar"><Button className="session-mobile-toggle" icon={<MenuOutlined />} aria-label="打开会话导航" aria-expanded={mobileOpen} aria-controls="session-sidebar" onClick={() => setMobileOpen(!mobileOpen)} /><span>{routeId ? '工作会话' : location.pathname === '/task-center' ? '正式任务' : '工作台'}</span><div><ThemeToggle /><Button icon={<RobotOutlined />} onClick={() => setAssistantOpen(true)}>AI 助手</Button></div></div><main className="workspace-center session-main-content">{needBridge && !projectLanding ? <div className="session-loading">正在恢复会话…</div> : <Outlet />}</main></div>
+  return <div className="workspace-shell session-shell"><BusinessSidebar mobileOpen={mobileOpen} onNavigate={() => setMobileOpen(false)} />{mobileOpen && <button className="session-sidebar-backdrop" aria-label="关闭业务导航" onClick={() => setMobileOpen(false)} />}
+    <div className="session-main"><div className="session-topbar"><Button className="session-mobile-toggle" icon={<MenuOutlined />} aria-label="打开业务导航" aria-expanded={mobileOpen} aria-controls="session-sidebar" onClick={() => setMobileOpen(!mobileOpen)} /><span>{routeId ? '专业功能' : location.pathname === '/task-center' ? '任务书' : '物理对象'}</span><div><ThemeToggle /><Button icon={<RobotOutlined />} onClick={() => setAssistantOpen(true)}>AI 助手</Button></div></div><main className="workspace-center session-main-content">{needBridge && !projectLanding ? <div className="session-loading">正在恢复会话…</div> : <Outlet />}</main></div>
     <Drawer title="试验 AI 助手" open={assistantOpen} onClose={() => setAssistantOpen(false)} size={420} destroyOnHidden={false} className="session-assistant-drawer"><TrialAIAssistant key={`${routeId ?? 'workspace'}:${getCapabilityFromPath(location.pathname)}`} sessionId={routeId ?? undefined} embedded /></Drawer>
   </div>;
 };

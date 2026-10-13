@@ -2,6 +2,7 @@ import type { BusinessRouteState, WorkspaceSessionState } from '../types/busines
 import type { TaskRecord } from './taskTypes';
 
 export type SessionCapability = 'overview' | 'doe' | 'doeMethods' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | 'resources' | 'task';
+export interface PhysicalBusinessScope { physicalObjectId: string; physicalObjectName: string; experimentId?: string; experimentName?: string; modelId?: string; modelName?: string; taskBookId?: string; taskBookName?: string }
 export interface WorkSession {
   id: string;
   title: string;
@@ -9,6 +10,7 @@ export interface WorkSession {
   taskId?: string;
   storageProjectId: string;
   capability: SessionCapability;
+  businessScope?: PhysicalBusinessScope;
   pinned: boolean;
   archived: boolean;
   createdAt: string;
@@ -57,9 +59,13 @@ export const getLegacySessionPath = (pathname: string, id: string): string | nul
   return null;
 };
 
-export const getSessionWorkspaceContext = (session: WorkSession): WorkspaceSessionState => session.taskId
-  ? { mode: 'task', taskId: session.taskId, targetProjectId: session.storageProjectId, sessionId: session.id }
-  : { mode: 'project', targetProjectId: session.storageProjectId, sessionId: session.id };
+export const getSessionWorkspaceContext = (session: WorkSession): WorkspaceSessionState => ({
+  ...(session.taskId
+    ? { mode: 'task' as const, taskId: session.taskId, targetProjectId: session.storageProjectId }
+    : { mode: 'project' as const, targetProjectId: session.storageProjectId }),
+  sessionId: session.id,
+  ...(session.businessScope ?? {}),
+});
 
 export const readSessionDraft = <T,>(session: WorkSession | undefined, capability: SessionCapability, key: string, initial: T): T => {
   const draft = session?.drafts[capability];

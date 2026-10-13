@@ -66,7 +66,7 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
   return (
     <div className="task-center-page task-center-embedded">
       <section className="task-center-section">
-        <div className="session-home-section-heading"><h2>正式任务</h2><span>{tasks.length} 项任务</span></div>
+        <div className="session-home-section-heading"><h2>正式任务</h2><Space><Text type="secondary">{tasks.length} 项</Text><Button icon={<UploadOutlined />} onClick={() => setCreateOpen(true)}>导入任务书</Button></Space></div>
         {tasks.length === 0 ? (
           <Card className="task-center-empty">
             <Empty description="导入任务书并命名后，正式任务会显示在这里。当前任务拆解和分析结果使用模拟数据。" />

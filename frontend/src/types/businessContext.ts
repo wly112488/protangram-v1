@@ -59,7 +59,17 @@ export interface PlanCondition {
   reason: string;
 }
 
-export type WorkspaceSessionState = ({ sessionId?: string } & (
+export type WorkspaceSessionState = ({
+  sessionId?: string;
+  physicalObjectId?: string;
+  physicalObjectName?: string;
+  experimentId?: string;
+  experimentName?: string;
+  modelId?: string;
+  modelName?: string;
+  taskBookId?: string;
+  taskBookName?: string;
+} & (
   | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string; professionalProjectId?: string }
   | { mode: 'project'; targetProjectId: string }
   | { mode: 'standalone'; targetProjectId?: string }));

@@ -5,6 +5,9 @@ import { useTaskStore } from './taskStore';
 import { getProjectDeletionBlock, getSessionWorkspaceContext, getSessionDraftKey, type SessionCapability, type PhysicalBusinessScope, type WorkSession } from './sessionModel';
 
 export const SESSION_STORAGE_KEY = 'protangram-work-sessions-v1';
+const createSessionId = () => `session-${typeof crypto !== 'undefined' && 'randomUUID' in crypto
+  ? crypto.randomUUID()
+  : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`;
 
 const load = (): { sessions: WorkSession[]; activeSessionId: string | null; saveError: string | null } => {
   try {
@@ -56,7 +59,7 @@ export const useSessionStore = create<SessionStore>((set, get) => {
   const update = (id: string, fn: (session: WorkSession) => WorkSession) => commit(get().sessions.map(session =>
     session.id === id ? { ...fn(session), updatedAt: new Date().toISOString() } : session));
   const create = (input: { title?: string; projectId?: string; taskId?: string; storageProjectId?: string; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => {
-    const id = `session-${crypto.randomUUID()}`;
+    const id = createSessionId();
     const title = input.title?.trim() || '新会话';
     const storageProjectId = input.storageProjectId ?? useProjectStore.getState().createProject({
       name: title, sessionOwnerId: id, description: '会话数据与成果', status: '进行中',

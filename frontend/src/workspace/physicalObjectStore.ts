@@ -39,6 +39,9 @@ const cloneConfigurationTree = (source: PhysicalObject, overrides: ValueField[] 
 
 interface PhysicalObjectState {
   objects: PhysicalObject[];
+  updateObject: (objectId: string, patch: Pick<PhysicalObject, 'name' | 'type' | 'description'>) => void;
+  updateField: (objectId: string, section: 'parameters' | 'materials', fieldId: string, patch: Omit<ValueField, 'id'>) => void;
+  updateExperiment: (objectId: string, experimentId: string, patch: Pick<ExperimentDefinition, 'name' | 'category' | 'description' | 'taskBookId' | 'settings'>) => void;
   addRoot: (input: { name: string; type: string; description?: string }) => string;
   duplicateConfiguration: (sourceObjectId: string, input: { name: string; description?: string; parameterOverrides: ValueField[] }) => string | null;
   addChild: (parentId: string, input: { name: string; type: string; description?: string }) => string;
@@ -53,6 +56,9 @@ interface PhysicalObjectState {
 
 export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set) => ({
   objects: initialObjects,
+  updateObject: (objectId, patch) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, ...patch })) })),
+  updateField: (objectId, section, fieldId, patch) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, [section]: object[section].map(item => item.id === fieldId ? { ...patch, id: fieldId } : item) })) })),
+  updateExperiment: (objectId, experimentId, patch) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, experiments: object.experiments.map(experiment => experiment.id === experimentId ? { ...experiment, ...patch } : experiment) })) })),
   addRoot: input => { const item = { ...blankObject(input.name, input.type), description: input.description ?? '' }; set(state => ({ objects: [...state.objects, item] })); return item.id; },
   duplicateConfiguration: (sourceObjectId, input) => {
     let created: PhysicalObject | undefined;

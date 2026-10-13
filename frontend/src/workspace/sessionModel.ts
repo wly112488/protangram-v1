@@ -2,7 +2,7 @@ import type { BusinessRouteState, WorkspaceSessionState } from '../types/busines
 import type { TaskRecord } from './taskTypes';
 
 export type SessionCapability = 'overview' | 'doe' | 'doeMethods' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | 'resources' | 'task';
-export interface PhysicalBusinessScope { physicalObjectId: string; physicalObjectName: string; experimentId?: string; experimentName?: string; modelId?: string; modelName?: string; taskBookId?: string; taskBookName?: string }
+export interface PhysicalBusinessScope { physicalObjectId?: string; physicalObjectName?: string; experimentId?: string; experimentName?: string; testRecordId?: string; testRecordName?: string; modelId?: string; modelName?: string; taskBookId?: string; taskBookName?: string }
 export interface WorkSession {
   id: string;
   title: string;

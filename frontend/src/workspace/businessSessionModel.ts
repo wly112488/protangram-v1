@@ -13,7 +13,7 @@ export const createTaskNavigationState = (taskId: string, projectId: string, tas
 
 export const createTopLevelNavigationSession = (session: WorkspaceSessionState): WorkspaceSessionState =>
   session.mode === 'task'
-    ? { mode: 'task', taskId: session.taskId, targetProjectId: session.targetProjectId, professionalProjectId: session.professionalProjectId, ...(session.sessionId ? { sessionId: session.sessionId } : {}) }
+    ? { ...session, taskItemId: undefined }
     : session;
 
 export const createTaskContextSearch = (session: BusinessSession) => session.mode === 'task'
@@ -40,7 +40,7 @@ export const normalizeBusinessSession = (
       const professionalProjectId = session.professionalProjectId && validProfessionalProjectIds[session.taskId]?.includes(session.professionalProjectId)
         ? session.professionalProjectId
         : undefined;
-      return { mode: 'task', taskId: session.taskId, targetProjectId: taskProjectId, taskItemId, professionalProjectId, ...(session.sessionId ? { sessionId: session.sessionId } : {}) };
+      return { ...session, mode: 'task', taskId: session.taskId, targetProjectId: taskProjectId, taskItemId, professionalProjectId };
     }
   }
   if (
@@ -48,7 +48,7 @@ export const normalizeBusinessSession = (
     && session.targetProjectId
     && validProjectIds.includes(session.targetProjectId)
   ) {
-    return { mode: 'project', targetProjectId: session.targetProjectId, ...(session.sessionId ? { sessionId: session.sessionId } : {}) };
+    return { ...session, mode: 'project', targetProjectId: session.targetProjectId };
   }
   return { mode: 'standalone' };
 };

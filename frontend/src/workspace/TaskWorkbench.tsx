@@ -531,7 +531,7 @@ const TaskWorkbench: React.FC = () => {
         )}
         actions={(
           <Space wrap>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/')}>返回工作台</Button>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/task-center')}>返回任务书工作台</Button>
           <Button onClick={() => { setActiveProject(task.projectId); navigate('/projects'); }}>任务数据与成果</Button>
           <Button onClick={handleTaskCompletion}>
             {task.status === '已完成' ? '重新打开任务' : '标记任务完成'}

@@ -18,6 +18,7 @@ import { createAnalysisArtifactInput, createRootCauseArtifactInput } from '@/wor
 import { createTaskContextSearch, createTaskReturnPath, createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
+import { usePhysicalObjectStore, flattenObjects } from '@/workspace/physicalObjectStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { useSessionModels } from '@/workspace/useSessionModels';
 import '@/workspace/visualIntegrations.css';
@@ -114,14 +115,22 @@ const AnalysisProjects: React.FC = () => {
     conditions: incoming?.plan?.length ?? 8, dataCount: (incoming?.plan?.length ?? 8) * 1500,
   } : null;
   const availableTasks = routedTask ? [routedTask, ...TASKS.filter((item) => item.id !== routedTask.id)] : TASKS;
-  const initialTask = routedTask ?? TASKS[0];
+  const businessScope = incoming?.workspaceSession;
+  const sourceRecord = businessScope?.physicalObjectId && businessScope.experimentId && businessScope.testRecordId
+    ? flattenObjects(usePhysicalObjectStore.getState().objects).find(({ object }) => object.id === businessScope.physicalObjectId)?.object.experiments
+      .find((experiment) => experiment.id === businessScope.experimentId)?.records.find((record) => record.id === businessScope.testRecordId)
+    : undefined;
+  const initialTask = routedTask ?? (sourceRecord && businessScope?.experimentName ? {
+    id: sourceRecord.id, name: businessScope.experimentName, source: '物理对象试验执行记录', status: '已完成',
+    experimentFile: sourceRecord.name, environmentFile: '未单独关联', controlFile: '未单独关联', modelData: 'digital_twin_v2', conditions: 1, dataCount: sourceRecord.data.length,
+  } : TASKS[0]);
   const defaultModel = (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
     ?? globalModels.find((item) => item.modelId === 'engine-v2.1')
     ?? globalModels[0]!;
   const initialData = {
-    experimentFile: incoming?.data?.dataName ?? initialTask.experimentFile,
-    environmentFile: initialTask.environmentFile,
-    controlFile: initialTask.controlFile,
+    experimentFile: incoming?.data?.dataName ?? sourceRecord?.name ?? initialTask.experimentFile,
+    environmentFile: sourceRecord ? '未单独关联' : initialTask.environmentFile,
+    controlFile: sourceRecord ? '未单独关联' : initialTask.controlFile,
     modelData: (incoming?.model && globalModels.some((item) => item.modelId === incoming.model?.modelId) ? incoming.model.modelId : undefined)
       ?? (globalModels.some((item) => item.modelId === initialTask.modelData) ? initialTask.modelData : defaultModel.modelId),
   };
@@ -238,6 +247,7 @@ const AnalysisProjects: React.FC = () => {
           payload: {
             task,
             data,
+            physicalSource: sourceRecord ? { objectId: businessScope?.physicalObjectId, experimentId: businessScope?.experimentId, recordId: sourceRecord.id, fields: sourceRecord.data } : undefined,
             config,
             model: activeModel,
             anomalies: ANOMALIES,
@@ -268,7 +278,7 @@ const AnalysisProjects: React.FC = () => {
     setSaveTargetOpen(false);
     message.success(session.sessionId ? `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到当前会话` : `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
     return artifact.id;
-  }, [analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId]);
+  }, [analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId, businessScope?.experimentId, businessScope?.physicalObjectId, sourceRecord]);
 
   const requestSave = (kind: SaveKind) => {
     if (!analyzed) return message.warning('请先完成试验数据分析');
@@ -283,7 +293,7 @@ const AnalysisProjects: React.FC = () => {
   const handleBusinessAction = useCallback((action: BusinessAction) => {
     if (!analyzed) return message.warning('请先完成试验数据分析');
     const taskContract: TaskContract = { taskId: task.id, taskName: task.name, taskType: '已执行试验', source: task.source, status: '已完成' };
-    const dataContract: DataContract = { dataId: `data-${task.id}`, dataName: data.experimentFile, dataType: '试验实测数据', source: '试验数据分析', taskId: task.id };
+    const dataContract: DataContract = { dataId: sourceRecord?.id ?? `data-${task.id}`, dataName: data.experimentFile, dataType: sourceRecord ? '物理对象试验执行记录' : '演示试验数据', source: '试验数据分析', taskId: incoming?.task?.taskId ?? incoming?.workspaceSession?.taskBookId ?? task.id };
     const result = { resultType: '试验数据分析', resultSummary: '发现 3 个异常事件，高转速区域温度异常，建议重新校准模型', abnormalRange: '7600～8000 rpm', metrics: config.metrics };
     const base: BusinessRouteState = { source: 'dataAnalysis', task: taskContract, data: dataContract, model: activeModel, result, workspaceSession: effectiveSession };
     if (action === '用于模型校准') navigate(`/analysis/digital-twin${createTaskContextSearch(effectiveSession)}`, { state: base });
@@ -305,7 +315,7 @@ const AnalysisProjects: React.FC = () => {
       setContinueToReportAfterSave(true);
       setSaveTargetOpen(true);
     }
-  }, [persistResult, activeModel, addArtifactToReport, analyzed, boundProject, config, data, effectiveSession, navigate, selectedAnomaly, task, setContinueToReportAfterSave, setSaveTargetOpen, setPendingSaveKind]);
+  }, [persistResult, activeModel, addArtifactToReport, analyzed, boundProject, config, data, effectiveSession, incoming?.task?.taskId, incoming?.workspaceSession?.taskBookId, navigate, selectedAnomaly, sourceRecord, task, setContinueToReportAfterSave, setSaveTargetOpen, setPendingSaveKind]);
 
   useEffect(() => {
     if (!autoExecute || analyzed || autoStarted.current || !preparationReady) return;
@@ -415,6 +425,8 @@ const AnalysisProjects: React.FC = () => {
       {incoming?.source && (incoming.task || incoming.data || incoming.model || incoming.result || incoming.validation) && (
         <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.model && `模型：${incoming.model.modelName} ${incoming.model.version}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
       )}
+      {sourceRecord ? <Alert showIcon type="warning" title={`来源记录：${businessScope?.physicalObjectName} · ${businessScope?.experimentName} · ${sourceRecord.name}`} description={<>{sourceRecord.data.map((field) => `${field.name}：${field.value}${field.unit ? ` ${field.unit}` : ''}`).join('；') || '记录没有结构化测量字段'}。趋势图、异常识别和根因结论仍为模拟结果。</>} style={{ marginBottom: 16 }} />
+        : <Alert showIcon type="info" title="当前使用演示数据" description="趋势图、异常识别和根因结论来自内置样例，不代表某条物理对象试验记录。" style={{ marginBottom: 16 }} />}
 
       <PreparationChecklist
         title="分析准备"
@@ -440,7 +452,7 @@ const AnalysisProjects: React.FC = () => {
       </Card>
 
       <Card
-        title={<Space size={8}><span>设备交互模型 · 剖面测点</span><Tag color="blue">0–4 点位联动</Tag></Space>}
+        title={<Space size={8}><span>设备交互模型 · 剖面测点</span><Tag color="blue">0–4 点位联动</Tag><Tag color="orange">模拟结果</Tag></Space>}
         extra={<Text type="secondary">点击模型测点查看当前工况数据</Text>}
         size="small"
         className="workspace-business-card analysis-model-card"

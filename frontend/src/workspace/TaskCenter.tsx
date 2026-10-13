@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import { saveTaskBookFile } from './taskBookStorage';
+import { flattenObjects, usePhysicalObjectStore } from './physicalObjectStore';
 import './taskWorkspace.css';
 
 const { Text } = Typography;
@@ -20,6 +21,8 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
   const [taskBookFile, setTaskBookFile] = useState<File | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
   const taskBookInput = useRef<HTMLInputElement>(null);
+  const objectId = new URLSearchParams(window.location.search).get('objectId');
+  const objectContext = objectId ? flattenObjects(usePhysicalObjectStore.getState().objects).find(({ object }) => object.id === objectId)?.object.name : undefined;
 
   const resetForm = () => {
     setTitle('');
@@ -128,6 +131,7 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
         onCancel={() => { setCreateOpen(false); resetForm(); }}
       >
         <div className="task-create-form">
+          {objectContext && <Alert type="info" showIcon message={`从物理对象“${objectContext}”创建`} style={{ marginBottom: 16 }} />}
           <label>任务名称<Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：发动机高转速性能分析" /></label>
           <div className="task-book-upload">
             <Text strong>任务书 PDF</Text>

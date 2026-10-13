@@ -65,6 +65,8 @@ export type WorkspaceSessionState = ({
   physicalObjectName?: string;
   experimentId?: string;
   experimentName?: string;
+  testRecordId?: string;
+  testRecordName?: string;
   modelId?: string;
   modelName?: string;
   taskBookId?: string;

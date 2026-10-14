@@ -6,6 +6,7 @@ import { useProjectStore } from './projectStore';
 import type { ProjectArtifact, ProjectArtifactType, ProjectView } from './types';
 import { useSessionRouteState } from './useSessionState';
 import { useSessionStore } from './sessionStore';
+import { artifactResultLabel } from './physicalBusinessContext';
 
 const { Text, Title } = Typography;
 
@@ -122,7 +123,7 @@ const ArtifactHistory: React.FC<{
         <Card className="workspace-card workspace-latest-artifact" bordered={false}>
           <div className="workspace-artifact-head">
             <div>
-              <Tag color="blue">当前最新结果</Tag>
+              <Tag color="blue">当前最新结果</Tag><Tag>{artifactResultLabel(latest)}</Tag>
               <Title level={4}>{latest.title}</Title>
               <Text type="secondary">{latest.source} · {formatTime(latest.updatedAt)}</Text>
             </div>
@@ -151,7 +152,7 @@ const ArtifactHistory: React.FC<{
             {sorted.slice(1).map((artifact) => (
               <div className="workspace-artifact-history-row" key={artifact.id}>
                 <div>
-                  <strong>{artifact.title}</strong>
+                  <strong>{artifact.title}</strong><Tag>{artifactResultLabel(artifact)}</Tag>
                   <Text type="secondary">{artifact.summary}</Text>
                 </div>
                 <Space>
@@ -219,6 +220,7 @@ const ChartsView: React.FC<{ projectId: string }> = ({ projectId }) => {
           title: String(record.title ?? `图表 ${index + 1}`),
           source: artifact.title,
           artifactType: artifact.type,
+          resultLabel: artifactResultLabel(artifact),
         };
       });
     });
@@ -230,7 +232,7 @@ const ChartsView: React.FC<{ projectId: string }> = ({ projectId }) => {
         <div>
           <div className="workspace-kicker">项目聚合视图</div>
           <Title level={3}>数据图表</Title>
-          <Text type="secondary">聚合项目中已正式保存的分析、校准和虚拟工况结果图表。</Text>
+          <Text type="secondary">汇总已保存专业成果中的图表摘要；原始记录图表在共享来源中查看。</Text>
         </div>
       </div>
       {chartEntries.length > 0 ? (
@@ -238,7 +240,7 @@ const ChartsView: React.FC<{ projectId: string }> = ({ projectId }) => {
           {chartEntries.map((chart) => (
             <Card className="workspace-card workspace-chart-card" bordered={false} key={chart.key}>
               <div className="workspace-chart-placeholder">图表</div>
-              <strong>{chart.title}</strong>
+              <strong>{chart.title}</strong><Tag>{chart.resultLabel}</Tag>
               <Text type="secondary">来自：{chart.source}</Text>
             </Card>
           ))}

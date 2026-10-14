@@ -5,82 +5,138 @@ export type DataForm = '单值' | '分组' | '表格' | '序列' | '文件';
 export interface ValueField { id: string; name: string; description?: string; unit?: string; form: DataForm; value: string; source?: string }
 export interface DesignField extends ValueField { usage: '条件' | '参考' | '要求'; comparison?: '目标' | '下限' | '上限' | '区间' }
 export interface DesignCase { id: string; name: string; description?: string; fields: DesignField[] }
-export interface TestRecord { id: string; name: string; description?: string; createdAt: string; data: ValueField[] }
-export interface ExperimentDefinition { id: string; name: string; category: string; description?: string; taskBookId?: string; settings: ValueField[]; records: TestRecord[] }
+export interface RawDataFile { id: string; name: string; mimeType: string; size: number; addedAt: string; headers: string[]; rowCount: number }
+export interface DerivedChart {
+  id: string; name: string; rawFileId: string; xField: string; yField: string; chartType: 'line' | 'scatter' | 'bar';
+  startRow: number; endRow: number; scale: number; offset: number; color: string; smooth: boolean;
+  modelId?: string; modelInputs?: ValueField[]; createdAt: string; updatedAt: string;
+}
+export interface TestRecord { id: string; name: string; description?: string; createdAt: string; actualConditions: ValueField[]; measurements: ValueField[]; rawFiles: RawDataFile[]; charts: DerivedChart[] }
+export interface ExperimentDefinition { id: string; name: string; category: string; description?: string; taskBookId?: string; designArtifactRef?: { projectId: string; artifactId: string }; settings: ValueField[]; parameters: ValueField[]; record?: TestRecord; archivedRecords?: TestRecord[] }
 export interface CalculationRecord extends TestRecord { inputs: ValueField[] }
 export interface Calculation { id: string; name: string; description?: string; inputs: ValueField[]; records: CalculationRecord[] }
 export interface SimulationModel { id: string; name: string; description: string; inputs: ValueField[]; outputs: ValueField[]; defaults: ValueField[]; method: string; calculations: Calculation[] }
-export interface PhysicalObject { id: string; name: string; type: string; description: string; basedOnId?: string; parameters: ValueField[]; materials: ValueField[]; children: PhysicalObject[]; designs: DesignCase[]; experiments: ExperimentDefinition[]; models: SimulationModel[] }
-
-const id = (prefix: string) => `${prefix}-${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
-const field = (name: string, value: string, unit = '', form: DataForm = '单值'): ValueField => ({ id: id('field'), name, value, unit, form });
-const initialObjects: PhysicalObject[] = [{
-  id: 'object-fan-a', name: '涵道风扇 A', type: '涵道风扇', description: '演示对象；类型决定可用字段和子对象模板。参数与组成共同描述当前构型。',
-  parameters: [field('外径', '600', 'mm'), field('动 / 静叶片数', '6 / 11'), field('设计点转速', '1200', 'r/min')],
-  materials: [field('外观照片', 'fan-a.jpg', '', '文件')],
-  children: [{ id: 'object-rotor-a', name: '转子 A', type: '转子', description: '参数保存在转子自身，不复制到父对象。', parameters: [field('叶片数', '6', '片'), field('中弦长', '131', 'mm')], materials: [], children: [], designs: [], experiments: [], models: [] }],
-  designs: [{ id: 'design-nominal', name: '起飞设计点', description: '一组适用条件下的条件、参考值和要求。', fields: [
-    { ...field('转速', '1200', 'r/min'), usage: '条件' }, { ...field('推力', '目标 850', 'N'), usage: '要求', comparison: '目标' },
-  ] }],
-  experiments: [{ id: 'experiment-vibration', name: '转子振动性能试验', category: '性能与功能类 / 性能参数测试', description: '计划设置固定；重复执行分别新增记录。', settings: [field('采样频率', '10', 'kHz'), field('载荷谱', '起飞设计点', '', '文件')], taskBookId: undefined, records: [{ id: 'record-vibration-1', name: '转子振动性能试验_记录1', createdAt: '2026-10-12T09:00:00.000Z', data: [field('振动速度有效值', '2.4', 'mm/s'), field('采集文件', 'run-001.csv', '', '文件')] }] }],
-  models: [{ id: 'model-aero', name: '风扇性能预测模型', description: '可复用模型定义；训练模型也可在计算记录中追溯来源。', inputs: [field('外径', '', 'mm'), field('转速', '', 'r/min')], outputs: [field('推力', '', 'N'), field('效率', '', '%')], defaults: [field('网格等级', '中')], method: '公式 / 模型文件 / 组合均可；组合需说明模型版本和输入输出对应关系。', calculations: [{ id: 'calculation-aero-1', name: '标称点预测', description: '本计算固定实际输入与方法。', inputs: [field('转速', '1200', 'r/min')], records: [{ id: 'calc-record-1', name: '标称点预测_记录1', createdAt: '2026-10-12T10:00:00.000Z', inputs: [field('转速', '1200', 'r/min')], data: [field('推力', '862', 'N'), field('效率', '0.84', '')] }] }] }],
-}];
-
-const mapObjects = (items: PhysicalObject[], targetId: string, update: (item: PhysicalObject) => PhysicalObject): PhysicalObject[] => items.map(item => item.id === targetId ? update(item) : { ...item, children: mapObjects(item.children, targetId, update) });
-const blankObject = (name: string, type = '自定义对象'): PhysicalObject => ({ id: id('object'), name, type, description: '', parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
-const cloneConfigurationTree = (source: PhysicalObject, overrides: ValueField[] = []): PhysicalObject => ({
-  ...source, id: id('object'), basedOnId: source.id,
-  parameters: source.parameters.map(item => { const override = overrides.find(value => value.name === item.name); return { ...item, id: id('field'), ...(override ? { value: override.value, unit: override.unit || item.unit } : {}) }; }),
-  materials: source.materials.map(item => ({ ...item, id: id('field') })),
-  children: source.children.map(child => cloneConfigurationTree(child)),
-  designs: source.designs.map(design => ({ ...design, id: id('design'), fields: design.fields.map(item => ({ ...item, id: id('field') })) })),
-  experiments: [], models: source.models.map(model => ({ ...model, id: id('model'), inputs: model.inputs.map(item => ({ ...item, id: id('field') })), outputs: model.outputs.map(item => ({ ...item, id: id('field') })), defaults: model.defaults.map(item => ({ ...item, id: id('field') })), calculations: [] })),
-});
-
-interface PhysicalObjectState {
-  objects: PhysicalObject[];
-  updateObject: (objectId: string, patch: Pick<PhysicalObject, 'name' | 'type' | 'description'>) => void;
-  updateField: (objectId: string, section: 'parameters' | 'materials', fieldId: string, patch: Omit<ValueField, 'id'>) => void;
-  updateExperiment: (objectId: string, experimentId: string, patch: Pick<ExperimentDefinition, 'name' | 'category' | 'description' | 'taskBookId' | 'settings'>) => void;
-  addRoot: (input: { name: string; type: string; description?: string }) => string;
-  duplicateConfiguration: (sourceObjectId: string, input: { name: string; description?: string; parameterOverrides: ValueField[] }) => string | null;
-  addChild: (parentId: string, input: { name: string; type: string; description?: string }) => string;
-  addField: (objectId: string, section: 'parameters' | 'materials', item: Omit<ValueField, 'id'>) => void;
-  addDesign: (objectId: string, item: Omit<DesignCase, 'id'>) => void;
-  addExperiment: (objectId: string, item: Omit<ExperimentDefinition, 'id' | 'records'>) => void;
-  addTestRecord: (objectId: string, experimentId: string, item: Omit<TestRecord, 'id' | 'createdAt'>) => void;
-  addModel: (objectId: string, item: Omit<SimulationModel, 'id' | 'calculations'>) => void;
-  addCalculation: (objectId: string, modelId: string, item: Omit<Calculation, 'id' | 'records'>) => void;
-  addCalculationRecord: (objectId: string, modelId: string, calculationId: string, item: Omit<CalculationRecord, 'id' | 'createdAt'>) => void;
+export interface PhysicalConfiguration {
+  id: string; name: string; description: string; basedOnId?: string; parameters: ValueField[]; materials: ValueField[];
+  children: PhysicalObject[]; designs: DesignCase[]; experiments: ExperimentDefinition[]; models: SimulationModel[];
+}
+export interface PhysicalObject {
+  id: string; name: string; type: string; description: string; configurations: PhysicalConfiguration[];
+  // Kept for future component-level objects; they do not participate in this workflow.
+  basedOnId?: string; parameters: ValueField[]; materials: ValueField[]; children: PhysicalObject[]; designs: DesignCase[]; experiments: ExperimentDefinition[]; models: SimulationModel[];
 }
 
-export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set) => ({
-  objects: initialObjects,
-  updateObject: (objectId, patch) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, ...patch })) })),
-  updateField: (objectId, section, fieldId, patch) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, [section]: object[section].map(item => item.id === fieldId ? { ...patch, id: fieldId } : item) })) })),
-  updateExperiment: (objectId, experimentId, patch) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, experiments: object.experiments.map(experiment => experiment.id === experimentId ? { ...experiment, ...patch } : experiment) })) })),
-  addRoot: input => { const item = { ...blankObject(input.name, input.type), description: input.description ?? '' }; set(state => ({ objects: [...state.objects, item] })); return item.id; },
-  duplicateConfiguration: (sourceObjectId, input) => {
-    let created: PhysicalObject | undefined;
-    set(state => {
-      const source = flattenObjects(state.objects).find(entry => entry.object.id === sourceObjectId)?.object;
-      if (!source) return state;
-      created = { ...cloneConfigurationTree(source, input.parameterOverrides), name: input.name, description: input.description || `由“${source.name}”另存为的新构型` };
-      return { objects: [...state.objects, created] };
-    });
-    return created?.id ?? null;
-  },
-  addChild: (parentId, input) => { const child = { ...blankObject(input.name, input.type), description: input.description ?? '' }; set(state => ({ objects: mapObjects(state.objects, parentId, parent => ({ ...parent, children: [...parent.children, child] })) })); return child.id; },
-  addField: (objectId, section, item) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, [section]: [...object[section], { ...item, id: id('field') }] })) })),
-  addDesign: (objectId, item) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, designs: [...object.designs, { ...item, id: id('design') }] })) })),
-  addExperiment: (objectId, item) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, experiments: [...object.experiments, { ...item, id: id('experiment'), records: [] }] })) })),
-  addTestRecord: (objectId, experimentId, item) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, experiments: object.experiments.map(experiment => experiment.id === experimentId ? { ...experiment, records: [...experiment.records, { ...item, id: id('record'), createdAt: new Date().toISOString() }] } : experiment) })) })),
-  addModel: (objectId, item) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, models: [...object.models, { ...item, id: id('model'), calculations: [] }] })) })),
-  addCalculation: (objectId, modelId, item) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, models: object.models.map(model => model.id === modelId ? { ...model, calculations: [...model.calculations, { ...item, id: id('calculation'), records: [] }] } : model) })) })),
-  addCalculationRecord: (objectId, modelId, calculationId, item) => set(state => ({ objects: mapObjects(state.objects, objectId, object => ({ ...object, models: object.models.map(model => model.id === modelId ? { ...model, calculations: model.calculations.map(calculation => calculation.id === calculationId ? { ...calculation, records: [...calculation.records, { ...item, id: id('calc-record'), createdAt: new Date().toISOString() }] } : calculation) } : model) })) })),
-}), { name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage) }));
+const id = (prefix: string) => `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+const blankConfig = (name: string, description = ''): PhysicalConfiguration => ({ id: id('config'), name, description, parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
+const blankFamily = (name: string, type = '自定义对象', description = ''): PhysicalObject => ({ id: id('object'), name, type, description, configurations: [], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
+const initialObjects: PhysicalObject[] = [];
 
-export const flattenObjects = (objects: PhysicalObject[], path = ''): Array<{ object: PhysicalObject; path: string }> => objects.flatMap(object => {
-  const nextPath = path ? `${path} / ${object.name}` : object.name;
-  return [{ object, path: nextPath }, ...flattenObjects(object.children, nextPath)];
+const mapConfig = (items: PhysicalObject[], configId: string, update: (item: PhysicalConfiguration) => PhysicalConfiguration): PhysicalObject[] => items.map(family => ({
+  ...family,
+  configurations: family.configurations.map(config => config.id === configId ? update(config) : config),
+}));
+const mapExperiment = (items: PhysicalObject[], experimentId: string, update: (experiment: ExperimentDefinition) => ExperimentDefinition): PhysicalObject[] => items.map(family => ({
+  ...family,
+  configurations: family.configurations.map(config => ({
+    ...config,
+    experiments: config.experiments.map(experiment => experiment.id === experimentId ? update(experiment) : experiment),
+  })),
+}));
+
+export interface PhysicalObjectState {
+  objects: PhysicalObject[];
+  addRoot: (input: { name: string; type: string; description?: string }) => string;
+  addConfiguration: (familyId: string, input: { name: string; description?: string }) => string | null;
+  addField: (configurationId: string, section: 'parameters' | 'materials', item: Omit<ValueField, 'id'>) => void;
+  updateField: (configurationId: string, section: 'parameters' | 'materials', fieldId: string, patch: Omit<ValueField, 'id'>) => void;
+  addDesign: (configurationId: string, item: Omit<DesignCase, 'id'>) => void;
+  addExperiment: (configurationId: string, item: Omit<ExperimentDefinition, 'id' | 'record'>) => string;
+  updateExperiment: (experimentId: string, patch: Partial<Omit<ExperimentDefinition, 'id' | 'record'>>) => void;
+  ensureTrialRecord: (experimentId: string, item: { name: string; description?: string; actualConditions: ValueField[]; measurements: ValueField[] }) => string;
+  updateTrialRecord: (experimentId: string, patch: Partial<Pick<TestRecord, 'name' | 'description' | 'actualConditions' | 'measurements'>>) => void;
+  addRawFile: (experimentId: string, file: RawDataFile) => void;
+  saveChart: (experimentId: string, chart: Omit<DerivedChart, 'id' | 'createdAt' | 'updatedAt'>, chartId?: string) => string;
+  addModel: (configurationId: string, item: Omit<SimulationModel, 'id' | 'calculations'>) => void;
+}
+
+export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set, get) => ({
+  objects: initialObjects,
+  addRoot: input => { const family = blankFamily(input.name, input.type, input.description); set(state => ({ objects: [...state.objects, family] })); return family.id; },
+  addConfiguration: (familyId, input) => {
+    const family = get().objects.find(item => item.id === familyId);
+    if (!family) return null;
+    const config = blankConfig(input.name, input.description);
+    set(state => ({ objects: state.objects.map(item => item.id === familyId ? { ...item, configurations: [...item.configurations, config] } : item) }));
+    return config.id;
+  },
+  addField: (configurationId, section, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: [...config[section], { ...item, id: id('field') }] })) })),
+  updateField: (configurationId, section, fieldId, patch) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: config[section].map(item => item.id === fieldId ? { ...patch, id: fieldId } : item) })) })),
+  addDesign: (configurationId, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, designs: [...config.designs, { ...item, id: id('design') }] })) })),
+  addExperiment: (configurationId, item) => {
+    const experiment = { ...item, id: id('experiment') };
+    set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, experiments: [...config.experiments, experiment] })) }));
+    return experiment.id;
+  },
+  updateExperiment: (experimentId, patch) => set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => ({ ...experiment, ...patch })) })),
+  ensureTrialRecord: (experimentId, input) => {
+    const existing = get().objects.flatMap(family => family.configurations).flatMap(config => config.experiments).find(experiment => experiment.id === experimentId)?.record;
+    if (existing) return existing.id;
+    const record: TestRecord = { ...input, id: id('record'), createdAt: new Date().toISOString(), actualConditions: input.actualConditions, measurements: input.measurements, rawFiles: [], charts: [] };
+    set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => experiment.record ? experiment : { ...experiment, record }) }));
+    return get().objects.flatMap(family => family.configurations).flatMap(config => config.experiments).find(experiment => experiment.id === experimentId)?.record?.id ?? record.id;
+  },
+  updateTrialRecord: (experimentId, patch) => set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => experiment.record ? { ...experiment, record: { ...experiment.record, ...patch } } : experiment) })),
+  addRawFile: (experimentId, file) => set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => experiment.record ? { ...experiment, record: { ...experiment.record, rawFiles: experiment.record.rawFiles.some(item => item.id === file.id) ? experiment.record.rawFiles : [...experiment.record.rawFiles, file] } } : experiment) })),
+  saveChart: (experimentId, chart, chartId) => {
+    const now = new Date().toISOString();
+    const idToSave = chartId ?? id('chart');
+    set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => experiment.record ? {
+      ...experiment,
+      record: { ...experiment.record, charts: chartId
+        ? experiment.record.charts.map(item => item.id === chartId ? { ...chart, id: item.id, createdAt: item.createdAt, updatedAt: now } : item)
+        : [...experiment.record.charts, { ...chart, id: idToSave, createdAt: now, updatedAt: now }] },
+    } : experiment) }));
+    return idToSave;
+  },
+  addModel: (configurationId, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, models: [...config.models, { ...item, id: id('model'), calculations: [] }] })) })),
+}), {
+  name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage), version: 2,
+  migrate: (persisted: unknown) => migrateLegacyState(persisted),
+}));
+
+function migrateLegacyState(persisted: unknown): Pick<PhysicalObjectState, 'objects'> {
+  const state = persisted as { objects?: Array<Record<string, unknown>> };
+  const old = Array.isArray(state?.objects) ? state.objects : [];
+  const groups = new Map<string, PhysicalObject>();
+  for (const item of old) {
+    const type = String(item.type || '自定义对象');
+    const familyName = type === '涵道风扇' ? '电涵道风扇' : type;
+    const family = groups.get(familyName) ?? blankFamily(familyName, type, '');
+    const config = blankConfig(String(item.name || '默认构型'), String(item.description || ''));
+    config.id = typeof item.id === 'string' ? item.id : config.id;
+    config.basedOnId = typeof item.basedOnId === 'string' ? item.basedOnId : undefined;
+    config.parameters = Array.isArray(item.parameters) ? item.parameters as ValueField[] : [];
+    config.materials = Array.isArray(item.materials) ? item.materials as ValueField[] : [];
+    config.children = Array.isArray(item.children) ? item.children as PhysicalObject[] : [];
+    config.designs = Array.isArray(item.designs) ? item.designs as DesignCase[] : [];
+    config.models = Array.isArray(item.models) ? item.models as SimulationModel[] : [];
+    config.experiments = (Array.isArray(item.experiments) ? item.experiments as Array<Record<string, unknown>> : []).map(legacy => {
+      const records = Array.isArray(legacy.records) ? legacy.records as Array<Record<string, unknown>> : [];
+      const migrated = records.map(record => ({ id: String(record.id), name: String(record.name), description: typeof record.description === 'string' ? record.description : undefined, createdAt: String(record.createdAt), actualConditions: [], measurements: Array.isArray(record.data) ? record.data as ValueField[] : [], rawFiles: [], charts: [] }));
+      return { ...legacy, id: String(legacy.id), name: String(legacy.name), category: String(legacy.category), settings: Array.isArray(legacy.settings) ? legacy.settings as ValueField[] : [], parameters: [], record: migrated[0], archivedRecords: migrated.slice(1) } as ExperimentDefinition;
+    });
+    family.configurations.push(config);
+    groups.set(familyName, family);
+  }
+  return { objects: old.length ? [...groups.values()] : initialObjects };
+}
+
+export const flattenObjects = (objects: PhysicalObject[], path = ''): Array<{ object: PhysicalConfiguration & { id: string; name: string; type: string; description: string; children: PhysicalObject[] }; path: string }> => objects.flatMap(family => {
+  const familyPath = path ? `${path} / ${family.name}` : family.name;
+  return family.configurations.map(config => ({ object: { ...config, type: family.type, description: config.description, children: config.children }, path: `${familyPath} / ${config.name}` }));
 });
+
+export const findPhysicalTrialRecord = (objects: PhysicalObject[], configurationId: string, experimentId: string, recordId: string): TestRecord | undefined => {
+  const experiment = flattenObjects(objects).find(({ object }) => object.id === configurationId)?.object.experiments.find(item => item.id === experimentId);
+  return [experiment?.record, ...(experiment?.archivedRecords ?? [])].find(record => record?.id === recordId);
+};

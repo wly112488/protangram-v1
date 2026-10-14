@@ -1,5 +1,6 @@
 import type { BusinessRouteState, WorkspaceSessionState } from '../types/businessContext';
 import type { TaskRecord } from './taskTypes';
+import { samePhysicalSource } from './physicalBusinessContext';
 
 export type SessionCapability = 'overview' | 'doe' | 'doeMethods' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | 'resources' | 'task';
 export interface PhysicalBusinessScope { physicalObjectId?: string; physicalObjectName?: string; experimentId?: string; experimentName?: string; testRecordId?: string; testRecordName?: string; modelId?: string; modelName?: string; taskBookId?: string; taskBookName?: string }
@@ -79,7 +80,13 @@ export const getSessionEntryPath = (session: WorkSession) => session.taskId
   ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}`
   : getSessionPath(session.id, 'doe');
 
+export const isCompatibleSessionHandoff = (context: WorkspaceSessionState, state?: BusinessRouteState | null) => !state?.workspaceSession
+    || (!state.workspaceSession.sessionId || state.workspaceSession.sessionId === context.sessionId)
+      && (!context.physicalObjectId || samePhysicalSource(context, state.workspaceSession));
+
 export const resolveSessionHandoff = (context: WorkspaceSessionState, saved?: BusinessRouteState, incoming?: BusinessRouteState | null): BusinessRouteState => {
+  if (!isCompatibleSessionHandoff(context, saved)) saved = undefined;
+  if (!isCompatibleSessionHandoff(context, incoming)) incoming = undefined;
   const workspaceSession = { ...context, ...(incoming?.workspaceSession ?? saved?.workspaceSession) };
   if (incoming?.workspaceSession && !incoming.source && workspaceSession.mode === 'task') {
     workspaceSession.taskItemId = incoming.workspaceSession.mode === 'task' ? incoming.workspaceSession.taskItemId : undefined;

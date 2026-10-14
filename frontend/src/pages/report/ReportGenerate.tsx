@@ -1,6 +1,6 @@
 import { useSessionRouteState, useSessionState } from '@/workspace/useSessionState';
 import { useSessionStore } from '@/workspace/sessionStore';
-import { getSessionDraftKey } from '@/workspace/sessionModel';
+import { getSessionDraftKey, getSessionPath } from '@/workspace/sessionModel';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert, Card, Typography, Button, Row, Col, Tag, message, Modal, Space, Select, Empty,
@@ -17,6 +17,9 @@ import { useTaskStore } from '@/workspace/taskStore';
 import { createReportArtifactInput, getReportableArtifacts, resolveReportOutputVariables, hasUnavailableReportBindings, hasReportNarrative } from './reportModel.js';
 import { countUnmetTaskItems } from './taskReportModel';
 import type { AnalysisReport } from '@/types';
+import { usePhysicalObjectStore } from '@/workspace/physicalObjectStore';
+import { artifactResultLabel, isDemoArtifact, recordChartKey, resolveRecordChart, type ArtifactReference, type RecordChartReference } from '@/workspace/physicalBusinessContext';
+import TrialChart from '@/workspace/TrialChart';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -42,6 +45,8 @@ const MOCK_OUTPUT_VARIABLES = [
 type ReportRecord = AnalysisReport & {
   workspaceProjectId?: string;
   artifactIds?: string[];
+  artifactRefs?: ArtifactReference[];
+  chartRefs?: RecordChartReference[];
   taskId?: string;
   taskItemId?: string;
 };
@@ -55,6 +60,7 @@ const ReportGenerate: React.FC = () => {
   const { reportId } = useParams<{ reportId: string }>();
   const { analysisReports, updateAnalysisReport, setAnalysisReports } = useAppStore();
   const { projects, addArtifact, removeArtifact } = useProjectStore();
+  const objects = usePhysicalObjectStore(state => state.objects);
   const setFormalTaskReportArtifact = useTaskStore((state) => state.setFormalReportArtifact);
   const setTaskRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const addArtifactToTaskItem = useTaskStore((state) => state.addArtifactToTaskItem);
@@ -73,16 +79,24 @@ const ReportGenerate: React.FC = () => {
     || projects.find((project) => project.id === report?.analysisProjectId)?.id;
   const workspaceProject = projects.find((project) => project.id === workspaceProjectId);
   const selectedArtifactIds = report?.artifactIds;
-  const projectOutputVariables = workspaceProject
-    ? getReportableArtifacts(workspaceProject.artifacts)
-      .filter((artifact) => !selectedArtifactIds || selectedArtifactIds.includes(artifact.id))
-      .map((artifact) => ({ id: artifact.id, name: artifact.title }))
-    : [];
+  const selectedArtifacts = report?.artifactRefs
+    ? report.artifactRefs.flatMap(reference => getReportableArtifacts(projects.find(project => project.id === reference.projectId)?.artifacts ?? []).filter(artifact => artifact.id === reference.artifactId))
+    : getReportableArtifacts(workspaceProject?.artifacts ?? []).filter(artifact => !selectedArtifactIds || selectedArtifactIds.includes(artifact.id));
+  const referencedCharts = (report?.chartRefs ?? []).flatMap(reference => {
+    const resolved = resolveRecordChart(objects, reference);
+    return resolved ? [{ reference, ...resolved }] : [];
+  });
+  const missingReferences = referencedCharts.some(item => !item.rawFile) || referencedCharts.length !== (report?.chartRefs?.length ?? 0)
+    || Boolean(report?.artifactRefs && selectedArtifacts.length !== report.artifactRefs.length);
+  const projectOutputVariables = [
+    ...selectedArtifacts.map(artifact => ({ id: artifact.id, name: `${artifact.title} · ${artifactResultLabel(artifact)}` })),
+    ...referencedCharts.map(item => ({ id: recordChartKey(item.reference), name: `${item.chart.name} · 原始记录图表` })),
+  ];
   const hasFormalEvidence = projects.some(project => project.artifacts.some(artifact => artifact.id === reportId && artifact.type === 'report'))
     || tasks.some(item => item.reportDraft.formalReportArtifact?.artifactId === reportId);
-  const usingDemo = projectOutputVariables.length === 0 && demoEnabled && !hasFormalEvidence;
+  const usingDemo = selectedArtifacts.some(isDemoArtifact) || projectOutputVariables.length === 0 && demoEnabled && !hasFormalEvidence;
   const outputVariables = resolveReportOutputVariables(projectOutputVariables, MOCK_OUTPUT_VARIABLES, demoEnabled && !hasFormalEvidence);
-  const unavailableBindings = hasUnavailableReportBindings(tagBindings, outputVariables);
+  const unavailableBindings = missingReferences || hasUnavailableReportBindings(tagBindings, outputVariables);
   const dataSource = usingDemo ? 'demo' as const : 'artifacts' as const;
   const hasReportContent = outputVariables.length > 0 || hasReportNarrative(report?.reportContent);
 
@@ -158,14 +172,15 @@ const ReportGenerate: React.FC = () => {
     if (workspaceProject && report && !usingDemo) {
       const existingArtifact = workspaceProject.artifacts.find((artifact) => artifact.id === report.id);
       if (existingArtifact) removeArtifact(workspaceProject.id, existingArtifact.id);
-      const reportArtifact = addArtifact(workspaceProject.id, createReportArtifactInput({
+      const reportInput = createReportArtifactInput({
         reportId: report.id,
         title: report.name,
         summary: `${report.name} · 已绑定 ${Object.keys(tagBindings).length} 项内容`,
         reportTemplateId: report.reportTemplateId,
         artifactIds: selectedArtifactIds || projectOutputVariables.map((item) => item.id),
         tagBindings,
-      }));
+      });
+      const reportArtifact = addArtifact(workspaceProject.id, { ...reportInput, payload: { ...reportInput.payload, artifactRefs: report.artifactRefs, chartRefs: report.chartRefs, resultMode: 'composed', sourceScope: routeState?.workspaceSession } });
       if (reportArtifact && report?.taskId) {
         setFormalTaskReportArtifact(report.taskId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
         const reportRequirementId = report.taskItemId ?? task?.requirements.find((requirement) => requirement.capability === 'report')?.id;
@@ -193,6 +208,7 @@ const ReportGenerate: React.FC = () => {
     : 0;
 
   const confirmGenerateReport = () => {
+    if (usingDemo && hasFormalEvidence) return message.error('正式报告不能用演示成果覆盖；请创建独立演示报告');
     if (unavailableBindings || !hasReportContent) {
       message.error('请先选择可用成果并修正失效绑定');
       return;
@@ -213,7 +229,7 @@ const ReportGenerate: React.FC = () => {
   return (
     <div className="workspace-simple-page workspace-report-generator-page">
       <div className="workspace-page-heading">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}${report.taskItemId ? `?taskItemId=${encodeURIComponent(report.taskItemId)}` : ''}` : '/report/list')}>返回</Button>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}${report.taskItemId ? `?taskItemId=${encodeURIComponent(report.taskItemId)}` : ''}` : routeState?.workspaceSession?.sessionId ? `${getSessionPath(routeState.workspaceSession.sessionId, 'report')}/list` : '/report/list')}>返回</Button>
         <Title level={4} style={{ margin: 0 }}>分析报告生成</Title>
         {report && <Tag color="purple">{report.name}</Tag>}
         {report?.dataSource === 'demo' && <Tag color="orange">演示报告 · 模拟成果</Tag>}
@@ -222,7 +238,7 @@ const ReportGenerate: React.FC = () => {
         </Tag>
       </div>
 
-      {usingDemo && <Alert type="warning" showIcon message="演示报告 · 模拟成果" description="以下数据仅用于体验绑定流程，不会作为正式任务成果，也不会改变任务事项的满足状态。" style={{ marginBottom: 12 }} action={<Button onClick={() => setDemoEnabled(false)}>退出演示</Button>} />}
+      {usingDemo && <Alert type="warning" showIcon message="演示报告 · 模拟成果" description="选定内容含演示成果，不登记为正式任务证据，也不改变事项满足状态。请返回配置调整成果选择。" style={{ marginBottom: 12 }} action={selectedArtifacts.some(isDemoArtifact) ? undefined : <Button onClick={() => setDemoEnabled(false)}>退出演示</Button>} />}
       {unavailableBindings && <Alert type="error" showIcon message="部分绑定成果已不可用，请重新选择或解绑后生成报告。" style={{ marginBottom: 12 }} />}
       {report?.reportContent && (
         <Card size="small" title="任务报告草稿内容" style={{ marginBottom: 12, maxHeight: 180, overflow: 'auto' }}>
@@ -240,6 +256,7 @@ const ReportGenerate: React.FC = () => {
         />
       )}
 
+      {referencedCharts.length > 0 && <Card title="引用的原始记录图表" style={{ marginBottom: 16 }}>{referencedCharts.map(item => <Card key={recordChartKey(item.reference)} size="small" title={item.chart.name}><TrialChart chart={item.chart} rawFile={item.rawFile} /></Card>)}</Card>}
       <Row className="workspace-report-generator-layout" gutter={16} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* 左侧：数据分析输出节点（需求3.3.2） */}
         <Col span={8} style={{ height: '100%', display: 'flex' }}>
@@ -346,7 +363,7 @@ const ReportGenerate: React.FC = () => {
 
       <div className="workspace-form-actions" style={{ textAlign: 'center', marginTop: 16, flexShrink: 0 }}>
         <Space size="large">
-          <Button size="large" onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}` : '/report/list')}>{report?.taskId ? '返回任务工作台' : '返回列表'}</Button>
+          <Button size="large" onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}` : routeState?.workspaceSession?.sessionId ? `${getSessionPath(routeState.workspaceSession.sessionId, 'report')}/list` : '/report/list')}>{report?.taskId ? '返回任务工作台' : '返回列表'}</Button>
           <Button size="large" icon={<SaveOutlined />} onClick={handleSave}>保存绑定</Button>
           <Button type="primary" size="large" icon={<FileDoneOutlined />}
             disabled={!report || !hasReportContent || unavailableBindings} onClick={confirmGenerateReport}>

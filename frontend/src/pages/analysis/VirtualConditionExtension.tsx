@@ -1,3 +1,4 @@
+import { UNSELECTED_MODEL } from '@/types/businessContext';
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -16,7 +17,6 @@ import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createVirtualConditionArtifactInput } from '@/workspace/projectModel';
 import { createTaskReturnPath } from '@/workspace/businessSessionModel';
-import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { useSessionModels } from '@/workspace/useSessionModels';
@@ -58,14 +58,14 @@ const VirtualConditionExtension: React.FC = () => {
   const navigate = useNavigate();
   const incoming = useSessionRouteState();
   const { setContext } = useTrialAIAssistant();
-  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
+  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem, physicalSource, addArtifact } = useWorkspaceBusinessSession(incoming);
   const { models: globalModels } = useSessionModels();
-  const addArtifact = useProjectStore((state) => state.addArtifact);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
   const initialModel = (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
+    ?? (physicalSource.configuration ? UNSELECTED_MODEL : undefined)
     ?? globalModels.find((item) => item.modelId === 'engine-v2.1')
     ?? globalModels[0]
     ?? { modelId: 'engine-v2.1', modelName: '发动机模型', version: 'V2.1', trustedRange: '2000～8000 rpm', status: '已确认' };
@@ -151,6 +151,7 @@ const VirtualConditionExtension: React.FC = () => {
   };
 
   const startPrediction = () => {
+    if (model.definitionOnly) return message.info('该模型只有定义，尚未接入预测计算；请保存配置或选择演示模型。');
     if (generationStatus !== 'generated') return message.warning('请先生成虚拟工况。');
     setPredictionStatus('loading');
     setPersistedProjectId(null);
@@ -236,23 +237,28 @@ const VirtualConditionExtension: React.FC = () => {
   useEffect(() => {
     if (!autoExecute || generationStatus === 'generated' || autoGenerationStarted.current || !preparationReady) return;
     autoGenerationStarted.current = true;
-    generateConditions();
+    const kickoff = window.setTimeout(() => generateConditions(), 0);
+    return () => { window.clearTimeout(kickoff); autoGenerationStarted.current = false; };
   }, [autoExecute, preparationReady]);
 
   useEffect(() => {
     if (!autoExecute || predictionStatus === 'completed' || generationStatus !== 'generated' || autoPredictionStarted.current) return;
     autoPredictionStarted.current = true;
-    startPrediction();
+    const kickoff = window.setTimeout(() => startPrediction(), 0);
+    return () => { window.clearTimeout(kickoff); autoPredictionStarted.current = false; };
   }, [autoExecute, generationStatus]);
 
   useEffect(() => {
     if (!autoExecute || predictionStatus !== 'completed' || autoReturned.current || effectiveSession.mode !== 'task' || !effectiveSession.taskItemId || !boundProject) return;
+    const publish = window.setTimeout(() => {
     autoReturned.current = true;
     const artifact = persistVirtualResult(boundProject.id);
     if (!artifact) return;
-    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId, '待确认');
+    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId!, '待确认');
     message.success('已按复核后的任务规划完成模拟工况扩展，成果已回到当前任务');
     navigate(createTaskReturnPath(effectiveSession));
+    }, 0);
+    return () => window.clearTimeout(publish);
   }, [autoExecute, boundProject, effectiveSession, navigate, persistVirtualResult, predictionStatus, setRequirementStatus]);
 
   useEffect(() => {

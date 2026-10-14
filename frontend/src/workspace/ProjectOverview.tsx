@@ -6,6 +6,7 @@ import { getProjectStats } from './projectModel';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import type { Project } from './types';
+import { artifactResultLabel } from './physicalBusinessContext';
 
 const { Text, Title } = Typography;
 
@@ -34,8 +35,8 @@ const ProjectOverview: React.FC<{ project: Project; isSessionWorkspace?: boolean
     [project.artifacts],
   );
   const metricCards = [
-    { key: 'datasets', label: '数据集', value: stats.datasetCount, icon: <DatabaseOutlined /> },
-    { key: 'records', label: '试验记录', value: stats.worksheetRowCount, icon: <TableOutlined /> },
+    { key: 'datasets', label: '项目数据引用', value: stats.datasetCount, icon: <DatabaseOutlined /> },
+    { key: 'records', label: '工作表行', value: stats.worksheetRowCount, icon: <TableOutlined /> },
     { key: 'charts', label: '图表', value: stats.chartCount, icon: <BarChartOutlined /> },
     { key: 'artifacts', label: '业务结果', value: stats.artifactCount, icon: <FileDoneOutlined /> },
   ];
@@ -81,10 +82,16 @@ const ProjectOverview: React.FC<{ project: Project; isSessionWorkspace?: boolean
                 <strong>{project.worksheet.name}</strong>
                 <Text type="secondary">{stats.worksheetRowCount} 行 · {project.worksheet.columns.length} 列</Text>
               </div>
-              <Button type="link" onClick={() => setActiveView('worksheet')}>打开工作表</Button>
+              <Space>
+                <Button type="link" onClick={() => setActiveView('worksheet')}>打开工作表</Button>
+                <Button type="primary" size="small" onClick={() => navigate('/physical-objects')}>构型与试验数据</Button>
+              </Space>
             </div>
           ) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无工作表" />
+            <div className="workspace-worksheet-summary">
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无工作表" />
+              <Button type="primary" size="small" onClick={() => navigate('/physical-objects')}>构型与试验数据</Button>
+            </div>
           )}
         </Card>
       </section>
@@ -112,7 +119,7 @@ const ProjectOverview: React.FC<{ project: Project; isSessionWorkspace?: boolean
                 onClick={() => setActiveView(artifact.type)}
               >
                 <div>
-                  <strong>{artifact.title}</strong>
+                  <strong>{artifact.title}</strong><Tag>{artifactResultLabel(artifact)}</Tag>
                   <Text type="secondary">{artifact.source}</Text>
                 </div>
                 <div className="workspace-recent-meta">

@@ -1,3 +1,6 @@
+import { artifactResultLabel, getSourceArtifacts } from '@/workspace/physicalBusinessContext';
+import { useSessionStore } from '@/workspace/sessionStore';
+import { getSessionPath } from '@/workspace/sessionModel';
 import { useSessionRouteState } from '@/workspace/useSessionState';
 import type { AnalysisReport } from '@/types';
 import React, { useEffect, useState } from 'react';
@@ -23,19 +26,21 @@ const ReportList: React.FC = () => {
   const navigate = useNavigate();
   const { analysisReports, setAnalysisReports } = useAppStore();
   const { projects, activeProjectId } = useProjectStore();
+  const sessions = useSessionStore(state => state.sessions);
   const sessionState = useSessionRouteState();
+  const reportBase = sessionState?.workspaceSession?.sessionId ? getSessionPath(sessionState.workspaceSession.sessionId, 'report') : '/report';
   const routeProjectId = sessionState?.workspaceSession?.targetProjectId;
   const currentProjectId = routeProjectId && projects.some((project) => project.id === routeProjectId)
     ? routeProjectId
     : activeProjectId;
   const [businessResults] = useState<BusinessReportItem[]>(loadBusinessReportItems);
   const activeProject = projects.find((project) => project.id === currentProjectId);
-  const reportableArtifacts = activeProject ? getReportableArtifacts(activeProject.artifacts) : [];
+  const reportableArtifacts = sessionState?.workspaceSession?.physicalObjectId ? getReportableArtifacts(getSourceArtifacts(projects, sessions, sessionState.workspaceSession)) : activeProject ? getReportableArtifacts(activeProject.artifacts) : [];
   const projectReports = activeProject?.artifacts.filter((artifact) => artifact.type === 'report') ?? [];
 
-  const createProjectReport = () => navigate('/report/create', {
+  const createProjectReport = () => navigate(`${reportBase}/create`, {
     state: {
-      workspaceSession: { mode: 'project', targetProjectId: activeProject?.id },
+      workspaceSession: sessionState?.workspaceSession ?? { mode: 'project', targetProjectId: activeProject?.id },
       artifactIds: reportableArtifacts.map((artifact) => artifact.id),
     },
   });
@@ -67,7 +72,7 @@ const ReportList: React.FC = () => {
         {reportableArtifacts.length > 0 ? (
           <Space wrap style={{ display: 'flex', marginTop: 8 }}>
             {reportableArtifacts.map((artifact) => (
-              <Tag key={artifact.id} color="geekblue">{artifact.title}</Tag>
+              <Tag key={artifact.id} color="geekblue">{artifact.title} · {artifactResultLabel(artifact)}</Tag>
             ))}
           </Space>
         ) : <Paragraph type="secondary" style={{ margin: '8px 0 0' }}>当前项目暂无可纳入报告的成果</Paragraph>}
@@ -75,12 +80,12 @@ const ReportList: React.FC = () => {
           <Text type="secondary">项目内已生成报告（{projectReports.length}）</Text>
           {projectReports.map((artifact) => <div key={artifact.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
             <Space><FileTextOutlined style={{ color: '#722ed1' }} /><Text strong>{artifact.title}</Text><Tag color="green">已生成</Tag></Space>
-            <Button type="link" size="small" onClick={() => navigate(`/report/generate/${artifact.id}`)}>打开</Button>
+            <Button type="link" size="small" onClick={() => navigate(`${reportBase}/generate/${artifact.id}`)}>打开</Button>
           </div>)}
         </div>}
       </Card>}
 
-      {businessResults.length > 0 && <Card title="业务分析结果" size="small" style={{ marginBottom: 16 }}>
+      {!sessionState?.workspaceSession?.physicalObjectId && businessResults.length > 0 && <Card title="业务分析结果" size="small" style={{ marginBottom: 16 }}>
         {businessResults.map((item, index) => <div key={item.id} style={{ padding: '10px 0', borderBottom: index === businessResults.length - 1 ? 'none' : '1px solid #f0f0f0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}><Space><Tag color="blue">{item.source}</Tag><Text strong>{item.title}</Text></Space><Text type="secondary">{item.createdAt}</Text></div>
           <Paragraph style={{ margin: '6px 0 0' }}>{item.summary}</Paragraph>
@@ -98,7 +103,7 @@ const ReportList: React.FC = () => {
         </Card>
       ) : (
         <Row gutter={[16, 16]}>
-          {analysisReports.filter(report => !sessionState?.workspaceSession?.sessionId || (report as AnalysisReport & { workspaceProjectId?: string }).workspaceProjectId === currentProjectId).map((report) => (
+          {analysisReports.filter(report => !sessionState?.workspaceSession?.sessionId || ((report as AnalysisReport & { workspaceProjectId?: string }).workspaceProjectId ?? report.analysisProjectId) === currentProjectId).map((report) => (
             <Col key={report.id} xs={24} sm={12} lg={8} xl={6}>
               <Card
                 className="experiment-card"
@@ -106,7 +111,7 @@ const ReportList: React.FC = () => {
                 style={{ height: '100%', borderRadius: 12 }}
                 actions={[
                   <EyeOutlined key="view"
-                    onClick={() => navigate(`/report/generate/${report.id}`)} />,
+                    onClick={() => navigate(`${reportBase}/generate/${report.id}`)} />,
                 ]}
               >
                 <Title level={5} style={{ marginBottom: 8 }}>

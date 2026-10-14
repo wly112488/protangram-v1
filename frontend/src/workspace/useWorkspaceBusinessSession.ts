@@ -7,6 +7,8 @@ import { useTaskStore } from './taskStore';
 import { getCapabilityFromPath, getSessionIdFromLocation } from './sessionModel';
 import { recordTaskBusinessArtifact } from './taskArtifactAssociation';
 import { useSessionStore } from './sessionStore';
+import { usePhysicalObjectStore } from './physicalObjectStore';
+import { resolvePhysicalSource } from './physicalBusinessContext';
 
 export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null) => {
   const location = useLocation();
@@ -41,6 +43,21 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     ? activeTask?.requirements.find((item) => item.id === session.taskItemId) ?? null
     : null;
   const capability = getCapabilityFromPath(location.pathname);
+  const objects = usePhysicalObjectStore(state => state.objects);
+  const physicalSource = useMemo(() => resolvePhysicalSource(objects, session), [objects, session]);
+  const addArtifact = useCallback((projectId: string, input: Parameters<ReturnType<typeof useProjectStore.getState>['addArtifact']>[1]) => {
+    if (physicalSource.missing) return null;
+    const model = input.payload.model as { modelId?: string } | undefined;
+    const draft = useSessionStore.getState().sessions.find(item => item.id === session.sessionId)?.drafts[capability];
+    return useProjectStore.getState().addArtifact(projectId, { ...input, payload: {
+      ...input.payload,
+      resultMode: input.type === 'design' && (input.payload.designSummary || input.payload.designMethod) ? 'configuration' : 'demo',
+      sourceScope: session.physicalObjectId ? { physicalObjectId: session.physicalObjectId, experimentId: session.experimentId, testRecordId: session.testRecordId } : undefined,
+      upstreamArtifactIds: incoming?.artifactIds ?? [],
+      upstreamArtifactRefs: projects.flatMap(project => project.artifacts.filter(artifact => incoming?.artifactIds?.includes(artifact.id)).map(artifact => ({ projectId: project.id, artifactId: artifact.id }))),
+      modelInputs: model?.modelId ? draft?.[`modelInputs:${model.modelId}`] : undefined,
+    } });
+  }, [capability, incoming?.artifactIds, physicalSource.missing, projects, session.sessionId, session.physicalObjectId, session.experimentId, session.testRecordId]);
   const selectedTaskItemId = useSessionStore(state => {
     const value = state.sessions.find(item => item.id === sessionId)?.drafts[capability]?.artifactTaskItemId;
     return typeof value === 'string' ? value : undefined;
@@ -54,5 +71,5 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     }
   }, [session, selectedTaskItemId]);
 
-  return { projects, tasks, session, targetProject, activeTask, activeTaskItem, recordArtifactForTaskItem };
+  return { projects, tasks, session, targetProject, activeTask, activeTaskItem, physicalSource, addArtifact, recordArtifactForTaskItem };
 };

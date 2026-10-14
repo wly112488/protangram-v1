@@ -16,14 +16,13 @@ const SessionShell: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const sessions = useSessionStore(state => state.sessions);
-  const activeId = useSessionStore(state => state.activeSessionId);
   const tasks = useTaskStore(state => state.tasks);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const bridgedLocation = useRef<string | null>(null);
   const routeId = getSessionIdFromLocation(location.pathname, location.search);
   const incoming = location.state as BusinessRouteState | null;
-  const requestedId = routeId ?? incoming?.workspaceSession?.sessionId ?? activeId;
+  const requestedId = routeId ?? incoming?.workspaceSession?.sessionId;
   const taskRouteId = location.pathname.match(/^\/tasks\/([^/]+)$/)?.[1];
   const taskId = taskRouteId ? decodeURIComponent(taskRouteId) : incoming?.workspaceSession?.mode === 'task' ? incoming.workspaceSession.taskId : new URLSearchParams(location.search).get('taskId');
   const task = tasks.find(item => item.id === taskId);

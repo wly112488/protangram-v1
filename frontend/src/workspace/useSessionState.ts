@@ -43,6 +43,6 @@ export const useSessionRouteState = (): BusinessRouteState | null => {
   const context = useMemo(() => session ? getSessionWorkspaceContext(session) : undefined,
     // Draft edits must not change the navigation context or assistant callbacks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session?.id, session?.storageProjectId, session?.taskId]);
+    [session?.id, session?.storageProjectId, session?.taskId, session?.businessScope]);
   return useMemo(() => !context ? incoming : resolveSessionHandoff(context, handoff, incoming), [context, handoff, incoming]);
 };

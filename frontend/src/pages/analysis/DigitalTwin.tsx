@@ -2,7 +2,7 @@ import { useSessionState, useSessionRouteState } from '@/workspace/useSessionSta
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Col, Descriptions, Form, InputNumber, Modal, Progress, Row,
-  Select, Space, Statistic, Table, Tabs, Tag, Typography, message,
+  Space, Statistic, Table, Tabs, Tag, Typography, message,
 } from 'antd';
 import {
   BarChartOutlined, DownloadOutlined, ExperimentOutlined, ReloadOutlined,
@@ -14,7 +14,6 @@ import type { BusinessAction, BusinessRouteState, ModelContract } from '@/types/
 import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
 import { createCalibrationArtifactInput } from '@/workspace/projectModel';
-import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { createTaskReturnPath } from '@/workspace/businessSessionModel';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
@@ -50,14 +49,13 @@ const DigitalTwin: React.FC = () => {
   const navigate = useNavigate();
   const incoming = useSessionRouteState();
   const { setContext } = useTrialAIAssistant();
-  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
+  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem, physicalSource, addArtifact } = useWorkspaceBusinessSession(incoming);
   const { models: globalModels, updateCurrentModel } = useSessionModels();
-  const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
   const incomingGlobalModel = incoming?.model ? globalModels.find((item) => item.modelId === incoming.model?.modelId) : null;
-  const initialModel = incomingGlobalModel ?? (incoming?.model || autoExecute ? globalModels[0] ?? null : null);
+  const initialModel = incomingGlobalModel ?? (autoExecute ? globalModels[0] ?? null : null);
   const recommendedSpeedRange = incoming?.validation?.suggestedRange.match(/\d+/g)?.map(Number);
   const initialParams = autoExecute && recommendedSpeedRange && recommendedSpeedRange.length >= 2
     ? { ...INITIAL_PARAMS, speed: Math.round((recommendedSpeedRange[0] + recommendedSpeedRange[1]) / 2) }
@@ -81,10 +79,10 @@ const DigitalTwin: React.FC = () => {
   const activeModel = (model && globalModels.find((item) => item.modelId === model.modelId))
     ?? (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
     ?? model
-    ?? (incoming?.source === 'dataAnalysis' ? globalModels[0] ?? null : null);
+    ?? null;
   const activeSimulationFile = simulationFile || (incoming?.source === 'dataAnalysis' ? 'digital_twin_baseline.json' : '');
-  const activeMeasuredFile = measuredFile || incoming?.data?.dataName || '';
-  const preparationReady = Object.values(confirmed).every(Boolean);
+  const activeMeasuredFile = physicalSource.record ? physicalSource.record.rawFiles.map(file => file.name).join('、') || physicalSource.record.name : measuredFile || incoming?.data?.dataName || '';
+  const preparationReady = confirmed.model && confirmed.simulationData && confirmed.params && (Boolean(physicalSource.record) || confirmed.measuredData);
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
     () => boundProject ? (session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
@@ -110,6 +108,7 @@ const DigitalTwin: React.FC = () => {
   };
 
   const startCalibration = () => {
+    if (activeModel?.definitionOnly) return message.info('该模型只有定义，尚未接入校准计算；可保存手工输入。');
     if (!preparationReady) return message.warning('请先确认全部校准准备项');
     if (!activeModel || !activeSimulationFile || !activeMeasuredFile) {
       message.warning('请先选择模型并导入仿真、实测数据');
@@ -121,9 +120,10 @@ const DigitalTwin: React.FC = () => {
     calibrationTimer.current = window.setTimeout(() => {
       setCalibrating(false);
       const updatedModel = activeModel ? updateCurrentModel(activeModel.modelId, {
-        status: '已校准',
+        status: '演示校准',
         calibratedAt: new Date().toISOString().slice(0, 10),
         calibrationData: {
+          resultMode: 'demo',
           simulationFile: activeSimulationFile,
           measuredFile: activeMeasuredFile,
           params,
@@ -288,7 +288,7 @@ const DigitalTwin: React.FC = () => {
       return;
     }
     if (key === 'simulationData') simulationInputRef.current?.click();
-    else measuredInputRef.current?.click();
+    else if (!physicalSource.record) measuredInputRef.current?.click();
   };
 
   const handleDataFile = (key: 'simulationData' | 'measuredData', file?: File) => {
@@ -317,7 +317,7 @@ const DigitalTwin: React.FC = () => {
         title="校准准备"
         items={[
           { key: 'simulation', label: '仿真数据', value: activeSimulationFile || '未导入', confirmed: confirmed.simulationData, onClick: () => confirmOrChooseData('simulationData', Boolean(activeSimulationFile)), preview: <Space size={[4, 4]} wrap><Tag color="blue">基准输入</Tag><span>{activeSimulationFile || '请导入仿真数据文件'}</span></Space> },
-          { key: 'measured', label: '实测数据', value: activeMeasuredFile || '未导入', confirmed: confirmed.measuredData, onClick: () => confirmOrChooseData('measuredData', Boolean(activeMeasuredFile)), preview: <Space size={[4, 4]} wrap><Tag color="blue">校准对照</Tag><span>{activeMeasuredFile || '请导入实测数据文件'}</span></Space> },
+          { key: 'measured', label: '实测数据', value: activeMeasuredFile || '未导入', confirmed: Boolean(physicalSource.record) || confirmed.measuredData, onClick: physicalSource.record ? undefined : () => confirmOrChooseData('measuredData', Boolean(activeMeasuredFile)), preview: <Space size={[4, 4]} wrap><Tag color="blue">校准对照</Tag><span>{activeMeasuredFile || '请导入实测数据文件'}</span></Space> },
           { key: 'params', label: '参数配置', value: `温度 ${params.temperature}℃ / 转速 ${params.speed}`, confirmed: confirmed.params, onClick: () => { setDraftParams(params); setParamsModalOpen(true); }, preview: <Space size={[4, 4]} wrap><Tag>温度 {params.temperature} ℃</Tag><Tag>压力 {params.pressure} kPa</Tag><Tag>转速 {params.speed} r/min</Tag></Space> },
         ]}
         actions={<Space size={6}>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Button, Card, Input, Modal, Radio, Select, Tooltip, Typography } from 'antd';
-import { DeleteOutlined, EditOutlined, HomeOutlined, InboxOutlined, PlusOutlined, PushpinOutlined, RightOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, DeleteOutlined, EditOutlined, HomeOutlined, InboxOutlined, PlusOutlined, PushpinOutlined, RightOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
@@ -94,6 +94,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
     <Input prefix={<SearchOutlined />} placeholder="搜索会话" aria-label="搜索会话" value={search} onChange={event => setSearch(event.target.value)} allowClear />
     <div className="session-sidebar-scroll">
       <button className={`session-sidebar-link ${location.pathname === '/' ? 'is-active' : ''}`} onClick={() => open('/')}><HomeOutlined />工作台</button>
+      <button className={`session-sidebar-link ${location.pathname.startsWith('/physical-objects') ? 'is-active' : ''}`} onClick={() => open('/physical-objects')}><AppstoreOutlined />物理对象与试验</button>
       {!showArchived && independent.some(session => session.pinned) && <section className="session-nav-section session-nav-section--separated"><div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.pinned} onClick={() => toggleSection('pinned')}><RightOutlined className={sectionExpanded.pinned ? 'is-expanded' : ''} /><span>置顶</span></button></div>{sectionExpanded.pinned && independent.filter(session => session.pinned).map(row)}</section>}
       <section className="session-nav-section session-nav-section--separated session-nav-section--label-highlight session-recent-list">
         <div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.recent} onClick={() => toggleSection('recent')}><RightOutlined className={sectionExpanded.recent ? 'is-expanded' : ''} /><span>{showArchived ? '已归档会话' : '最近会话'}</span></button>{!showArchived && <Tooltip title="新建对话或实验"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建对话或实验" onClick={() => create()} /></Tooltip>}</div>

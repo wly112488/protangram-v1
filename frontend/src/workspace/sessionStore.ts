@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { WorkspaceSessionState } from '../types/businessContext';
+import type { BusinessRouteState, ModelContract, WorkspaceSessionState } from '../types/businessContext';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
-import { getProjectDeletionBlock, getSessionWorkspaceContext, getSessionDraftKey, type SessionCapability, type PhysicalBusinessScope, type WorkSession } from './sessionModel';
+import { getProjectDeletionBlock, getSessionWorkspaceContext, isCompatibleSessionHandoff, getSessionDraftKey, type SessionCapability, type PhysicalBusinessScope, type WorkSession } from './sessionModel';
+import { samePhysicalSource } from './physicalBusinessContext';
 
 export const SESSION_STORAGE_KEY = 'protangram-work-sessions-v1';
 const createSessionId = () => `session-${typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -28,6 +29,7 @@ interface SessionStore {
   createSession: (input?: { title?: string; projectId?: string; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => string;
   ensureTaskSession: (task: { id: string; title: string; projectId: string }) => string;
   ensureProjectSession: (projectId: string) => string;
+  ensurePhysicalSession: (scope: PhysicalBusinessScope, title: string) => string;
   getWorkspaceSession: (id: string) => WorkspaceSessionState | undefined;
   openSession: (id: string | null, capability?: SessionCapability) => void;
   renameSession: (id: string, title: string) => void;
@@ -76,6 +78,12 @@ export const useSessionStore = create<SessionStore>((set, get) => {
   return {
     ...load(),
     createSession: (input = {}) => create(input),
+    ensurePhysicalSession: (scope, title) => {
+      if (!scope.physicalObjectId) return create({ title });
+      const existing = get().sessions.find(session => !session.taskId && !session.archived && samePhysicalSource(session.businessScope, scope));
+      if (existing) update(existing.id, session => ({ ...session, businessScope: { ...session.businessScope, ...scope } }));
+      return existing?.id ?? create({ title, businessScope: scope });
+    },
     ensureTaskSession: (task) => get().sessions.find(session => session.taskId === task.id)?.id
       ?? create({ title: task.title, projectId: task.projectId, taskId: task.id, storageProjectId: task.projectId }),
     ensureProjectSession: (projectId) => {
@@ -108,14 +116,29 @@ export const useSessionStore = create<SessionStore>((set, get) => {
     updateDraft: (id, capability, key, value) => update(id, session => ({ ...session, drafts: {
       ...session.drafts, [capability]: { ...session.drafts[capability], [key]: value },
     } })),
-    setHandoff: (id, capability, value, resetDraft = false) => update(id, session => {
+    setHandoff: (id, capability, value, resetDraft = false) => {
+      const current = get().sessions.find(item => item.id === id);
+      if (!current || !isCompatibleSessionHandoff(getSessionWorkspaceContext(current), value as unknown as BusinessRouteState)) return;
+      update(id, session => {
       const prefix = getSessionDraftKey('', value.workspaceSession as WorkspaceSessionState | undefined);
       const remaining = Object.fromEntries(Object.entries(session.drafts[capability] ?? {}).filter(([key]) =>
         key === 'assistantHistory' || key.endsWith(':assistantHistory') || key.startsWith('report:') || key.includes(':report:')
           || (prefix ? !key.startsWith(prefix) : key.startsWith('item:') || key.startsWith('professional:'))));
-      return { ...session, handoffs: { ...session.handoffs, [capability]: value },
-        drafts: resetDraft ? { ...session.drafts, [capability]: remaining } : session.drafts };
-    }),
+      const drafts = resetDraft ? { ...session.drafts, [capability]: remaining } : { ...session.drafts };
+      const model = value.model as ModelContract | undefined;
+      if (Array.isArray(value.artifactIds) && value.artifactIds.length && model?.modelId) {
+        const overview = drafts.overview ?? {};
+        const updates = overview.modelUpdates as Record<string, Partial<ModelContract>> | undefined;
+        // Explicitly adopting a saved result establishes the model's starting version.
+        // Later calibration updates this patch, rather than being masked by the handoff.
+        drafts.overview = { ...overview, modelUpdates: { ...updates, [model.modelId]: {
+          version: model.version, trustedRange: model.trustedRange, measuredRange: model.measuredRange,
+          status: model.status, calibratedAt: model.calibratedAt, calibrationData: model.calibrationData,
+        } } };
+      }
+      return { ...session, handoffs: { ...session.handoffs, [capability]: value }, drafts };
+      });
+    },
     retrySave: () => commit(get().sessions),
     reloadFromStorage: () => set(load()),
   };

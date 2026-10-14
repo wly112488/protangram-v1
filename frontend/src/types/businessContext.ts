@@ -7,6 +7,7 @@ export type BusinessAction =
   | '生成验证试验' | '加入报告';
 
 export interface ModelContract {
+  definitionOnly?: boolean;
   modelId: string;
   modelName: string;
   version: string;
@@ -16,6 +17,8 @@ export interface ModelContract {
   calibratedAt?: string;
   calibrationData?: Record<string, unknown>;
 }
+
+export const UNSELECTED_MODEL: ModelContract = { modelId: '', modelName: '未选择模型', version: '', trustedRange: '未设置' };
 
 export interface TaskContract {
   taskId: string;

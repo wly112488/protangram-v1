@@ -6,6 +6,9 @@ import { getCapabilityFromPath, getSessionEntryPath, getSessionPath, getSessionR
 import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
 import TaskArtifactScope from './TaskArtifactScope';
+import PhysicalSourcePanel from './PhysicalSourcePanel';
+import { usePhysicalObjectStore } from './physicalObjectStore';
+import { resolvePhysicalSource } from './physicalBusinessContext';
 
 const capabilityIcons = {
   doe: <ExperimentOutlined />,
@@ -23,6 +26,7 @@ const SessionWorkbench: React.FC = () => {
   const session = useSessionStore(state => state.sessions.find(item => item.id === sessionId));
   const saveError = useSessionStore(state => state.saveError);
   const projects = useProjectStore(state => state.projects);
+  const objects = usePhysicalObjectStore(state => state.objects);
   const activeResourceView = useProjectStore(state => state.activeView);
   const [editOpen, setEditOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -40,6 +44,7 @@ const SessionWorkbench: React.FC = () => {
   const capability = getCapabilityFromPath(location.pathname);
   const project = projects.find(item => item.id === session.projectId && !item.sessionOwnerId);
   const context = useSessionStore.getState().getWorkspaceSession(session.id);
+  const physicalSource = resolvePhysicalSource(objects, session.businessScope);
   const routeState = location.state as { returnTo?: string; returnState?: unknown } | null;
   const returnTo = routeState?.returnTo;
   const resourceProject = projects.find(item => item.id === session.storageProjectId);
@@ -85,8 +90,9 @@ const SessionWorkbench: React.FC = () => {
         <span className="session-capability-tab-icon">{capabilityIcons[item.key]}</span><span className="session-capability-tab-copy"><strong>{item.label}</strong></span>
       </button>)}
     </nav>}
+    <PhysicalSourcePanel session={session} />
     <TaskArtifactScope />
-    <div className="session-professional-content"><Outlet key={`${session.id}:${location.pathname}:${location.key}`} /></div>
+    <div className="session-professional-content"><>{physicalSource.missing ? <Empty description="请先修复业务来源，专业功能不会使用其他记录替代" /> : <Outlet key={`${session.id}:${location.pathname}:${location.key}`} />}</></div>
     <Modal title="会话设置" open={editOpen} okText="保存" cancelText="取消" onCancel={() => setEditOpen(false)} onOk={() => { if (!title.trim()) return; useSessionStore.getState().renameSession(session.id, title); if (!session.taskId) useSessionStore.getState().moveSession(session.id, projectId); setEditOpen(false); }}><label className="session-form-label" htmlFor="session-title-input">会话名称</label><Input id="session-title-input" value={title} onChange={event => setTitle(event.target.value)} /><label className="session-form-label" htmlFor="session-project-input">所属项目</label><Select id="session-project-input" style={{ width: '100%' }} allowClear placeholder="独立会话，无需项目" value={projectId} disabled={Boolean(session.taskId)} onChange={setProjectId} options={projects.filter(item => !item.sessionOwnerId).map(item => ({ value: item.id, label: item.name }))} /><p className="session-resource-description">项目用于归类会话，会话成果仍保留在当前会话中。</p></Modal>
   </div>;
 };

@@ -44,14 +44,61 @@
 .business-sidebar .business-task-link { margin: 2px 0; font-size: 12px; }
 .business-sidebar .business-task-link > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .physical-book-tests h5.ant-typography { margin: 13px 0 7px; }
+.physical-flow-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: start; }
+.physical-flow-tree { position: sticky; top: 12px; padding: 14px; border: 1px solid #e8edf4; border-radius: 10px; background: #fbfcfe; }
+.physical-flow-tree .ant-select { width: 100%; }
+.physical-select-label { margin: 2px 0 7px; color: #64748b; font-size: 12px; }
+.physical-select-label:not(:first-child) { margin-top: 16px; }
+.physical-object-summary { display: grid; gap: 8px; margin-top: 17px; color: #64748b; font-size: 12px; }
+.physical-config-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.physical-config-title h4.ant-typography { margin: 3px 0; }
+.physical-flow-main { min-width: 0; display: flex; flex-direction: column; gap: 13px; }
+.physical-flow-main > .ant-card { border-color: #e8edf4; border-radius: 9px; }
+.physical-experiment-heading, .physical-record-heading, .physical-charts-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.physical-experiment-heading h5.ant-typography, .physical-charts-heading h5.ant-typography { margin: 0; }
+.physical-experiment-card { border-color: #e7ebf1; border-radius: 10px; }
+.physical-experiment-card > .ant-card-body { padding-top: 12px; }
+.physical-plan-fields, .physical-record-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.physical-plan-fields > div, .physical-record-columns > div { min-width: 0; }
+.physical-record-section { display: flex; flex-direction: column; gap: 13px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #edf0f4; }
+.physical-record-heading { align-items: flex-start; }
+.physical-file-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px; border-radius: 8px; background: #f7f9fc; }
+.physical-file-row > span { flex: 1; min-width: 0; color: #65758a; font-size: 12px; overflow-wrap: anywhere; }
+.physical-charts-heading { margin-top: 5px; }
+.physical-charts-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.physical-charts-grid > .ant-card { min-width: 0; border-color: #e8edf4; border-radius: 9px; }
+.physical-chart-loading { height: 300px; display: grid; place-items: center; color: #8793a3; }
+.physical-form-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+.physical-form-row { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(100px, 1fr) minmax(72px, .65fr) minmax(80px, .65fr) auto; gap: 8px; align-items: start; }
+.physical-form-row .ant-form-item { margin-bottom: 8px; }
+.physical-upload-section { display: flex; flex-direction: column; gap: 10px; }
+.physical-model-list > .ant-card-body { display: flex; flex-wrap: wrap; gap: 18px; }
+.physical-model-list > .ant-card-body > div { display: grid; gap: 4px; }
+.physical-task-record { display: flex; align-items: center; gap: 12px; padding-top: 12px; }
+.physical-design-case { display: grid; gap: 6px; margin-bottom: 12px; }
+.physical-design-row { grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(70px, .7fr) minmax(90px, .75fr) minmax(90px, .75fr) auto; }
+.physical-taskbook-view { grid-template-columns: 280px minmax(0, 1fr); }
+.physical-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.physical-tool-grid > .ant-card { border-color: #e8edf4; border-radius: 9px; }
+.physical-tool-grid > .ant-card .ant-card-body { display: flex; flex-direction: column; gap: 12px; }
 @media (max-width: 1000px) {
-  .physical-object-layout, .physical-taskbook-view { grid-template-columns: 1fr; }
+  .physical-object-layout, .physical-taskbook-view, .physical-flow-layout { grid-template-columns: 1fr; }
+  .physical-flow-tree { position: static; }
   .physical-tree-card { max-height: 280px; overflow: auto; }
   .physical-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
   .physical-heading { align-items: flex-start; flex-direction: column; }
   .physical-heading > .ant-space { width: 100%; flex-wrap: wrap; }
-  .physical-section-grid, .physical-model-grid { grid-template-columns: 1fr; }
+  .physical-section-grid, .physical-model-grid, .physical-plan-fields, .physical-record-columns, .physical-charts-grid { grid-template-columns: 1fr; }
+  .physical-form-row { grid-template-columns: 1fr 1fr; }
+  .physical-config-title { align-items: flex-start; flex-direction: column; }
   .physical-stats { gap: 8px; }
 }
+
+.physical-source-panel { margin: 0 0 16px; }
+.physical-source-panel .ant-alert, .physical-source-panel .ant-collapse, .physical-source-panel .ant-typography { margin-top: 10px; }
+.physical-source-panel .ant-card { margin-top: 12px; }
+.physical-model-input { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.physical-model-input .ant-input { max-width: 300px; }
+.physical-record-actions { margin: 12px 0; }

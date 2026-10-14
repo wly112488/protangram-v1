@@ -1,6 +1,6 @@
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import { useSessionStore } from '@/workspace/sessionStore';
-import { getSessionDraftKey } from '@/workspace/sessionModel';
+import { getSessionDraftKey, getSessionPath } from '@/workspace/sessionModel';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert, Card, Typography, Button, Form, Input, Select, Space, Descriptions, Tag, message, Checkbox, Empty, Drawer,
@@ -20,6 +20,8 @@ import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js
 import { resolveTaskReportProjectId } from './taskReportModel';
 import type { AnalysisProject, AnalysisReport } from '@/types';
 import type { ProjectArtifact } from '@/workspace/types';
+import { usePhysicalObjectStore } from '@/workspace/physicalObjectStore';
+import { artifactResultLabel, getSourceArtifacts, resolvePhysicalSource, type ArtifactReference, type RecordChartReference } from '@/workspace/physicalBusinessContext';
 
 const { Title, Text } = Typography;
 
@@ -37,6 +39,8 @@ const REPORT_TEMPLATE_OPTIONS = [
 type ReportRecord = AnalysisReport & {
   workspaceProjectId?: string;
   artifactIds?: string[];
+  artifactRefs?: ArtifactReference[];
+  chartRefs?: RecordChartReference[];
   taskId?: string;
   taskItemId?: string;
 };
@@ -67,6 +71,12 @@ const ReportCreate: React.FC = () => {
     setAnalysisProjects, setExperiments, addAnalysisReport,
   } = useAppStore();
   const { projects, activeProjectId } = useProjectStore();
+  const sessions = useSessionStore(state => state.sessions);
+  const objects = usePhysicalObjectStore(state => state.objects);
+  const scope = routeState?.workspaceSession;
+  const source = resolvePhysicalSource(objects, scope);
+  const sourceArtifacts = getReportableArtifacts(getSourceArtifacts(projects, sessions, scope));
+  const [selectedChartIds, setSelectedChartIds] = useSessionState<string[]>('selectedChartIds', []);
   const [legacyProjects, setLegacyProjects] = useState<AnalysisProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useSessionState('selectedProjectId', routeProjectId ?? '');
   const [selectedArtifactIds, setSelectedArtifactIds] = useSessionState<string[]>('selectedArtifactIds', []);
@@ -93,7 +103,7 @@ const ReportCreate: React.FC = () => {
 
     const initialProject = projects.find((project) => project.id === initialProjectId);
     const availableArtifactIds = initialProject
-      ? getReportableArtifacts(initialProject.artifacts).map((artifact) => artifact.id)
+      ? (scope?.physicalObjectId ? sourceArtifacts : getReportableArtifacts(initialProject.artifacts)).map((artifact) => artifact.id)
       : [];
     const requestedArtifactIds = routeState?.artifactIds ?? task?.reportDraft.sections.flatMap((section) => section.artifactRefs
       .filter((reference) => reference.projectId === initialProjectId)
@@ -108,7 +118,7 @@ const ReportCreate: React.FC = () => {
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
   const selectedLegacyProject = legacyProjects.find((project) => project.id === selectedProjectId);
-  const reportableArtifacts = selectedProject ? getReportableArtifacts(selectedProject.artifacts) : [];
+  const reportableArtifacts = scope?.physicalObjectId ? sourceArtifacts : selectedProject ? getReportableArtifacts(selectedProject.artifacts) : [];
 
   const handleProjectChange = (id: string) => {
     setSelectedProjectId(id);
@@ -142,6 +152,8 @@ const ReportCreate: React.FC = () => {
         status: 'draft',
         workspaceProjectId: project?.id,
         artifactIds: project ? selectedArtifactIds : [],
+        artifactRefs: reportableArtifacts.filter(artifact => selectedArtifactIds.includes(artifact.id)).map(artifact => ({ projectId: artifact.projectId, artifactId: artifact.id })),
+        chartRefs: source.record?.charts.filter(chart => selectedChartIds.includes(chart.id)).map(chart => ({ physicalObjectId: source.configuration!.id, experimentId: source.experiment!.id, testRecordId: source.record!.id, chartId: chart.id })) ?? [],
         taskId: task?.id,
         taskItemId,
         reportContent: task ? task.reportDraft.sections.map((section) => {
@@ -160,7 +172,7 @@ const ReportCreate: React.FC = () => {
       saveAnalysisReports(all);
 
       message.success(taskBoundMode ? '报告配置已保存，可继续编制正式报告' : '报告已创建');
-      navigate(`/report/generate/${report.id}${task ? `?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}` : ''}`);
+      navigate(`${scope?.sessionId ? getSessionPath(scope.sessionId, 'report') : '/report'}/generate/${report.id}${task ? `?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}` : ''}`);
     } catch {
       message.error('请选择项目和报告模板');
     }
@@ -174,7 +186,7 @@ const ReportCreate: React.FC = () => {
   return (
     <div className="workspace-simple-page workspace-report-create-page">
       <div className="workspace-page-heading">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(task ? `/tasks/${task.id}` : '/report/list')}>返回</Button>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(task ? `/tasks/${task.id}` : scope?.sessionId ? `${getSessionPath(scope.sessionId, 'report')}/list` : '/report/list')}>返回</Button>
         <Title level={4} style={{ margin: 0 }}>{taskBoundMode ? '任务报告配置' : '新建分析报告'}</Title>
       </div>
 
@@ -199,7 +211,7 @@ const ReportCreate: React.FC = () => {
                 <Form.Item label={sessionBoundMode && !taskBoundMode ? "当前会话" : "所属项目"}>
                   <Input disabled value={sessionBoundMode && !taskBoundMode ? sessionTitle : projects.find((project) => project.id === routeProjectId)?.name ?? '关联项目不可用'} />
                 </Form.Item>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{sessionBoundMode && !taskBoundMode ? '报告引用当前会话的成果，无需创建项目。' : '任务报告沿用任务关联项目，成果来自该项目以及已明确加入任务报告草稿的成果。'}</Text>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{sessionBoundMode && !taskBoundMode ? scope?.physicalObjectId ? '报告可引用同一业务来源的已有专业成果和原始记录图表。' : '报告引用当前会话的成果，无需创建项目。' : '任务报告沿用任务关联项目，成果来自该项目以及已明确加入任务报告草稿的成果。'}</Text>
               </>
             ) : (
               <Form.Item label="选择项目" name="analysisProjectId"
@@ -238,7 +250,7 @@ const ReportCreate: React.FC = () => {
                     <Checkbox key={artifact.id} value={artifact.id}>
                       <Space wrap>
                         <Text strong>{artifact.title}</Text>
-                        <Tag color="blue">{artifact.type}</Tag>
+                        <Tag color="blue">{artifact.type}</Tag><Tag>{artifactResultLabel(artifact)}</Tag>
                         <Text type="secondary">{artifact.summary}</Text>
                       </Space>
                     </Checkbox>
@@ -249,6 +261,12 @@ const ReportCreate: React.FC = () => {
           </Card>
         )}
 
+        {source.record && <Card title="选择原始记录图表" style={{ marginBottom: 16 }}>
+          <Text type="secondary">直接引用同一记录及图表配置，不复制 CSV 或图表数据。</Text>
+          <Checkbox.Group value={selectedChartIds} onChange={values => setSelectedChartIds(values as string[])}>
+            <Space direction="vertical">{source.record.charts.map(chart => <Checkbox key={chart.id} value={chart.id}>{chart.name} · {chart.xField} / {chart.yField}</Checkbox>)}</Space>
+          </Checkbox.Group>
+        </Card>}
         {task && (
           <Card title={`任务报告草稿 · ${task.title}`} style={{ marginBottom: 16 }}>
             <Text type="secondary">已将 {task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项任务成果与各章节正文带入正式报告配置。</Text>
@@ -271,7 +289,7 @@ const ReportCreate: React.FC = () => {
 
         <div className="workspace-form-actions" style={{ textAlign: 'center', marginTop: 24 }}>
           <Space size="large">
-            <Button size="large" onClick={() => navigate('/report/list')}>取消</Button>
+            <Button size="large" onClick={() => navigate(scope?.sessionId ? `${getSessionPath(scope.sessionId, 'report')}/list` : '/report/list')}>取消</Button>
             <Button type="primary" size="large" icon={<FileSyncOutlined />} onClick={handleGenerate}>
               {taskBoundMode ? '保存配置并继续编制' : '进入报告编制'}
             </Button>

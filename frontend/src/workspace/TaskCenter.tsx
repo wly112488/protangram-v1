@@ -13,7 +13,8 @@ const { Text } = Typography;
 const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMount = false }) => {
   const navigate = useNavigate();
   const tasks = useTaskStore((state) => state.tasks);
-  const createDemoTask = useTaskStore((state) => state.createDemoTask);
+  const createTask = useTaskStore((state) => state.createTask);
+  const objects = usePhysicalObjectStore(state => state.objects);
   const createProject = useProjectStore((state) => state.createProject);
   const projects = useProjectStore((state) => state.projects);
   const [createOpen, setCreateOpen] = useState(openCreateOnMount);
@@ -22,7 +23,11 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
   const [creatingTask, setCreatingTask] = useState(false);
   const taskBookInput = useRef<HTMLInputElement>(null);
   const objectId = new URLSearchParams(window.location.search).get('objectId');
-  const objectContext = objectId ? flattenObjects(usePhysicalObjectStore.getState().objects).find(({ object }) => object.id === objectId)?.object.name : undefined;
+  const objectContext = objectId ? (() => {
+    const objects = usePhysicalObjectStore.getState().objects;
+    return objects.find(object => object.id === objectId)?.name
+      ?? flattenObjects(objects).find(({ object }) => object.id === objectId)?.object.name;
+  })() : undefined;
 
   const resetForm = () => {
     setTitle('');
@@ -31,20 +36,19 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
 
   const handleCreate = async () => {
     if (!title.trim()) return message.warning('请填写任务名称');
-    if (!taskBookFile) return message.warning('请选择任务书 PDF');
     setCreatingTask(true);
     try {
-      const projectId = createProject({ name: title.trim(), description: '由任务工作台创建的数据与成果空间', status: '进行中' });
-      const taskId = createDemoTask({ title, projectId, sourceName: taskBookFile.name });
+      const projectId = createProject({ name: title.trim(), description: '任务书关联信息（不解析或执行任务）', status: '进行中' });
+      const taskId = createTask({ title, projectId, sourceName: taskBookFile?.name, requirementTexts: [] });
       try {
-        await saveTaskBookFile(taskId, taskBookFile);
-        message.success('任务已创建；任务书已保存在本机，事项使用模拟 AI 拆解结果');
+        if (taskBookFile) await saveTaskBookFile(taskId, taskBookFile);
+        message.success('任务书关联 ID 已创建');
       } catch {
         message.warning('任务已创建，但任务书未能保存在本机；稍后可在原文查看器中重新选择 PDF');
       }
       setCreateOpen(false);
       resetForm();
-      navigate(`/tasks/${taskId}`);
+      navigate(`/physical-objects?view=taskbooks&taskId=${encodeURIComponent(taskId)}`);
     } finally {
       setCreatingTask(false);
     }
@@ -69,10 +73,10 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
   return (
     <div className="task-center-page task-center-embedded">
       <section className="task-center-section">
-        <div className="session-home-section-heading"><h2>正式任务</h2><Space><Text type="secondary">{tasks.length} 项</Text><Button icon={<UploadOutlined />} onClick={() => setCreateOpen(true)}>导入任务书</Button></Space></div>
+        <div className="session-home-section-heading"><h2>任务书关联</h2><Space><Text type="secondary">{tasks.length} 项</Text><Button icon={<UploadOutlined />} onClick={() => setCreateOpen(true)}>新建任务书关联</Button></Space></div>
         {tasks.length === 0 ? (
           <Card className="task-center-empty">
-            <Empty description="导入任务书并命名后，正式任务会显示在这里。当前任务拆解和分析结果使用模拟数据。" />
+            <Empty description="创建任务书关联 ID 后，可在试验构型中选择；PDF 可选。" />
           </Card>
         ) : (
           <List
@@ -97,16 +101,16 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
                     title={<span className="task-card-title">{task.title}</span>}
                     extra={<Tag color={task.status === '进行中' ? 'blue' : task.status === '已完成' ? 'green' : 'default'}>{task.status}</Tag>}
                     actions={[
-                      <Button type="link" key="open" onClick={() => navigate(`/tasks/${task.id}`)}>打开任务工作台</Button>,
+                      <Button type="link" key="open" onClick={() => navigate(`/physical-objects?view=taskbooks&taskId=${encodeURIComponent(task.id)}`)}>查看关联试验与成果</Button>,
                       <Text type="secondary" key="updated">更新于 {new Date(task.updatedAt).toLocaleDateString('zh-CN')}</Text>,
                     ]}
                   >
                     <Space direction="vertical" size={10}>
-                      <Text type="secondary">任务书：{task.sourceName || '未填写来源'}</Text>
+                      <Text type="secondary">任务书 ID：{task.id}</Text><Text type="secondary">附件：{task.sourceName || '无附件'}</Text>
                       {task.demo && <Tag color="purple">AI 模拟拆解与分析结果</Tag>}
                       {project && <Text type="secondary">关联项目空间：{project.name}</Text>}
                       <div className="task-card-stats">
-                        <span>{openRequirements} 项事项待处理</span>
+                        <span>{objects.flatMap(object => object.configurations).flatMap(config => config.experiments).filter(experiment => experiment.taskBookId === task.id).length} 个关联试验</span>{task.requirements.length > 0 && <span>{openRequirements} 项历史事项待处理</span>}
                         <span>{task.professionalProjects?.length ?? 0} 个专业工作项目</span>
                         <span>{artifactCount} 项分析成果</span>
                         <span>{task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项已入报告</span>
@@ -121,9 +125,9 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
       </section>
 
       <Modal
-        title="新建任务"
+        title="新建任务书关联"
         open={createOpen}
-        okText="创建任务并进入工作台"
+        okText="创建关联 ID"
         cancelText="取消"
         width={720}
         confirmLoading={creatingTask}
@@ -132,9 +136,9 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
       >
         <div className="task-create-form">
           {objectContext && <Alert type="info" showIcon message={`从物理对象“${objectContext}”创建`} style={{ marginBottom: 16 }} />}
-          <label>任务名称<Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：发动机高转速性能分析" /></label>
+          <label>任务书名称<Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：发动机高转速性能分析" /></label>
           <div className="task-book-upload">
-            <Text strong>任务书 PDF</Text>
+            <Text strong>任务书 PDF（可选）</Text>
             <input ref={taskBookInput} type="file" accept="application/pdf,.pdf" onChange={handleTaskBookChange} hidden />
             <Space wrap>
               <Button icon={<UploadOutlined />} onClick={() => taskBookInput.current?.click()}>
@@ -146,8 +150,8 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
           <Alert
             showIcon
             type="info"
-            message="当前为原型模拟"
-            description="PDF 会保存在当前浏览器本机供任务工作台查看，不会上传或解析文件内容；任务事项和专业分析结果仍使用内置模拟数据。"
+            message="仅用于关联试验"
+            description="创建后只保存关联 ID 和名称。PDF 可选，不解析、不拆解、不自动执行；历史任务数据仍保留。"
           />
         </div>
       </Modal>

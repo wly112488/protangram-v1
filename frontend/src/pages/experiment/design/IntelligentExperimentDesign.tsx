@@ -1,3 +1,4 @@
+import { UNSELECTED_MODEL } from '@/types/businessContext';
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,7 +16,6 @@ import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createDesignArtifactInput, createDoeArtifactInput } from '@/workspace/projectModel';
-import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
@@ -76,15 +76,15 @@ const IntelligentExperimentDesign: React.FC = () => {
   const navigate = useNavigate();
   const incoming = useSessionRouteState();
   const { setContext } = useTrialAIAssistant();
-  const { projects, session, targetProject, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
+  const { projects, session, targetProject, recordArtifactForTaskItem, physicalSource, addArtifact } = useWorkspaceBusinessSession(incoming);
   const { models: globalModels } = useSessionModels();
-  const addArtifact = useProjectStore((state) => state.addArtifact);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
   const initialModel = (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
+    ?? (physicalSource.configuration ? UNSELECTED_MODEL : undefined)
     ?? globalModels.find((item) => item.modelId === 'engine-v2.1')
     ?? globalModels[0]
     ?? { modelId: 'engine-v2.1', modelName: '发动机模型', version: 'V2.1', trustedRange: '2000～8000 rpm', status: '已确认' };
@@ -101,7 +101,8 @@ const IntelligentExperimentDesign: React.FC = () => {
 
   const [selectedModel, setModel] = useSessionState('selectedModel', initialModel);
   const model = globalModels.find((item) => item.modelId === selectedModel.modelId) ?? selectedModel;
-  const [datasets, setDatasets] = useSessionState<string[]>('datasets', incoming?.datasets ?? [DATASETS[0]]);
+  const [storedDatasets, setDatasets] = useSessionState<string[]>('datasets', incoming?.datasets ?? [DATASETS[0]]);
+  const datasets = useMemo(() => physicalSource.configuration ? physicalSource.record?.rawFiles.map(file => file.name) ?? [] : storedDatasets, [physicalSource.configuration, physicalSource.record, storedDatasets]);
   const [config, setConfig] = useSessionState('config', initialConfig);
   const [constraints, setConstraints] = useSessionState('constraints', initialConstraints);
   const [draftConfig, setDraftConfig] = useSessionState('draftConfig', initialConfig);
@@ -121,7 +122,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   const timer = useRef<number | null>(null);
   const autoStarted = useRef(false);
   const autoReturned = useRef(false);
-  const preparationReady = Object.values(confirmed).every(Boolean);
+  const preparationReady = confirmed.model && (Boolean(physicalSource.configuration) || confirmed.data) && confirmed.config && confirmed.constraints;
 
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
 
@@ -131,6 +132,7 @@ const IntelligentExperimentDesign: React.FC = () => {
   };
 
   const generatePlan = () => {
+    if (model.definitionOnly) return message.info('该模型只有定义，推荐计算尚未接入；仍可使用 DOE 方法配置试验。');
     if (!preparationReady) return message.warning('请先确认全部方案生成准备项');
     if (timer.current !== null) window.clearTimeout(timer.current);
     setGenerating(true);
@@ -244,8 +246,9 @@ const IntelligentExperimentDesign: React.FC = () => {
   useEffect(() => {
     if (!autoExecute || generated || autoStarted.current || !preparationReady) return;
     autoStarted.current = true;
-    generatePlan();
+    const kickoff = window.setTimeout(() => generatePlan(), 0);
     return () => {
+      window.clearTimeout(kickoff);
       if (timer.current !== null) {
         window.clearTimeout(timer.current);
         timer.current = null;
@@ -256,13 +259,16 @@ const IntelligentExperimentDesign: React.FC = () => {
 
   useEffect(() => {
     if (!autoExecute || !generated || autoReturned.current || !targetProject || session.mode !== 'task' || !session.taskItemId) return;
+    const publish = window.setTimeout(() => {
     autoReturned.current = true;
     const artifact = persistDesign(targetProject.id);
     if (!artifact) return;
     addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id });
-    setRequirementStatus(session.taskId, session.taskItemId, '待确认');
+    setRequirementStatus(session.taskId, session.taskItemId!, '待确认');
     message.success('已按复核后的任务规划完成模拟设计，成果已回到原任务');
     navigate(createTaskReturnPath(session));
+    }, 0);
+    return () => window.clearTimeout(publish);
   }, [addArtifactToReport, autoExecute, generated, navigate, persistDesign, session, setRequirementStatus, targetProject]);
 
   const handleBusinessAction = useCallback((action: BusinessAction) => {
@@ -382,7 +388,7 @@ const IntelligentExperimentDesign: React.FC = () => {
       <PreparationChecklist
         title="方案生成准备"
         items={[
-          { key: 'data', label: '历史数据', value: datasets.join('、'), confirmed: confirmed.data, onClick: openData, preview: <Space size={[4, 4]} wrap><Tag color="blue">已关联 {datasets.length} 组数据</Tag>{datasets.map((dataset) => <Tag key={dataset}>{dataset}</Tag>)}</Space> },
+          { key: 'data', label: '历史数据', value: datasets.join('、'), confirmed: Boolean(physicalSource.configuration) || confirmed.data, onClick: physicalSource.configuration ? undefined : openData, preview: <Space size={[4, 4]} wrap><Tag color="blue">已关联 {datasets.length} 组数据</Tag>{datasets.map((dataset) => <Tag key={dataset}>{dataset}</Tag>)}</Space> },
           { key: 'config', label: '试验配置', value: `${config.target} / 最多 ${config.maxRuns} 次`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">目标：{config.target}</Tag><Tag>转速 {config.speedMin}～{config.speedMax} rpm</Tag><Tag>温度 {config.temperatureMin}～{config.temperatureMax} ℃</Tag><Tag>压力 {config.pressureMin}～{config.pressureMax} MPa</Tag><Tag>最多 {config.maxRuns} 次 · {config.strategy}</Tag></Space> },
           { key: 'constraints', label: '约束', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints, preview: <Space size={[4, 4]} wrap><Tag color="green">转速 ≤ {constraints.speedMax} rpm</Tag><Tag>温度 ≤ {constraints.temperatureMax} ℃</Tag><Tag>压力 ≥ {constraints.pressureMin} MPa</Tag><Tag>{constraints.safety ? '启用安全约束' : '未启用安全约束'}</Tag><Tag>{constraints.excludeAbnormal ? '排除异常工况' : '保留异常工况'}</Tag></Space> },
         ]}
@@ -425,7 +431,7 @@ const IntelligentExperimentDesign: React.FC = () => {
       </Card>
 
       <Modal title="选择历史数据" open={dataOpen} onCancel={() => setDataOpen(false)} onOk={() => { setDatasets(draftDatasets); setConfirmed((prev) => ({ ...prev, data: true })); setDataOpen(false); invalidate(); }}>
-        <Select mode="multiple" style={{ width: '100%' }} value={draftDatasets} onChange={setDraftDatasets} options={DATASETS.map((value) => ({ value }))} />
+        <Select disabled={Boolean(physicalSource.configuration)} mode="multiple" style={{ width: '100%' }} value={draftDatasets} onChange={setDraftDatasets} options={DATASETS.map((value) => ({ value }))} />
       </Modal>
       <Modal title="试验配置" width={680} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 5 }} wrapperCol={{ span: 18 }}>
         <Form.Item label="试验目标"><Select value={draftConfig.target} onChange={(value) => setDraftConfig({ ...draftConfig, target: value })} options={[draftConfig.target, '最大化性能', '最小化能耗', '提高稳定性'].filter((value, index, rows) => rows.indexOf(value) === index).map((value) => ({ value }))} /></Form.Item>

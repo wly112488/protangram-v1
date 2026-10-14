@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import { Alert, Button, Card, Collapse, Input, Select, Space, Tag, Typography } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePhysicalObjectStore } from './physicalObjectStore';
 import { useProjectStore } from './projectStore';
 import { useSessionStore } from './sessionStore';
 import { getCapabilityFromPath, getSessionPath, type PhysicalBusinessScope, type WorkSession } from './sessionModel';
-import { artifactResultLabel, getSourceArtifacts, physicalSourcePath, resolvePhysicalSource } from './physicalBusinessContext';
+import { artifactResultLabel, getSourceArtifacts, physicalSourcePath, resolvePhysicalSource, samePhysicalSource } from './physicalBusinessContext';
 import TrialChart from './TrialChart';
 import type { BusinessRouteState } from '../types/businessContext';
 
@@ -18,6 +19,9 @@ export default function PhysicalSourcePanel({ session }: { session: WorkSession 
   const scope = session.businessScope;
   const source = resolvePhysicalSource(objects, scope);
   const path = physicalSourcePath(objects, scope);
+  const [changingSourceSessionId, setChangingSourceSessionId] = useState<string | null>(null);
+  const hasValidSource = Boolean(source.configuration && !source.missing);
+  const changingSource = changingSourceSessionId === session.id;
   const choices: Array<{ value: string; label: string; scope: PhysicalBusinessScope }> = objects.flatMap(family => family.configurations.flatMap(configuration => [
     { value: configuration.id, label: `${family.name} / ${configuration.name}（构型参数）`, scope: { physicalObjectId: configuration.id, physicalObjectName: configuration.name } },
     ...configuration.experiments.flatMap(experiment => (experiment.trials ?? []).flatMap(trial => [trial.record, ...(trial.archivedRecords ?? [])].filter((record, index) => record || index === 0).map(record => ({
@@ -26,9 +30,7 @@ export default function PhysicalSourcePanel({ session }: { session: WorkSession 
       scope: { physicalObjectId: configuration.id, physicalObjectName: configuration.name, experimentId: experiment.id, experimentName: experiment.name, trialId: trial.id, trialName: trial.name, testRecordId: record?.id, testRecordName: record?.name, taskBookId: trial.taskBookId },
     })))),
   ]));
-  const selectedChoice = choices.find(choice => choice.scope.physicalObjectId === scope?.physicalObjectId
-    && choice.scope.experimentId === scope?.experimentId
-    && (scope?.trialId ? choice.scope.trialId === scope.trialId : scope?.testRecordId ? choice.scope.testRecordId === scope.testRecordId : !choice.scope.experimentId));
+  const selectedChoice = choices.find(choice => samePhysicalSource(choice.scope, scope));
   const allowedUpstream = capability === 'virtualCondition' ? ['calibration'] : capability === 'digitalTwin' ? ['analysis'] : capability === 'doe' ? ['analysis', 'calibration', 'virtualCondition'] : [];
   const upstream = getSourceArtifacts(projects, sessions, scope).filter(item => allowedUpstream.includes(item.type));
   const draft = session.drafts[capability];
@@ -36,8 +38,8 @@ export default function PhysicalSourcePanel({ session }: { session: WorkSession 
   const selectedModelId = selectedModel?.modelId ?? (draft?.data as { modelData?: string } | undefined)?.modelData;
   const modelDefinition = source.configuration?.models.find(item => item.id === selectedModelId);
   const modelInputs = draft?.[`modelInputs:${selectedModelId}`] as Record<string, string> | undefined;
-  return <Card size="small" className="physical-source-panel" title="共享业务来源" extra={path && <Button type="link" onClick={() => navigate(path)}>返回原始记录</Button>}>
-    <Select aria-label="选择已有业务来源" showSearch optionFilterProp="label" style={{ width: '100%' }}
+  return <Card size="small" className="physical-source-panel" title="共享业务来源" extra={<Space>{hasValidSource && <Button type="link" onClick={() => setChangingSourceSessionId(changingSource ? null : session.id)}>{changingSource ? '取消更换' : '更换来源'}</Button>}{path && <Button type="link" onClick={() => navigate(path)}>{source.record ? '返回原始记录' : '返回来源'}</Button>}</Space>}>
+    {(!hasValidSource || changingSource) && <Select aria-label="选择已有业务来源" showSearch optionFilterProp="label" style={{ width: '100%' }}
       placeholder="选择已有构型或试验记录；各专业参数独立保存"
       value={selectedChoice?.value}
       options={choices}
@@ -45,11 +47,12 @@ export default function PhysicalSourcePanel({ session }: { session: WorkSession 
         const chosen = choices.find(item => item.value === value);
         if (!chosen) return;
         const id = useSessionStore.getState().ensurePhysicalSession(chosen.scope, `${chosen.scope.physicalObjectName} · 专业工作`);
+        setChangingSourceSessionId(null);
         useSessionStore.getState().openSession(id, capability);
         navigate(getSessionPath(id, capability));
-      }} />
+      }} />}
     {source.missing ? <Alert type="error" showIcon message="业务来源已失效；请选择已有来源，当前工作不会改用其他记录。" /> : source.configuration ? <>
-      <Typography.Paragraph type="secondary">{[source.family?.name, source.configuration.name, source.experiment?.name, source.trial?.name, source.record?.name].filter(Boolean).join(' / ')}{source.trial?.taskBookId && <Tag>任务书 ID：{source.trial.taskBookId}</Tag>}</Typography.Paragraph>
+      <Typography.Paragraph type="secondary">当前来源：{[source.family?.name, source.configuration.name, source.experiment?.name, source.trial?.name, source.record?.name].filter(Boolean).join(' / ')}{source.trial?.taskBookId && <Tag>任务书 ID：{source.trial.taskBookId}</Tag>}</Typography.Paragraph>
       <Collapse items={[{ key: 'data', label: `构型参数与原始记录 · ${source.record?.rawFiles.length ?? 0} 个文件 · ${source.record?.charts.length ?? 0} 张图表`, children: <>
         <Space wrap>{source.configuration.parameters.map(field => <Tag key={field.id}>{field.name}：{field.value} {field.unit}</Tag>)}</Space>
         <Typography.Paragraph>试验构型共用设置：{source.experiment?.settings.map(field => `${field.name}：${field.value} ${field.unit ?? ''}`).join('；') || '暂无'}</Typography.Paragraph>

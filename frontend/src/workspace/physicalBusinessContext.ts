@@ -18,10 +18,10 @@ export const resolvePhysicalSource = (objects: PhysicalObject[], scope?: Physica
   const experiment = configuration?.experiments.find(item => item.id === scope?.experimentId);
   const requestedTrial = experiment?.trials?.find(item => item.id === scope?.trialId);
   const matchingTrial = scope?.testRecordId ? experiment?.trials?.find(item => [item.record, ...(item.archivedRecords ?? [])].some(record => record?.id === scope.testRecordId)) : undefined;
-  const trial = requestedTrial ?? matchingTrial;
+  const trial = scope?.trialId != null ? requestedTrial : matchingTrial;
   const legacyRecord = [experiment?.record, ...(experiment?.archivedRecords ?? [])].find(item => item?.id === scope?.testRecordId);
   const record = trial ? [trial.record, ...(trial.archivedRecords ?? [])].find(item => item?.id === scope?.testRecordId) : legacyRecord;
-  const missing = Boolean(scope?.physicalObjectId && (!configuration || scope.experimentId && !experiment || scope.trialId && !trial || scope.testRecordId && !record));
+  const missing = Boolean(scope?.physicalObjectId && (!configuration || scope.experimentId && !experiment || scope.trialId != null && !trial || scope.testRecordId != null && !record));
   return { family, configuration, experiment, trial, record, missing };
 };
 

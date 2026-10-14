@@ -3,7 +3,8 @@ import type { BusinessRouteState, ModelContract, WorkspaceSessionState } from '.
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import { getProjectDeletionBlock, getSessionWorkspaceContext, isCompatibleSessionHandoff, getSessionDraftKey, type SessionCapability, type PhysicalBusinessScope, type WorkSession } from './sessionModel';
-import { samePhysicalSource } from './physicalBusinessContext';
+import { resolvePhysicalSource, samePhysicalSource } from './physicalBusinessContext';
+import { usePhysicalObjectStore } from './physicalObjectStore';
 
 export const SESSION_STORAGE_KEY = 'protangram-work-sessions-v1';
 const createSessionId = () => `session-${typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -94,7 +95,13 @@ export const useSessionStore = create<SessionStore>((set, get) => {
     },
     getWorkspaceSession: (id) => {
       const session = get().sessions.find(item => item.id === id);
-      return session ? getSessionWorkspaceContext(session) : undefined;
+      if (!session) return undefined;
+      const context = getSessionWorkspaceContext(session);
+      const source = resolvePhysicalSource(usePhysicalObjectStore.getState().objects, session.businessScope);
+      return source.configuration && !source.missing ? { ...context,
+        physicalObjectName: source.configuration.name, experimentName: source.experiment?.name,
+        trialName: source.trial?.name, testRecordName: source.record?.name,
+      } : context;
     },
     openSession: (id, capability) => {
       if (get().activeSessionId === id && (!capability || get().sessions.find(s => s.id === id)?.capability === capability)) return;

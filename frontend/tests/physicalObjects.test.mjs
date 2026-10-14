@@ -14,7 +14,7 @@ const bundle = await build({
   stdin: { contents: "export * from './src/workspace/physicalObjectStore'; export * from './src/workspace/trialDataFiles';", resolveDir: process.cwd() },
   bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',
 });
-const { usePhysicalObjectStore, buildChartPoints, parseTrialCsv, findPhysicalTrialRecord } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+const { usePhysicalObjectStore, buildChartPoints, parseTrialCsv, findPhysicalTrialRecord, isExperimentSetupLocked } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 
 test('a concrete trial owns one record and keeps independent chart configurations under a trial configuration', () => {
   const store = usePhysicalObjectStore.getState();
@@ -103,4 +103,33 @@ test('v2 migration keeps canonical objects and attaches legacy records to a stab
   assert.equal(trialConfiguration.trials[0].id, 'trial-trial-config-v2');
   assert.equal(trialConfiguration.trials[0].record.id, 'v2-record');
   assert.equal(trialConfiguration.trials[0].record.measurements[0].value, '800');
+});
+
+test('trial configuration can change its setup before trials exist and preserves history afterward', () => {
+  const store = usePhysicalObjectStore.getState();
+  const familyId = store.addRoot({ name: '编辑验证风扇', type: '涵道风扇' });
+  const configId = store.addConfiguration(familyId, { name: '构型 A' });
+  const experimentId = store.addExperiment(configId, { name: '布置 A', description: '原说明', category: '性能与功能类', settings: [], parameters: [] });
+  const getExperiment = () => usePhysicalObjectStore.getState().objects.find(item => item.id === familyId).configurations[0].experiments[0];
+  const settings = [{ id: 'setup-1', name: '测量截面', value: '出口', form: '单值', source: '手工设置' }];
+  const parameters = [{ id: 'parameter-1', name: '探针数量', value: '2', form: '单值' }];
+  assert.equal(isExperimentSetupLocked(getExperiment()), false);
+  store.updateExperiment(experimentId, { name: '布置 B', description: '更新说明', category: '综合与考核类', settings, parameters });
+  assert.equal(getExperiment().id, experimentId);
+  assert.equal(getExperiment().category, '综合与考核类');
+  assert.equal(getExperiment().settings[0].id, 'setup-1');
+  const trialId = store.addConcreteTrial(experimentId, { name: '起飞试验', designs: [] });
+  assert.equal(isExperimentSetupLocked(getExperiment()), true);
+  assert.throws(() => store.updateExperiment(experimentId, { category: '安全与防护类' }), /不可覆盖/);
+  store.ensureTrialRecord(trialId, { name: '唯一记录', actualConditions: [], measurements: [] });
+  const originalTrials = getExperiment().trials;
+  for (const patch of [{ settings: [] }, { parameters: [] }]) {
+    assert.throws(() => store.updateExperiment(experimentId, patch), /不可覆盖/);
+  }
+  store.updateExperiment(experimentId, { name: '布置 B 新名称', description: '只调整显示说明' });
+  assert.equal(getExperiment().name, '布置 B 新名称');
+  assert.equal(getExperiment().trials, originalTrials);
+  assert.equal(getExperiment().settings, settings);
+  assert.equal(getExperiment().parameters, parameters);
+  assert.equal(isExperimentSetupLocked({ ...getExperiment(), trials: [], archivedRecords: [originalTrials[0].record] }), true);
 });

@@ -14,6 +14,7 @@ export interface DerivedChart {
 export interface TestRecord { id: string; name: string; description?: string; createdAt: string; actualConditions: ValueField[]; measurements: ValueField[]; rawFiles: RawDataFile[]; charts: DerivedChart[] }
 export interface ConcreteTrial { id: string; name: string; description?: string; taskBookId?: string; designArtifactRef?: { projectId: string; artifactId: string }; designs: DesignField[]; record?: TestRecord; archivedRecords?: TestRecord[] }
 export interface ExperimentDefinition { id: string; name: string; category: string; description?: string; taskBookId?: string; designArtifactRef?: { projectId: string; artifactId: string }; settings: ValueField[]; parameters: ValueField[]; trials: ConcreteTrial[]; record?: TestRecord; archivedRecords?: TestRecord[] }
+export const isExperimentSetupLocked = (experiment: ExperimentDefinition) => Boolean(experiment.trials?.length || experiment.record || experiment.archivedRecords?.length);
 export interface CalculationRecord extends TestRecord { inputs: ValueField[] }
 export interface Calculation { id: string; name: string; description?: string; inputs: ValueField[]; records: CalculationRecord[] }
 export interface SimulationModel { id: string; name: string; description: string; inputs: ValueField[]; outputs: ValueField[]; defaults: ValueField[]; method: string; calculations: Calculation[] }
@@ -61,7 +62,7 @@ export interface PhysicalObjectState {
   addExperiment: (configurationId: string, item: Omit<ExperimentDefinition, 'id' | 'record' | 'trials'> & { trials?: ConcreteTrial[] }) => string;
   addConcreteTrial: (experimentId: string, item: Omit<ConcreteTrial, 'id' | 'record'>) => string;
   updateConcreteTrial: (trialId: string, patch: Partial<Omit<ConcreteTrial, 'id' | 'record'>>) => void;
-  updateExperiment: (experimentId: string, patch: Partial<Omit<ExperimentDefinition, 'id' | 'record'>>) => void;
+  updateExperiment: (experimentId: string, patch: Partial<Pick<ExperimentDefinition, 'name' | 'description' | 'category' | 'settings' | 'parameters'>>) => void;
   ensureTrialRecord: (trialId: string, item: { name: string; description?: string; actualConditions: ValueField[]; measurements: ValueField[] }) => string;
   updateTrialRecord: (trialId: string, patch: Partial<Pick<TestRecord, 'name' | 'description' | 'actualConditions' | 'measurements'>>) => void;
   addRawFile: (trialId: string, file: RawDataFile) => void;
@@ -93,7 +94,12 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
     return trial.id;
   },
   updateConcreteTrial: (trialId, patch) => set(state => ({ objects: mapConcreteTrial(state.objects, trialId, trial => ({ ...trial, ...patch })) })),
-  updateExperiment: (experimentId, patch) => set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => ({ ...experiment, ...patch })) })),
+  updateExperiment: (experimentId, patch) => set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => {
+    if (isExperimentSetupLocked(experiment) && (patch.category !== undefined || patch.settings !== undefined || patch.parameters !== undefined)) {
+      throw new Error('已有具体试验或历史记录，类别、共用设置与参数不可覆盖；请新建试验构型。');
+    }
+    return { ...experiment, ...patch };
+  }) })),
   ensureTrialRecord: (trialId, input) => {
     const existing = get().objects.flatMap(family => family.configurations).flatMap(config => config.experiments).flatMap(experiment => experiment.trials ?? []).find(trial => trial.id === trialId)?.record;
     if (existing) return existing.id;

@@ -71,6 +71,26 @@ test('shared source resolves current parameters without copying or crossing reco
   assert.equal(api.physicalSourcePath(after, { ...a, testRecordId: 'deleted' }), undefined);
 });
 
+test('explicit record and trial IDs never fall back and a renamed configuration keeps source identity', () => {
+  const { a, b } = fixture();
+  const scope = { ...a, experimentName: '旧名称' };
+  const id = sessions.getState().ensurePhysicalSession(scope, '专业工作');
+  physical.getState().updateExperiment(a.experimentId, { name: '试验布置新名称', description: '更正说明' });
+  const context = sessions.getState().getWorkspaceSession(id);
+  assert.equal(context.experimentName, '试验布置新名称');
+  assert.equal(context.testRecordId, a.testRecordId);
+  assert.equal(context.trialId, a.trialId);
+  assert.equal(sessions.getState().ensurePhysicalSession(scope, '继续工作'), id);
+  const objects = physical.getState().objects;
+  for (const badScope of [{ ...a, testRecordId: 'missing' }, { ...a, testRecordId: '' }, { ...a, trialId: 'missing' }, { ...a, testRecordId: b.testRecordId }]) {
+    const source = api.resolvePhysicalSource(objects, badScope);
+    assert.equal(source.missing, true);
+    assert.equal(source.record, undefined);
+    assert.equal(api.physicalSourcePath(objects, badScope), undefined);
+  }
+  assert.equal(api.resolvePhysicalSource(objects, a).record.id, a.testRecordId);
+});
+
 test('same-source legacy artifacts remain references and explicit provenance wins over project membership', () => {
   const { a, b } = fixture();
   const id = sessions.getState().ensurePhysicalSession(a, '来源 A');

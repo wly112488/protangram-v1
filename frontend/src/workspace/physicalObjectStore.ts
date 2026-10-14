@@ -12,7 +12,8 @@ export interface DerivedChart {
   modelId?: string; modelInputs?: ValueField[]; createdAt: string; updatedAt: string;
 }
 export interface TestRecord { id: string; name: string; description?: string; createdAt: string; actualConditions: ValueField[]; measurements: ValueField[]; rawFiles: RawDataFile[]; charts: DerivedChart[] }
-export interface ExperimentDefinition { id: string; name: string; category: string; description?: string; taskBookId?: string; designArtifactRef?: { projectId: string; artifactId: string }; settings: ValueField[]; parameters: ValueField[]; record?: TestRecord; archivedRecords?: TestRecord[] }
+export interface ConcreteTrial { id: string; name: string; description?: string; taskBookId?: string; designArtifactRef?: { projectId: string; artifactId: string }; designs: DesignField[]; record?: TestRecord; archivedRecords?: TestRecord[] }
+export interface ExperimentDefinition { id: string; name: string; category: string; description?: string; taskBookId?: string; designArtifactRef?: { projectId: string; artifactId: string }; settings: ValueField[]; parameters: ValueField[]; trials: ConcreteTrial[]; record?: TestRecord; archivedRecords?: TestRecord[] }
 export interface CalculationRecord extends TestRecord { inputs: ValueField[] }
 export interface Calculation { id: string; name: string; description?: string; inputs: ValueField[]; records: CalculationRecord[] }
 export interface SimulationModel { id: string; name: string; description: string; inputs: ValueField[]; outputs: ValueField[]; defaults: ValueField[]; method: string; calculations: Calculation[] }
@@ -42,6 +43,13 @@ const mapExperiment = (items: PhysicalObject[], experimentId: string, update: (e
     experiments: config.experiments.map(experiment => experiment.id === experimentId ? update(experiment) : experiment),
   })),
 }));
+const mapConcreteTrial = (items: PhysicalObject[], trialId: string, update: (trial: ConcreteTrial) => ConcreteTrial): PhysicalObject[] => items.map(family => ({
+  ...family,
+  configurations: family.configurations.map(config => ({
+    ...config,
+    experiments: config.experiments.map(experiment => ({ ...experiment, trials: (experiment.trials ?? []).map(trial => trial.id === trialId ? update(trial) : trial) })),
+  })),
+}));
 
 export interface PhysicalObjectState {
   objects: PhysicalObject[];
@@ -50,12 +58,14 @@ export interface PhysicalObjectState {
   addField: (configurationId: string, section: 'parameters' | 'materials', item: Omit<ValueField, 'id'>) => void;
   updateField: (configurationId: string, section: 'parameters' | 'materials', fieldId: string, patch: Omit<ValueField, 'id'>) => void;
   addDesign: (configurationId: string, item: Omit<DesignCase, 'id'>) => void;
-  addExperiment: (configurationId: string, item: Omit<ExperimentDefinition, 'id' | 'record'>) => string;
+  addExperiment: (configurationId: string, item: Omit<ExperimentDefinition, 'id' | 'record' | 'trials'> & { trials?: ConcreteTrial[] }) => string;
+  addConcreteTrial: (experimentId: string, item: Omit<ConcreteTrial, 'id' | 'record'>) => string;
+  updateConcreteTrial: (trialId: string, patch: Partial<Omit<ConcreteTrial, 'id' | 'record'>>) => void;
   updateExperiment: (experimentId: string, patch: Partial<Omit<ExperimentDefinition, 'id' | 'record'>>) => void;
-  ensureTrialRecord: (experimentId: string, item: { name: string; description?: string; actualConditions: ValueField[]; measurements: ValueField[] }) => string;
-  updateTrialRecord: (experimentId: string, patch: Partial<Pick<TestRecord, 'name' | 'description' | 'actualConditions' | 'measurements'>>) => void;
-  addRawFile: (experimentId: string, file: RawDataFile) => void;
-  saveChart: (experimentId: string, chart: Omit<DerivedChart, 'id' | 'createdAt' | 'updatedAt'>, chartId?: string) => string;
+  ensureTrialRecord: (trialId: string, item: { name: string; description?: string; actualConditions: ValueField[]; measurements: ValueField[] }) => string;
+  updateTrialRecord: (trialId: string, patch: Partial<Pick<TestRecord, 'name' | 'description' | 'actualConditions' | 'measurements'>>) => void;
+  addRawFile: (trialId: string, file: RawDataFile) => void;
+  saveChart: (trialId: string, chart: Omit<DerivedChart, 'id' | 'createdAt' | 'updatedAt'>, chartId?: string) => string;
   addModel: (configurationId: string, item: Omit<SimulationModel, 'id' | 'calculations'>) => void;
 }
 
@@ -70,43 +80,68 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
     return config.id;
   },
   addField: (configurationId, section, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: [...config[section], { ...item, id: id('field') }] })) })),
-  updateField: (configurationId, section, fieldId, patch) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: config[section].map(item => item.id === fieldId ? { ...patch, id: fieldId } : item) })) })),
+  updateField: (configurationId, section, fieldId, patch) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: config[section].map(item => item.id === fieldId ? { ...item, ...patch, id: fieldId } : item) })) })),
   addDesign: (configurationId, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, designs: [...config.designs, { ...item, id: id('design') }] })) })),
   addExperiment: (configurationId, item) => {
-    const experiment = { ...item, id: id('experiment') };
+    const experiment = { ...item, id: id('trial-configuration'), trials: item.trials ?? [] };
     set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, experiments: [...config.experiments, experiment] })) }));
     return experiment.id;
   },
+  addConcreteTrial: (experimentId, item) => {
+    const trial = { ...item, id: id('trial') };
+    set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => ({ ...experiment, trials: [...(experiment.trials ?? []), trial] })) }));
+    return trial.id;
+  },
+  updateConcreteTrial: (trialId, patch) => set(state => ({ objects: mapConcreteTrial(state.objects, trialId, trial => ({ ...trial, ...patch })) })),
   updateExperiment: (experimentId, patch) => set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => ({ ...experiment, ...patch })) })),
-  ensureTrialRecord: (experimentId, input) => {
-    const existing = get().objects.flatMap(family => family.configurations).flatMap(config => config.experiments).find(experiment => experiment.id === experimentId)?.record;
+  ensureTrialRecord: (trialId, input) => {
+    const existing = get().objects.flatMap(family => family.configurations).flatMap(config => config.experiments).flatMap(experiment => experiment.trials ?? []).find(trial => trial.id === trialId)?.record;
     if (existing) return existing.id;
     const record: TestRecord = { ...input, id: id('record'), createdAt: new Date().toISOString(), actualConditions: input.actualConditions, measurements: input.measurements, rawFiles: [], charts: [] };
-    set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => experiment.record ? experiment : { ...experiment, record }) }));
-    return get().objects.flatMap(family => family.configurations).flatMap(config => config.experiments).find(experiment => experiment.id === experimentId)?.record?.id ?? record.id;
+    set(state => ({ objects: mapConcreteTrial(state.objects, trialId, trial => trial.record ? trial : { ...trial, record }) }));
+    return get().objects.flatMap(family => family.configurations).flatMap(config => config.experiments).flatMap(experiment => experiment.trials ?? []).find(trial => trial.id === trialId)?.record?.id ?? record.id;
   },
-  updateTrialRecord: (experimentId, patch) => set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => experiment.record ? { ...experiment, record: { ...experiment.record, ...patch } } : experiment) })),
-  addRawFile: (experimentId, file) => set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => experiment.record ? { ...experiment, record: { ...experiment.record, rawFiles: experiment.record.rawFiles.some(item => item.id === file.id) ? experiment.record.rawFiles : [...experiment.record.rawFiles, file] } } : experiment) })),
-  saveChart: (experimentId, chart, chartId) => {
+  updateTrialRecord: (trialId, patch) => set(state => ({ objects: mapConcreteTrial(state.objects, trialId, trial => trial.record ? { ...trial, record: { ...trial.record, ...patch } } : trial) })),
+  addRawFile: (trialId, file) => set(state => ({ objects: mapConcreteTrial(state.objects, trialId, trial => trial.record ? { ...trial, record: { ...trial.record, rawFiles: trial.record.rawFiles.some(item => item.id === file.id) ? trial.record.rawFiles : [...trial.record.rawFiles, file] } } : trial) })),
+  saveChart: (trialId, chart, chartId) => {
     const now = new Date().toISOString();
     const idToSave = chartId ?? id('chart');
-    set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => experiment.record ? {
-      ...experiment,
-      record: { ...experiment.record, charts: chartId
-        ? experiment.record.charts.map(item => item.id === chartId ? { ...chart, id: item.id, createdAt: item.createdAt, updatedAt: now } : item)
-        : [...experiment.record.charts, { ...chart, id: idToSave, createdAt: now, updatedAt: now }] },
-    } : experiment) }));
+    set(state => ({ objects: mapConcreteTrial(state.objects, trialId, trial => trial.record ? {
+      ...trial,
+      record: { ...trial.record, charts: chartId
+        ? trial.record.charts.map(item => item.id === chartId ? { ...chart, id: item.id, createdAt: item.createdAt, updatedAt: now } : item)
+        : [...trial.record.charts, { ...chart, id: idToSave, createdAt: now, updatedAt: now }] },
+    } : trial) }));
     return idToSave;
   },
   addModel: (configurationId, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, models: [...config.models, { ...item, id: id('model'), calculations: [] }] })) })),
 }), {
-  name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage), version: 2,
+  name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage), version: 3,
   migrate: (persisted: unknown) => migrateLegacyState(persisted),
 }));
 
 function migrateLegacyState(persisted: unknown): Pick<PhysicalObjectState, 'objects'> {
   const state = persisted as { objects?: Array<Record<string, unknown>> };
   const old = Array.isArray(state?.objects) ? state.objects : [];
+  if (old.some(item => Array.isArray(item.configurations))) {
+    const objects = old.map(item => {
+      const configurations = (item.configurations as PhysicalConfiguration[]).map(config => ({
+        ...config,
+        experiments: (config.experiments ?? []).map(experiment => {
+          const legacyRecord = experiment.record;
+          const trials = [...(experiment.trials ?? [])];
+          if (legacyRecord && !trials.some(trial => trial.record?.id === legacyRecord.id)) trials.unshift({
+            id: `trial-${experiment.id}`, name: experiment.name, description: experiment.description,
+            taskBookId: experiment.taskBookId, designArtifactRef: experiment.designArtifactRef, designs: [],
+            record: legacyRecord, archivedRecords: experiment.archivedRecords ?? [],
+          });
+          return { ...experiment, trials, record: undefined, archivedRecords: undefined };
+        }),
+      }));
+      return { ...item, configurations } as PhysicalObject;
+    });
+    return { objects };
+  }
   const groups = new Map<string, PhysicalObject>();
   for (const item of old) {
     const type = String(item.type || '自定义对象');
@@ -123,7 +158,12 @@ function migrateLegacyState(persisted: unknown): Pick<PhysicalObjectState, 'obje
     config.experiments = (Array.isArray(item.experiments) ? item.experiments as Array<Record<string, unknown>> : []).map(legacy => {
       const records = Array.isArray(legacy.records) ? legacy.records as Array<Record<string, unknown>> : [];
       const migrated = records.map(record => ({ id: String(record.id), name: String(record.name), description: typeof record.description === 'string' ? record.description : undefined, createdAt: String(record.createdAt), actualConditions: [], measurements: Array.isArray(record.data) ? record.data as ValueField[] : [], rawFiles: [], charts: [] }));
-      return { ...legacy, id: String(legacy.id), name: String(legacy.name), category: String(legacy.category), settings: Array.isArray(legacy.settings) ? legacy.settings as ValueField[] : [], parameters: [], record: migrated[0], archivedRecords: migrated.slice(1) } as ExperimentDefinition;
+      const record = migrated[0];
+      const trials: ConcreteTrial[] = Array.isArray(legacy.trials) ? legacy.trials as ConcreteTrial[] : record ? [{
+        id: `trial-${String(legacy.id)}`, name: String(legacy.name), description: typeof legacy.description === 'string' ? legacy.description : undefined,
+        taskBookId: typeof legacy.taskBookId === 'string' ? legacy.taskBookId : undefined, designs: [], record, archivedRecords: migrated.slice(1),
+      }] : [];
+      return { ...legacy, id: String(legacy.id), name: String(legacy.name), category: String(legacy.category), settings: Array.isArray(legacy.settings) ? legacy.settings as ValueField[] : [], parameters: Array.isArray(legacy.parameters) ? legacy.parameters as ValueField[] : [], trials, record: undefined, archivedRecords: undefined } as ExperimentDefinition;
     });
     family.configurations.push(config);
     groups.set(familyName, family);
@@ -138,5 +178,5 @@ export const flattenObjects = (objects: PhysicalObject[], path = ''): Array<{ ob
 
 export const findPhysicalTrialRecord = (objects: PhysicalObject[], configurationId: string, experimentId: string, recordId: string): TestRecord | undefined => {
   const experiment = flattenObjects(objects).find(({ object }) => object.id === configurationId)?.object.experiments.find(item => item.id === experimentId);
-  return [experiment?.record, ...(experiment?.archivedRecords ?? [])].find(record => record?.id === recordId);
+  return [...(experiment?.trials ?? []).flatMap(trial => [trial.record, ...(trial.archivedRecords ?? [])]), experiment?.record, ...(experiment?.archivedRecords ?? [])].find(record => record?.id === recordId);
 };

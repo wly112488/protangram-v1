@@ -31,8 +31,9 @@ const fixture = () => {
     const physicalObjectId = store.addConfiguration(familyId, { name: '同名构型' });
     store.addField(physicalObjectId, 'parameters', { name: '直径', value: '120', unit: 'mm', form: '单值' });
     const experimentId = store.addExperiment(physicalObjectId, { name: '同名试验', category: '性能与功能类', parameters: [], settings: [] });
-    const testRecordId = store.ensureTrialRecord(experimentId, { name: '同名记录', actualConditions: [], measurements: [] });
-    return { physicalObjectId, experimentId, testRecordId };
+    const trialId = store.addConcreteTrial(experimentId, { name: '同名具体试验', designs: [] });
+    const testRecordId = store.ensureTrialRecord(trialId, { name: '同名记录', actualConditions: [], measurements: [] });
+    return { physicalObjectId, experimentId, trialId, testRecordId };
   };
   return { a: make(), b: make(), familyId };
 };
@@ -55,6 +56,10 @@ test('professional entry identity ignores capability, names and task-book associ
 test('shared source resolves current parameters without copying or crossing records', () => {
   const { a, b } = fixture();
   const before = physical.getState().objects;
+  const legacyScope = { ...a, trialId: undefined, trialName: undefined };
+  assert.equal(api.resolvePhysicalSource(before, legacyScope).trial.id, a.trialId);
+  assert.equal(api.physicalSourcePath(before, legacyScope).includes(`trialId=${a.trialId}`), true);
+  assert.equal(api.samePhysicalSource(legacyScope, a), true);
   const originalRecord = api.resolvePhysicalSource(before, a).record;
   const fieldId = api.resolvePhysicalSource(before, a).configuration.parameters[0].id;
   physical.getState().updateField(a.physicalObjectId, 'parameters', fieldId, { name: '直径', value: '125', unit: 'mm', form: '单值' });
@@ -114,12 +119,12 @@ test('explicit calibration adoption is persisted as a patch and leaves other cap
 
 test('record chart references resolve independent configurations and never cross sources', () => {
   const { a, b } = fixture();
-  physical.getState().addRawFile(a.experimentId, { id: 'csv-1', name: 'shared.csv', mimeType: 'text/csv', size: 30, addedAt: '', headers: ['time', 'thrust'], rowCount: 3 });
+  physical.getState().addRawFile(a.trialId, { id: 'csv-1', name: 'shared.csv', mimeType: 'text/csv', size: 30, addedAt: '', headers: ['time', 'thrust'], rowCount: 3 });
   const input = { name: '推力', rawFileId: 'csv-1', xField: 'time', yField: 'thrust', chartType: 'line', startRow: 0, endRow: 0, scale: 1, offset: 0, color: '#000000', smooth: false };
-  const chartA = physical.getState().saveChart(a.experimentId, input);
-  const chartB = physical.getState().saveChart(a.experimentId, { ...input, name: '修正推力', scale: 2 });
+  const chartA = physical.getState().saveChart(a.trialId, input);
+  const chartB = physical.getState().saveChart(a.trialId, { ...input, name: '修正推力', scale: 2 });
   const reference = { ...a, chartId: chartA };
-  physical.getState().saveChart(a.experimentId, { ...input, scale: 0 }, chartA);
+  physical.getState().saveChart(a.trialId, { ...input, scale: 0 }, chartA);
   const objects = physical.getState().objects;
   assert.equal(api.resolveRecordChart(objects, reference).chart.scale, 0);
   assert.equal(api.resolveRecordChart(objects, { ...a, chartId: chartB }).chart.scale, 2);

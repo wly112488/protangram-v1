@@ -110,7 +110,7 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
                       {task.demo && <Tag color="purple">AI 模拟拆解与分析结果</Tag>}
                       {project && <Text type="secondary">关联项目空间：{project.name}</Text>}
                       <div className="task-card-stats">
-                        <span>{objects.flatMap(object => object.configurations).flatMap(config => config.experiments).filter(experiment => experiment.taskBookId === task.id).length} 个关联试验</span>{task.requirements.length > 0 && <span>{openRequirements} 项历史事项待处理</span>}
+                        <span>{objects.flatMap(object => object.configurations).flatMap(config => config.experiments).flatMap(experiment => experiment.trials ?? []).filter(trial => trial.taskBookId === task.id).length} 个关联试验</span>{task.requirements.length > 0 && <span>{openRequirements} 项历史事项待处理</span>}
                         <span>{task.professionalProjects?.length ?? 0} 个专业工作项目</span>
                         <span>{artifactCount} 项分析成果</span>
                         <span>{task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项已入报告</span>

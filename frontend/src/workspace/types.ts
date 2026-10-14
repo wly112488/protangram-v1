@@ -74,7 +74,7 @@ export interface ProjectStats {
   artifactCount: number;
 }
 
-export type BusinessSession = ({ sessionId?: string; physicalObjectId?: string; physicalObjectName?: string; experimentId?: string; experimentName?: string; testRecordId?: string; testRecordName?: string; modelId?: string; modelName?: string; taskBookId?: string; taskBookName?: string } & (
+export type BusinessSession = ({ sessionId?: string; physicalObjectId?: string; physicalObjectName?: string; experimentId?: string; experimentName?: string; trialId?: string; trialName?: string; testRecordId?: string; testRecordName?: string; modelId?: string; modelName?: string; taskBookId?: string; taskBookName?: string } & (
   | { mode: 'task'; taskId: string; targetProjectId: string; taskItemId?: string; professionalProjectId?: string }
   | { mode: 'project'; targetProjectId: string }
   | { mode: 'standalone'; targetProjectId?: string }));

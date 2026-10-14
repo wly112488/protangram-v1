@@ -52,12 +52,12 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     return useProjectStore.getState().addArtifact(projectId, { ...input, payload: {
       ...input.payload,
       resultMode: input.type === 'design' && (input.payload.designSummary || input.payload.designMethod) ? 'configuration' : 'demo',
-      sourceScope: session.physicalObjectId ? { physicalObjectId: session.physicalObjectId, experimentId: session.experimentId, testRecordId: session.testRecordId } : undefined,
+      sourceScope: session.physicalObjectId ? { physicalObjectId: session.physicalObjectId, experimentId: session.experimentId, trialId: session.trialId, testRecordId: session.testRecordId } : undefined,
       upstreamArtifactIds: incoming?.artifactIds ?? [],
       upstreamArtifactRefs: projects.flatMap(project => project.artifacts.filter(artifact => incoming?.artifactIds?.includes(artifact.id)).map(artifact => ({ projectId: project.id, artifactId: artifact.id }))),
       modelInputs: model?.modelId ? draft?.[`modelInputs:${model.modelId}`] : undefined,
     } });
-  }, [capability, incoming?.artifactIds, physicalSource.missing, projects, session.sessionId, session.physicalObjectId, session.experimentId, session.testRecordId]);
+  }, [capability, incoming?.artifactIds, physicalSource.missing, projects, session.sessionId, session.physicalObjectId, session.experimentId, session.trialId, session.testRecordId]);
   const selectedTaskItemId = useSessionStore(state => {
     const value = state.sessions.find(item => item.id === sessionId)?.drafts[capability]?.artifactTaskItemId;
     return typeof value === 'string' ? value : undefined;

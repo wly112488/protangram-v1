@@ -3,20 +3,26 @@ import type { PhysicalBusinessScope, WorkSession } from './sessionModel';
 import type { Project, ProjectArtifact } from './types';
 
 export interface ArtifactReference { projectId: string; artifactId: string }
-export interface RecordChartReference { physicalObjectId: string; experimentId: string; testRecordId: string; chartId: string }
+export interface RecordChartReference { physicalObjectId: string; experimentId: string; trialId?: string; testRecordId: string; chartId: string }
 
 // Names, selected models and task-book associations do not identify raw data.
 export const samePhysicalSource = (left?: PhysicalBusinessScope, right?: PhysicalBusinessScope) => Boolean(left?.physicalObjectId && right?.physicalObjectId)
   && left?.physicalObjectId === right?.physicalObjectId
-  && left?.experimentId === right?.experimentId && left?.testRecordId === right?.testRecordId;
+  && left?.experimentId === right?.experimentId
+  && left?.testRecordId === right?.testRecordId
+  && (left?.trialId === right?.trialId || Boolean(left?.testRecordId && left.testRecordId === right?.testRecordId && (!left.trialId || !right.trialId)));
 
 export const resolvePhysicalSource = (objects: PhysicalObject[], scope?: PhysicalBusinessScope) => {
   const family = objects.find(item => item.configurations.some(config => config.id === scope?.physicalObjectId));
   const configuration = family?.configurations.find(item => item.id === scope?.physicalObjectId);
   const experiment = configuration?.experiments.find(item => item.id === scope?.experimentId);
-  const record = [experiment?.record, ...(experiment?.archivedRecords ?? [])].find(item => item?.id === scope?.testRecordId);
-  const missing = Boolean(scope?.physicalObjectId && (!configuration || scope.experimentId && !experiment || scope.testRecordId && !record));
-  return { family, configuration, experiment, record, missing };
+  const requestedTrial = experiment?.trials?.find(item => item.id === scope?.trialId);
+  const matchingTrial = scope?.testRecordId ? experiment?.trials?.find(item => [item.record, ...(item.archivedRecords ?? [])].some(record => record?.id === scope.testRecordId)) : undefined;
+  const trial = requestedTrial ?? matchingTrial;
+  const legacyRecord = [experiment?.record, ...(experiment?.archivedRecords ?? [])].find(item => item?.id === scope?.testRecordId);
+  const record = trial ? [trial.record, ...(trial.archivedRecords ?? [])].find(item => item?.id === scope?.testRecordId) : legacyRecord;
+  const missing = Boolean(scope?.physicalObjectId && (!configuration || scope.experimentId && !experiment || scope.trialId && !trial || scope.testRecordId && !record));
+  return { family, configuration, experiment, trial, record, missing };
 };
 
 export const physicalSourcePath = (objects: PhysicalObject[], scope?: PhysicalBusinessScope, view?: string) => {
@@ -24,6 +30,7 @@ export const physicalSourcePath = (objects: PhysicalObject[], scope?: PhysicalBu
   if (!source.family || !source.configuration || source.missing) return undefined;
   const params = new URLSearchParams({ objectId: source.family.id, configurationId: source.configuration.id });
   if (source.experiment) params.set('experimentId', source.experiment.id);
+  if (source.trial) params.set('trialId', source.trial.id);
   if (source.record) params.set('recordId', source.record.id);
   if (view) params.set('view', view);
   return `/physical-objects?${params}`;

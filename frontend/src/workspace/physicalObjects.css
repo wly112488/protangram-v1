@@ -38,6 +38,10 @@
 .business-sidebar .business-object-tree { margin: 0 4px; background: transparent; color: #53647b; }
 .business-sidebar .business-object-tree .ant-tree-node-content-wrapper { min-height: 32px; line-height: 32px; }
 .business-sidebar .business-object-tree .ant-tree-node-content-wrapper:hover { background: #e7edf5; }
+.business-sidebar .business-object-tree .ant-tree-title { display: block; overflow-wrap: anywhere; }
+.business-category-title { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.business-category-toggle { flex: 1; min-width: 0; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.business-category-title .business-tree-add { flex-shrink: 0; }
 .business-sidebar .business-task-link { margin: 2px 0; font-size: 12px; }
 .business-sidebar .business-task-link > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .physical-book-tests h5.ant-typography { margin: 13px 0 7px; }
@@ -78,7 +82,17 @@
 .physical-flow-main { max-width: 1060px; margin: 0 auto; }
 .physical-list-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 2px; border-bottom: 1px solid #edf0f4; }
 .physical-list-row:last-child { border-bottom: 0; }
-.physical-level-back { margin-top: -12px; }
+.physical-level-back { margin: -4px 0 0; }
+.physical-level-back .ant-btn { padding-left: 0; }
+.physical-breadcrumb { margin: 0 2px 14px; overflow-wrap: anywhere; }
+.physical-breadcrumb .ant-btn { height: auto; padding: 0; font-size: inherit; white-space: normal; text-align: left; }
+.physical-breadcrumb .ant-btn:disabled { color: inherit; }
+.physical-trials-table, .physical-execution-table { min-width: 0; }
+.physical-trial-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.physical-trial-filters > .ant-input-affix-wrapper { flex: 1 1 280px; min-width: 180px; }
+.physical-trial-filters > .ant-select { flex: 0 1 230px; min-width: 180px; }
+.physical-trial-name.ant-btn { display: inline; height: auto; padding: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.physical-trials-table .ant-table-cell, .physical-execution-table .ant-table-cell { overflow-wrap: anywhere; }
 .physical-field-name.has-description { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
 .physical-parameter-list { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
 .physical-parameter-entry { padding-bottom: 8px; border-bottom: 1px solid #edf0f4; }
@@ -120,6 +134,8 @@
 .physical-record-heading, .physical-file-row, .physical-charts-heading { margin-bottom: 14px; }
 .physical-record-heading > div { min-width: 0; overflow-wrap: anywhere; }
 .physical-data-table { margin-top: 12px; }
+.physical-chart-preview { margin-top: 12px; border-top: 1px solid #e8edf4; padding-top: 12px; }
+.physical-shared-charts, .physical-shared-chart-preview { min-width: 0; overflow-wrap: anywhere; }
 .physical-task-record { justify-content: space-between; align-items: flex-start; }
 @media (max-width: 640px) {
   .physical-record-heading, .physical-charts-heading, .physical-task-record { flex-wrap: wrap; }

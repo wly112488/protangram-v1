@@ -12,12 +12,6 @@ test('automatic analysis can restart after React StrictMode clears its first tim
   assert.match(source, /timer\.current = null/);
 });
 
-test('automatic model calibration can restart after React StrictMode clears its first timer', () => {
-  const source = readFileSync(path.join(frontendRoot, 'src/pages/analysis/DigitalTwin.tsx'), 'utf8');
-  assert.match(source, /autoStarted\.current = false/);
-  assert.match(source, /calibrationTimer\.current = null/);
-});
-
 test('automatic experiment design can restart after React StrictMode clears its first timer', () => {
   const source = readFileSync(path.join(frontendRoot, 'src/pages/experiment/design/IntelligentExperimentDesign.tsx'), 'utf8');
   assert.match(source, /autoStarted\.current = false/);

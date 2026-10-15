@@ -1,0 +1,17 @@
+.taskbook-header, .taskbook-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.taskbook-header h3.ant-typography { margin: 4px 0 8px; }
+.taskbook-header .ant-btn-link { padding-left: 0; }
+.taskbook-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.taskbook-workspace .physical-book-tests { margin-top: 14px; }
+.taskbook-configuration + .taskbook-configuration { margin-top: 22px; }
+.taskbook-configuration .taskbook-trial + .taskbook-trial { margin-top: 12px; }
+.taskbook-record-items { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
+.taskbook-record-items .ant-tag { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.taskbook-workspace .physical-task-record { align-items: flex-start; }
+.taskbook-workspace .physical-task-record > div { min-width: 0; }
+.taskbook-workspace .physical-task-record > .ant-btn { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .taskbook-header, .taskbook-toolbar { align-items: flex-start; flex-direction: column; }
+  .taskbook-workspace .physical-task-record { flex-direction: column; }
+  .taskbook-workspace .ant-card-head-wrapper { flex-wrap: wrap; gap: 8px; }
+}

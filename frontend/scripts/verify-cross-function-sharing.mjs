@@ -71,7 +71,7 @@ const choose = async (locator, text) => {
 };
 const acceptDialog = async () => {
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('button', { name: /(确\s*定|保\s*存)$/ }).click();
+  await dialog.getByRole('button', { name: /(确\s*定|保\s*存(?:成果)?)$/ }).click();
   await dialog.waitFor({ state: 'hidden' });
 };
 const tabs = () => page.locator('.session-capability-tabs');
@@ -151,8 +151,9 @@ try {
     const record = current.objects[0].configurations[0].experiments[0].trials[0].records[0];
     assert.equal(record.id, fixture.a.record);
     assert.equal(record.rawFiles.length, 1);
-    assert.equal(record.charts.length, 2);
-    assert.equal(record.charts[0].rawFileId, record.charts[1].rawFileId);
+    const sharedCharts = (await state()).objects[0].configurations[0].experiments[0].trials[0].charts.filter(chart => chart.sourceRecordId === record.id);
+    assert.equal(sharedCharts.length, 2);
+    assert.equal(sharedCharts[0].rawFileId, sharedCharts[1].rawFileId);
     assert.deepEqual(await chartData(), [[[1000, 10], [2000, 20], [3000, 30]], [[1000, 205], [2000, 405], [3000, 605]]]);
     const cards = page.locator('.physical-charts-grid .ant-card');
     await cards.filter({ hasText: '推力趋势' }).getByRole('button', { name: /配\s*置/ }).click();
@@ -234,6 +235,10 @@ try {
     });
     await switchTab('虚拟工况', 'virtual-condition');
     await choose(sourcePanel().locator('.ant-select').filter({ has: page.getByRole('combobox', { name: '引用已有专业成果' }) }), '校准结果');
+    await page.waitForFunction(id => {
+      const saved = JSON.parse(localStorage.getItem('protangram-work-sessions-v1'));
+      return Boolean(saved.sessions.find(session => session.id === id)?.drafts.virtualCondition?.selectedModel?.modelId);
+    }, sessionA);
     const current = await state();
     const calibration = current.projects.flatMap(project => project.artifacts).find(item => item.type === 'calibration');
     assert.equal(calibration.payload.sourceScope.testRecordId, fixture.a.record);
@@ -416,11 +421,12 @@ try {
   });
 
   await test('新任务书只建立关联 ID，无 PDF、AI事项、自动执行；关联入口返回同一记录', async () => {
-    await page.goto(`${baseURL}/task-center`);
-    await page.getByRole('button', { name: /新建任务书关联$/ }).click();
+    await page.goto(`${baseURL}/task-center`, { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: /新建任务书$/ }).click();
     await page.getByRole('dialog').getByRole('textbox').fill('浏览器验证任务书');
-    await page.getByRole('dialog').getByRole('button', { name: '创建关联 ID', exact: true }).click();
-    await page.waitForURL('**/physical-objects?view=taskbooks&taskId=*');
+    await page.getByRole('dialog').getByRole('button', { name: '创建任务书', exact: true }).click();
+    await page.waitForURL('**/task-center?taskId=*');
+    await page.locator('.taskbook-workspace').waitFor();
     const taskId = new URL(page.url()).searchParams.get('taskId');
     await page.evaluate(async ({ trial, taskId }) => {
       const { usePhysicalObjectStore } = await window.__ptImport('/src/workspace/physicalObjectStore.ts');

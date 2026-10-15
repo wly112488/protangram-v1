@@ -32,7 +32,7 @@ import ReportTemplates from '@/pages/report/ReportTemplates';
 import ReportList from '@/pages/report/ReportList';
 import ReportCreate from '@/pages/report/ReportCreate';
 import ReportGenerate from '@/pages/report/ReportGenerate';
-import TaskWorkbench from '@/workspace/TaskWorkbench';
+import { TaskBookRoute } from '@/workspace/TaskBookWorkspace';
 import ProjectContent from '@/workspace/ProjectContent';
 import ProjectResourcesPage from '@/workspace/ProjectResourcesPage';
 import SessionHome from '@/workspace/SessionHome';
@@ -66,14 +66,14 @@ const router = createBrowserRouter([
         { path: 'report/templates', element: <ReportTemplates /> },
         { path: 'report/generate/:reportId', element: <ReportGenerate /> },
         { path: 'resources', element: <ProjectContent /> },
-        { path: 'tasks/:taskId', element: <TaskWorkbench /> },
+        { path: 'tasks/:taskId', element: <TaskBookRoute /> },
         { path: 'experiment/info/bom', element: <BOMManagement /> },
         { path: 'experiment/info/subjects', element: <TestSubjects /> },
         { path: 'experiment/info/methods', element: <TestMethods /> },
         { path: 'experiment/info/sampling', element: <SamplingRequirements /> },
       ] },
       { path: 'projects', element: <ProjectResourcesPage /> },
-      { path: 'tasks/:taskId', element: <TaskWorkbench /> },
+      { path: 'tasks/:taskId', element: <TaskBookRoute /> },
       // 1.1 信息管理
       { path: 'experiment/info/bom', element: <BOMManagement /> },
       { path: 'experiment/info/subjects', element: <TestSubjects /> },

@@ -6,6 +6,8 @@ import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import { saveTaskBookFile } from './taskBookStorage';
 import { flattenObjects, usePhysicalObjectStore } from './physicalObjectStore';
+import { useSessionStore } from './sessionStore';
+import { getTaskTrials, getTaskTrialSources, taskBookPath } from './taskTrialModel';
 import './taskWorkspace.css';
 
 const { Text } = Typography;
@@ -17,6 +19,7 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
   const objects = usePhysicalObjectStore(state => state.objects);
   const createProject = useProjectStore((state) => state.createProject);
   const projects = useProjectStore((state) => state.projects);
+  const sessions = useSessionStore(state => state.sessions);
   const [createOpen, setCreateOpen] = useState(openCreateOnMount);
   const [title, setTitle] = useState('');
   const [taskBookFile, setTaskBookFile] = useState<File | null>(null);
@@ -42,13 +45,13 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
       const taskId = createTask({ title, projectId, sourceName: taskBookFile?.name, requirementTexts: [] });
       try {
         if (taskBookFile) await saveTaskBookFile(taskId, taskBookFile);
-        message.success('任务书关联 ID 已创建');
+        message.success('任务书已创建');
       } catch {
         message.warning('任务已创建，但任务书未能保存在本机；稍后可在原文查看器中重新选择 PDF');
       }
       setCreateOpen(false);
       resetForm();
-      navigate(`/physical-objects?view=taskbooks&taskId=${encodeURIComponent(taskId)}`);
+      navigate(taskBookPath(taskId));
     } finally {
       setCreatingTask(false);
     }
@@ -65,18 +68,14 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
     setTaskBookFile(file);
   };
 
-  const completedCount = (taskId: string) => {
-    const task = tasks.find((item) => item.id === taskId);
-    return task?.requirements.filter((item) => item.status === '已满足').length ?? 0;
-  };
 
   return (
     <div className="task-center-page task-center-embedded">
       <section className="task-center-section">
-        <div className="session-home-section-heading"><h2>任务书关联</h2><Space><Text type="secondary">{tasks.length} 项</Text><Button icon={<UploadOutlined />} onClick={() => setCreateOpen(true)}>新建任务书关联</Button></Space></div>
+        <div className="session-home-section-heading"><h2>任务书工作台</h2><Space><Text type="secondary">{tasks.length} 项</Text><Button icon={<UploadOutlined />} onClick={() => setCreateOpen(true)}>新建任务书</Button></Space></div>
         {tasks.length === 0 ? (
           <Card className="task-center-empty">
-            <Empty description="创建任务书关联 ID 后，可发起试验或关联已有自主试验；PDF 可选。" />
+            <Empty description="新建任务书后，集中管理关联试验、资料和任务报告。" />
           </Card>
         ) : (
           <List
@@ -84,16 +83,8 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
             grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 3 }}
             dataSource={tasks}
             renderItem={(task) => {
-              const project = projects.find((item) => item.id === task.projectId);
-              const linkedArtifactIds = new Set([
-                ...(task.artifactRefs ?? []),
-                ...task.requirements.flatMap((requirement) => requirement.artifactRefs ?? []),
-                ...task.reportDraft.sections.flatMap((section) => section.artifactRefs),
-                ...(task.professionalProjects ?? []).flatMap((item) => item.artifactRefs),
-                ...(task.reportDraft.formalReportArtifact ? [task.reportDraft.formalReportArtifact] : []),
-              ].map((reference) => `${reference.projectId}:${reference.artifactId}`));
-              const artifactCount = projects.reduce((count, item) => count + item.artifacts.filter((artifact) => linkedArtifactIds.has(`${artifact.projectId}:${artifact.id}`)).length, 0);
-              const openRequirements = task.requirements.length - completedCount(task.id);
+              const entries = getTaskTrials(objects, projects, sessions, task.id);
+              const sources = getTaskTrialSources(entries);
               return (
                 <List.Item>
                   <Card
@@ -101,19 +92,21 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
                     title={<span className="task-card-title">{task.title}</span>}
                     extra={<Tag color={task.status === '进行中' ? 'blue' : task.status === '已完成' ? 'green' : 'default'}>{task.status}</Tag>}
                     actions={[
-                      <Button type="link" key="open" onClick={() => navigate(`/physical-objects?view=taskbooks&taskId=${encodeURIComponent(task.id)}`)}>管理关联试验与成果</Button>,
+                      <Button type="link" key="open" onClick={() => navigate(taskBookPath(task.id))}>打开任务书</Button>,
                       <Text type="secondary" key="updated">更新于 {new Date(task.updatedAt).toLocaleDateString('zh-CN')}</Text>,
                     ]}
                   >
                     <Space direction="vertical" size={10}>
                       <Text type="secondary">任务书 ID：{task.id}</Text><Text type="secondary">附件：{task.sourceName || '无附件'}</Text>
-                      {task.demo && <Tag color="purple">AI 模拟拆解与分析结果</Tag>}
-                      {project && <Text type="secondary">关联项目空间：{project.name}</Text>}
+                      {task.demo && <Tag color="purple">历史演示任务</Tag>}
+
                       <div className="task-card-stats">
-                        <span>{objects.flatMap(object => object.configurations).flatMap(config => config.experiments).flatMap(experiment => experiment.trials ?? []).filter(trial => trial.taskBookId === task.id).length} 个关联试验</span>{task.requirements.length > 0 && <span>{openRequirements} 项历史事项待处理</span>}
-                        <span>{task.professionalProjects?.length ?? 0} 个专业工作项目</span>
-                        <span>{artifactCount} 项分析成果</span>
-                        <span>{task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项已入报告</span>
+                        <span>{new Set(entries.map(entry => entry.object.id)).size} 个物理对象</span>
+                        <span>{entries.length} 个关联试验</span>
+                        <span>{sources.records} 次执行</span>
+                        <span>{sources.files} 个 CSV</span>
+                        <span>{sources.charts.length} 张图表</span>
+                        <span>{sources.artifacts.length} 项专业成果</span>
                       </div>
                     </Space>
                   </Card>
@@ -125,9 +118,9 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
       </section>
 
       <Modal
-        title="新建任务书关联"
+        title="新建任务书"
         open={createOpen}
-        okText="创建关联 ID"
+        okText="创建任务书"
         cancelText="取消"
         width={720}
         confirmLoading={creatingTask}
@@ -150,8 +143,8 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
           <Alert
             showIcon
             type="info"
-            message="仅用于关联试验"
-            description="创建后只保存关联 ID 和名称。PDF 可选，不解析、不拆解、不自动执行；历史任务数据仍保留。"
+            message="任务书管理"
+            description="集中查看关联试验、资料和任务报告。原始 PDF 可选。"
           />
         </div>
       </Modal>

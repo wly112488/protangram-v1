@@ -18,7 +18,9 @@ import { createReportArtifactInput, getReportableArtifacts, resolveReportOutputV
 import { countUnmetTaskItems } from './taskReportModel';
 import type { AnalysisReport } from '@/types';
 import { usePhysicalObjectStore } from '@/workspace/physicalObjectStore';
-import { artifactResultLabel, isDemoArtifact, recordChartKey, resolveRecordChart, type ArtifactReference, type RecordChartReference } from '@/workspace/physicalBusinessContext';
+import { artifactResultLabel, isDemoArtifact, recordChartKey, resolvePhysicalSource, resolveRecordChart, type ArtifactReference, type RecordChartReference } from '@/workspace/physicalBusinessContext';
+import { taskBookPath } from '@/workspace/taskTrialModel';
+import type { PhysicalBusinessScope } from '@/workspace/sessionModel';
 import TrialChart from '@/workspace/TrialChart';
 
 const { Title, Text, Paragraph } = Typography;
@@ -72,6 +74,7 @@ const ReportGenerate: React.FC = () => {
   const [demoEnabled, setDemoEnabled] = useSessionState(`report:${reportId}:demoEnabled`, () => (analysisReports.find(item => item.id === reportId) ?? loadAnalysisReports().find(item => item.id === reportId))?.dataSource === 'demo');
   const [dragItem, setDragItem] = useState<string>('');
   const [reportGenerated, setReportGenerated] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const report = analysisReports.find((r) => r.id === reportId) as ReportRecord | undefined;
   const task = tasks.find((item) => item.id === report?.taskId);
@@ -86,7 +89,11 @@ const ReportGenerate: React.FC = () => {
     const resolved = resolveRecordChart(objects, reference);
     return resolved ? [{ reference, ...resolved }] : [];
   });
-  const missingReferences = referencedCharts.some(item => !item.rawFile) || referencedCharts.length !== (report?.chartRefs?.length ?? 0)
+  const taskSourceChanged = Boolean(task && (referencedCharts.some(item => item.trial?.taskBookId !== task.id) || selectedArtifacts.some(artifact => {
+    const scope = artifact.payload.sourceScope as PhysicalBusinessScope | undefined;
+    return scope?.testRecordId && resolvePhysicalSource(objects, scope).trial?.taskBookId !== task.id;
+  })));
+  const missingReferences = taskSourceChanged || referencedCharts.some(item => !item.rawFile) || referencedCharts.length !== (report?.chartRefs?.length ?? 0)
     || Boolean(report?.artifactRefs && selectedArtifacts.length !== report.artifactRefs.length);
   const projectOutputVariables = [
     ...selectedArtifacts.map(artifact => ({ id: artifact.id, name: `${artifact.title} · ${artifactResultLabel(artifact)}` })),
@@ -191,7 +198,7 @@ const ReportGenerate: React.FC = () => {
       }
     }
     setReportGenerated(true);
-    message.success(usingDemo ? '演示报告已生成（模拟成果）' : '报告生成成功！');
+    message.success(task ? '任务报告编制成果已保存在本机' : usingDemo ? '演示报告已生成（模拟成果）' : '报告生成成功！');
   };
 
   /**
@@ -208,6 +215,7 @@ const ReportGenerate: React.FC = () => {
     : 0;
 
   const confirmGenerateReport = () => {
+    if (task && usingDemo) return message.error('任务报告不能用演示成果编制，请调整来源选择');
     if (usingDemo && hasFormalEvidence) return message.error('正式报告不能用演示成果覆盖；请创建独立演示报告');
     if (unavailableBindings || !hasReportContent) {
       message.error('请先选择可用成果并修正失效绑定');
@@ -229,8 +237,8 @@ const ReportGenerate: React.FC = () => {
   return (
     <div className="workspace-simple-page workspace-report-generator-page">
       <div className="workspace-page-heading">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}${report.taskItemId ? `?taskItemId=${encodeURIComponent(report.taskItemId)}` : ''}` : routeState?.workspaceSession?.sessionId ? `${getSessionPath(routeState.workspaceSession.sessionId, 'report')}/list` : '/report/list')}>返回</Button>
-        <Title level={4} style={{ margin: 0 }}>分析报告生成</Title>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(report?.taskId ? taskBookPath(report.taskId, 'report') : routeState?.workspaceSession?.sessionId ? `${getSessionPath(routeState.workspaceSession.sessionId, 'report')}/list` : '/report/list')}>返回</Button>
+        <Title level={4} style={{ margin: 0 }}>{task ? '任务报告编制' : '分析报告生成'}</Title>
         {report && <Tag color="purple">{report.name}</Tag>}
         {report?.dataSource === 'demo' && <Tag color="orange">演示报告 · 模拟成果</Tag>}
         <Tag color={boundCount === totalTags ? 'green' : 'orange'}>
@@ -240,6 +248,7 @@ const ReportGenerate: React.FC = () => {
 
       {usingDemo && <Alert type="warning" showIcon message="演示报告 · 模拟成果" description="选定内容含演示成果，不登记为正式任务证据，也不改变事项满足状态。请返回配置调整成果选择。" style={{ marginBottom: 12 }} action={selectedArtifacts.some(isDemoArtifact) ? undefined : <Button onClick={() => setDemoEnabled(false)}>退出演示</Button>} />}
       {unavailableBindings && <Alert type="error" showIcon message="部分绑定成果已不可用，请重新选择或解绑后生成报告。" style={{ marginBottom: 12 }} />}
+      {taskSourceChanged && <Alert type="warning" showIcon message="部分试验已不再关联当前任务书，保留历史报告引用；请返回任务报告重新配置当前资料。" style={{ marginBottom: 12 }} />}
       {report?.reportContent && (
         <Card size="small" title="任务报告草稿内容" style={{ marginBottom: 12, maxHeight: 180, overflow: 'auto' }}>
           <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{report.reportContent}</Paragraph>
@@ -251,7 +260,7 @@ const ReportGenerate: React.FC = () => {
           type="info"
           showIcon
           message="当前正在编制正式报告"
-          description="保存绑定只保留报告配置；正式生成后报告状态会更新。正式报告生成与任务完成是两件事，任务状态需在任务工作台单独确认。"
+          description="保存正文和资料引用后可完成人工编制。AI 整合生成尚未接入，不会自动填写结论或改变任务完成状态。"
           style={{ marginBottom: 12 }}
         />
       )}
@@ -270,7 +279,7 @@ const ReportGenerate: React.FC = () => {
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {outputVariables.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前报告没有可引用的成果">
-                <Button disabled={hasFormalEvidence} onClick={() => setDemoEnabled(true)}>启用演示报告数据</Button>
+                {!task && <Button disabled={hasFormalEvidence} onClick={() => setDemoEnabled(true)}>启用演示报告数据</Button>}
                 {hasFormalEvidence && <Paragraph type="secondary" style={{ marginTop: 8 }}>此报告已有正式成果，请新建报告体验演示数据。</Paragraph>}
               </Empty>}
               {outputVariables.map((item) => (
@@ -363,21 +372,27 @@ const ReportGenerate: React.FC = () => {
 
       <div className="workspace-form-actions" style={{ textAlign: 'center', marginTop: 16, flexShrink: 0 }}>
         <Space size="large">
-          <Button size="large" onClick={() => navigate(report?.taskId ? `/tasks/${report.taskId}` : routeState?.workspaceSession?.sessionId ? `${getSessionPath(routeState.workspaceSession.sessionId, 'report')}/list` : '/report/list')}>{report?.taskId ? '返回任务工作台' : '返回列表'}</Button>
+          <Button size="large" onClick={() => navigate(report?.taskId ? taskBookPath(report.taskId, 'report') : routeState?.workspaceSession?.sessionId ? `${getSessionPath(routeState.workspaceSession.sessionId, 'report')}/list` : '/report/list')}>{report?.taskId ? '返回任务工作台' : '返回列表'}</Button>
           <Button size="large" icon={<SaveOutlined />} onClick={handleSave}>保存绑定</Button>
           <Button type="primary" size="large" icon={<FileDoneOutlined />}
-            disabled={!report || !hasReportContent || unavailableBindings} onClick={confirmGenerateReport}>
-            {usingDemo ? '生成演示报告' : '正式生成报告'}
+            disabled={!report || !hasReportContent || unavailableBindings || Boolean(task && usingDemo)} onClick={confirmGenerateReport}>
+            {task ? '完成人工编制' : usingDemo ? '生成演示报告' : '正式生成报告'}
           </Button>
           {reportGenerated && (
             <Button type="primary" size="large" icon={<EyeOutlined />}
               style={{ background: '#52c41a', borderColor: '#52c41a' }}
-              onClick={() => message.success('报告预览功能：实际项目中将打开Word文档在线预览')}>
+              onClick={() => setPreviewOpen(true)}>
               查看报告
             </Button>
           )}
         </Space>
       </div>
+      <Modal title={report?.name || '报告预览'} open={previewOpen} onCancel={() => setPreviewOpen(false)} footer={<Button onClick={() => setPreviewOpen(false)}>关闭</Button>} width={900}>
+        {report?.reportContent && <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{report.reportContent}</Paragraph>}
+        {selectedArtifacts.map(artifact => <Card size="small" key={`${artifact.projectId}/${artifact.id}`} title={artifact.title}><Tag>{artifactResultLabel(artifact)}</Tag><Paragraph style={{ whiteSpace: 'pre-wrap' }}>{artifact.summary}</Paragraph></Card>)}
+        {referencedCharts.map(item => <Card size="small" key={recordChartKey(item.reference)} title={item.chart.name}><TrialChart chart={item.chart} rawFile={item.rawFile} /></Card>)}
+        {!report?.reportContent && !selectedArtifacts.length && !referencedCharts.length && <Empty description="暂无可预览的正文或资料" />}
+      </Modal>
     </div>
   );
 };

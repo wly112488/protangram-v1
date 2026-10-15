@@ -20,8 +20,10 @@ import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js
 import { resolveTaskReportProjectId } from './taskReportModel';
 import type { AnalysisProject, AnalysisReport } from '@/types';
 import type { ProjectArtifact } from '@/workspace/types';
-import { usePhysicalObjectStore } from '@/workspace/physicalObjectStore';
-import { artifactResultLabel, getSourceArtifacts, resolvePhysicalSource, type ArtifactReference, type RecordChartReference } from '@/workspace/physicalBusinessContext';
+import { getRecordCharts, usePhysicalObjectStore } from '@/workspace/physicalObjectStore';
+import { artifactResultLabel, getSourceArtifacts, recordChartKey, resolvePhysicalSource, type ArtifactReference, type RecordChartReference } from '@/workspace/physicalBusinessContext';
+
+import { getTaskTrials, getTaskTrialSources, getTaskReportArtifacts, taskBookPath } from '@/workspace/taskTrialModel';
 
 const { Title, Text } = Typography;
 
@@ -75,11 +77,18 @@ const ReportCreate: React.FC = () => {
   const objects = usePhysicalObjectStore(state => state.objects);
   const scope = routeState?.workspaceSession;
   const source = resolvePhysicalSource(objects, scope);
+  const taskEntries = getTaskTrials(objects, projects, sessions, task?.id ?? '');
+  const taskSources = getTaskTrialSources(taskEntries);
+  const taskArtifacts = task ? getReportableArtifacts(getTaskReportArtifacts(task, taskEntries, projects)) : [];
+  const artifactKey = (artifact: ProjectArtifact) => taskBoundMode ? JSON.stringify([artifact.projectId, artifact.id]) : artifact.id;
+  const chartChoices = taskBoundMode ? taskSources.charts : source.record ? getRecordCharts(source.trial, source.record.id).map(chart => ({ chart, label: `${chart.name} · ${chart.xField} / ${chart.yField}`, reference: { physicalObjectId: source.configuration!.id, experimentId: source.experiment!.id, trialId: source.trial!.id, testRecordId: source.record!.id, chartId: chart.id } })) : [];
+  const chartKey = (item: typeof chartChoices[number]) => taskBoundMode ? recordChartKey(item.reference) : item.chart.id;
   const sourceArtifacts = getReportableArtifacts(getSourceArtifacts(projects, sessions, scope));
   const [selectedChartIds, setSelectedChartIds] = useSessionState<string[]>('selectedChartIds', []);
   const [legacyProjects, setLegacyProjects] = useState<AnalysisProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useSessionState('selectedProjectId', routeProjectId ?? '');
   const [selectedArtifactIds, setSelectedArtifactIds] = useSessionState<string[]>('selectedArtifactIds', []);
+  const restoredCharts = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey('selectedChartIds', routeState?.workspaceSession)]);
   const restoredSelection = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey('selectedArtifactIds', routeState?.workspaceSession)]);
 
   const [formValues, setFormValues] = useSessionState<Record<string, unknown>>('formValues', {});
@@ -99,26 +108,22 @@ const ReportCreate: React.FC = () => {
         ? routeProjectId
         : resolveReportProjectId({ activeProjectId, projectIds: projects.map((project) => project.id) });
     setSelectedProjectId(initialProjectId);
-    form.setFieldsValue({ ...formValues, analysisProjectId: initialProjectId });
+    form.setFieldsValue({ ...formValues, analysisProjectId: initialProjectId, ...(taskBoundMode ? { reportTemplateId: formValues.reportTemplateId || REPORT_TEMPLATE_OPTIONS[0].value } : {}) });
+    if (taskBoundMode && restoredCharts.current === undefined) setSelectedChartIds(chartChoices.map(chartKey));
 
     const initialProject = projects.find((project) => project.id === initialProjectId);
-    const availableArtifactIds = initialProject
-      ? (scope?.physicalObjectId ? sourceArtifacts : getReportableArtifacts(initialProject.artifacts)).map((artifact) => artifact.id)
-      : [];
-    const requestedArtifactIds = routeState?.artifactIds ?? task?.reportDraft.sections.flatMap((section) => section.artifactRefs
-      .filter((reference) => reference.projectId === initialProjectId)
-      .map((reference) => reference.artifactId));
+    const available = taskBoundMode ? taskArtifacts : initialProject ? (scope?.physicalObjectId ? sourceArtifacts : getReportableArtifacts(initialProject.artifacts)) : [];
     if (restoredSelection.current !== undefined) return;
-    setSelectedArtifactIds(requestedArtifactIds && routeProjectId === initialProjectId
-      ? requestedArtifactIds.filter((id) => availableArtifactIds.includes(id))
-      : availableArtifactIds);
+    const requested = routeState?.artifactIds;
+    setSelectedArtifactIds(available.filter(artifact => !requested || requested.includes(artifact.id)).map(artifactKey));
   // Initialize once for each route handoff; project data is available synchronously from the persisted store.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
   const selectedLegacyProject = legacyProjects.find((project) => project.id === selectedProjectId);
-  const reportableArtifacts = scope?.physicalObjectId ? sourceArtifacts : selectedProject ? getReportableArtifacts(selectedProject.artifacts) : [];
+  const reportableArtifacts = taskBoundMode ? taskArtifacts : scope?.physicalObjectId ? sourceArtifacts : selectedProject ? getReportableArtifacts(selectedProject.artifacts) : [];
+  const selectedArtifacts = reportableArtifacts.filter(artifact => selectedArtifactIds.includes(artifactKey(artifact)) || selectedArtifactIds.includes(artifact.id));
 
   const handleProjectChange = (id: string) => {
     setSelectedProjectId(id);
@@ -139,7 +144,7 @@ const ReportCreate: React.FC = () => {
       const legacyProject = legacyProjects.find((item) => item.id === values.analysisProjectId);
       const report: ReportRecord = {
         id: uuidv4(),
-        name: `${project?.name || legacyProject?.experimentName || '未命名'}_分析报告`,
+        name: task ? `${task.title}_任务报告` : `${project?.name || legacyProject?.experimentName || '未命名'}_分析报告`,
         experimentName: project?.name || legacyProject?.experimentName || '',
         testGoal: '',
         testObject: project?.basicInfo.testObject || '',
@@ -151,9 +156,9 @@ const ReportCreate: React.FC = () => {
         createTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
         status: 'draft',
         workspaceProjectId: project?.id,
-        artifactIds: project ? selectedArtifactIds : [],
-        artifactRefs: reportableArtifacts.filter(artifact => selectedArtifactIds.includes(artifact.id)).map(artifact => ({ projectId: artifact.projectId, artifactId: artifact.id })),
-        chartRefs: source.record?.charts.filter(chart => selectedChartIds.includes(chart.id)).map(chart => ({ physicalObjectId: source.configuration!.id, experimentId: source.experiment!.id, testRecordId: source.record!.id, chartId: chart.id })) ?? [],
+        artifactIds: selectedArtifacts.map(artifact => artifact.id),
+        artifactRefs: selectedArtifacts.map(artifact => ({ projectId: artifact.projectId, artifactId: artifact.id })),
+        chartRefs: chartChoices.filter(item => selectedChartIds.includes(chartKey(item))).map(item => item.reference),
         taskId: task?.id,
         taskItemId,
         reportContent: task ? task.reportDraft.sections.map((section) => {
@@ -174,7 +179,7 @@ const ReportCreate: React.FC = () => {
       message.success(taskBoundMode ? '报告配置已保存，可继续编制正式报告' : '报告已创建');
       navigate(`${scope?.sessionId ? getSessionPath(scope.sessionId, 'report') : '/report'}/generate/${report.id}${task ? `?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}` : ''}`);
     } catch {
-      message.error('请选择项目和报告模板');
+      message.error(taskBoundMode ? '报告配置保存失败，请检查任务资料后重试' : '请选择项目和报告模板');
     }
   };
 
@@ -186,7 +191,7 @@ const ReportCreate: React.FC = () => {
   return (
     <div className="workspace-simple-page workspace-report-create-page">
       <div className="workspace-page-heading">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(task ? `/tasks/${task.id}` : scope?.sessionId ? `${getSessionPath(scope.sessionId, 'report')}/list` : '/report/list')}>返回</Button>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(task ? taskBookPath(task.id, 'report') : scope?.sessionId ? `${getSessionPath(scope.sessionId, 'report')}/list` : '/report/list')}>返回</Button>
         <Title level={4} style={{ margin: 0 }}>{taskBoundMode ? '任务报告配置' : '新建分析报告'}</Title>
       </div>
 
@@ -208,10 +213,10 @@ const ReportCreate: React.FC = () => {
                 <Form.Item name="analysisProjectId" hidden rules={[{ required: true, message: '当前任务没有关联项目' }]}>
                   <Input />
                 </Form.Item>
-                <Form.Item label={sessionBoundMode && !taskBoundMode ? "当前会话" : "所属项目"}>
-                  <Input disabled value={sessionBoundMode && !taskBoundMode ? sessionTitle : projects.find((project) => project.id === routeProjectId)?.name ?? '关联项目不可用'} />
+                <Form.Item label={taskBoundMode ? "当前任务书" : "当前会话"}>
+                  <Input disabled value={taskBoundMode ? task?.title : sessionTitle} />
                 </Form.Item>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{sessionBoundMode && !taskBoundMode ? scope?.physicalObjectId ? '报告可引用同一业务来源的已有专业成果和原始记录图表。' : '报告引用当前会话的成果，无需创建项目。' : '任务报告沿用任务关联项目，成果来自该项目以及已明确加入任务报告草稿的成果。'}</Text>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{sessionBoundMode && !taskBoundMode ? scope?.physicalObjectId ? '报告可引用同一业务来源的已有专业成果和原始记录图表。' : '报告引用当前会话的成果，无需创建项目。' : '任务报告引用当前任务关联的全部试验记录、图表和专业成果。'}</Text>
               </>
             ) : (
               <Form.Item label="选择项目" name="analysisProjectId"
@@ -226,7 +231,7 @@ const ReportCreate: React.FC = () => {
                 />
               </Form.Item>
             )}
-            <Form.Item label="选择报告模板" name="reportTemplateId"
+            <Form.Item hidden={taskBoundMode} label="选择报告模板" name="reportTemplateId"
               rules={[{ required: true, message: '请选择报告模板' }]}>
               <Select placeholder="选择报告模板" options={REPORT_TEMPLATE_OPTIONS} />
             </Form.Item>
@@ -234,20 +239,20 @@ const ReportCreate: React.FC = () => {
         </Card>
 
         {selectedProject && (
-          <Card title={sessionBoundMode ? "选择会话成果" : "选择项目成果"} style={{ marginBottom: 16 }}
-            extra={<Button type="link" icon={<LinkOutlined />} size="small"
+          <Card title={taskBoundMode ? "任务关联的专业成果" : sessionBoundMode ? "选择会话成果" : "选择项目成果"} style={{ marginBottom: 16 }}
+            extra={taskBoundMode ? undefined : <Button type="link" icon={<LinkOutlined />} size="small"
               onClick={() => setResourcesOpen(true)}>{sessionBoundMode ? '查看会话成果' : '查看项目成果'}</Button>}>
             <Descriptions column={2} size="small" style={{ marginBottom: 12 }}>
-              <Descriptions.Item label={sessionBoundMode && !taskBoundMode ? "会话名称" : "项目名称"}>{sessionBoundMode && !taskBoundMode ? sessionTitle : selectedProject.name}</Descriptions.Item>
-              <Descriptions.Item label="项目状态"><Tag color="blue">{selectedProject.status}</Tag></Descriptions.Item>
-              <Descriptions.Item label="试验对象">{selectedProject.basicInfo.testObject || '未填写'}</Descriptions.Item>
+              <Descriptions.Item label={taskBoundMode ? "任务书" : sessionBoundMode ? "会话名称" : "项目名称"}>{taskBoundMode ? task?.title : sessionBoundMode ? sessionTitle : selectedProject.name}</Descriptions.Item>
+              {!taskBoundMode && <Descriptions.Item label="项目状态"><Tag color="blue">{selectedProject.status}</Tag></Descriptions.Item>}
+              <Descriptions.Item label="试验对象">{taskBoundMode ? [...new Set(taskEntries.map(entry => entry.object.name))].join("、") || "暂无关联" : selectedProject.basicInfo.testObject || '未填写'}</Descriptions.Item>
               <Descriptions.Item label="可用成果">{reportableArtifacts.length} 项</Descriptions.Item>
             </Descriptions>
             {reportableArtifacts.length > 0 ? (
-              <Checkbox.Group value={selectedArtifactIds} onChange={(values) => setSelectedArtifactIds(values as string[])}>
+              <Checkbox.Group value={selectedArtifacts.map(artifactKey)} onChange={(values) => setSelectedArtifactIds(values as string[])}>
                 <Space direction="vertical" style={{ width: '100%' }}>
                   {reportableArtifacts.map((artifact) => (
-                    <Checkbox key={artifact.id} value={artifact.id}>
+                    <Checkbox key={artifactKey(artifact)} value={artifactKey(artifact)}>
                       <Space wrap>
                         <Text strong>{artifact.title}</Text>
                         <Tag color="blue">{artifact.type}</Tag><Tag>{artifactResultLabel(artifact)}</Tag>
@@ -261,11 +266,12 @@ const ReportCreate: React.FC = () => {
           </Card>
         )}
 
-        {source.record && <Card title="选择原始记录图表" style={{ marginBottom: 16 }}>
-          <Text type="secondary">直接引用同一记录及图表配置，不复制 CSV 或图表数据。</Text>
+        {(taskBoundMode || source.record) && <Card title="选择原始记录图表" style={{ marginBottom: 16 }}>
+          <Text type="secondary">引用原始记录及图表配置，不复制 CSV。</Text>
           <Checkbox.Group value={selectedChartIds} onChange={values => setSelectedChartIds(values as string[])}>
-            <Space direction="vertical">{source.record.charts.map(chart => <Checkbox key={chart.id} value={chart.id}>{chart.name} · {chart.xField} / {chart.yField}</Checkbox>)}</Space>
+            <Space direction="vertical">{chartChoices.map(item => <Checkbox key={chartKey(item)} value={chartKey(item)}>{item.label}</Checkbox>)}</Space>
           </Checkbox.Group>
+          {!chartChoices.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="关联记录尚无图表" />}
         </Card>}
         {task && (
           <Card title={`任务报告草稿 · ${task.title}`} style={{ marginBottom: 16 }}>
@@ -289,7 +295,7 @@ const ReportCreate: React.FC = () => {
 
         <div className="workspace-form-actions" style={{ textAlign: 'center', marginTop: 24 }}>
           <Space size="large">
-            <Button size="large" onClick={() => navigate(scope?.sessionId ? `${getSessionPath(scope.sessionId, 'report')}/list` : '/report/list')}>取消</Button>
+            <Button size="large" onClick={() => navigate(task ? taskBookPath(task.id, 'report') : scope?.sessionId ? `${getSessionPath(scope.sessionId, 'report')}/list` : '/report/list')}>取消</Button>
             <Button type="primary" size="large" icon={<FileSyncOutlined />} onClick={handleGenerate}>
               {taskBoundMode ? '保存配置并继续编制' : '进入报告编制'}
             </Button>

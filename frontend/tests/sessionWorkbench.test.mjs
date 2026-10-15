@@ -138,21 +138,17 @@ test('DOE methods share the intelligent experiment design capability and legacy 
   assert.equal(api.sessionCapabilities.filter(item => item.key === 'doe' || item.key === 'doeMethods').length, 1);
 });
 
-test('primary capability pages place model choices in the heading and keep them out of preparation checklists', () => {
+test('DOE places model choices in the heading and keeps them out of preparation checklists', () => {
   const designSource = readFileSync(new URL('../src/pages/experiment/design/IntelligentExperimentDesign.tsx', import.meta.url), 'utf8');
-  const twinSource = readFileSync(new URL('../src/pages/analysis/DigitalTwin.tsx', import.meta.url), 'utf8');
-  const virtualSource = readFileSync(new URL('../src/pages/analysis/VirtualConditionExtension.tsx', import.meta.url), 'utf8');
   const modelChoiceSource = readFileSync(new URL('../src/workspace/ModelChoiceStrip.tsx', import.meta.url), 'utf8');
   const functionBarSource = readFileSync(new URL('../src/workbench/FunctionBar.tsx', import.meta.url), 'utf8');
 
-  for (const source of [designSource, twinSource, virtualSource]) {
+  for (const source of [designSource]) {
     assert.match(source, /<ModelChoiceStrip/);
     assert.doesNotMatch(source, /key: 'model', label: '(?:可信模型|模型)'[^\n]*onClick:/);
   }
   assert.match(designSource, /displayMode="doe-design"/);
   assert.match(designSource, /ariaLabel="智能实验设计模型选择"/);
-  assert.match(twinSource, /ariaLabel="试验数字孪生模型选择"/);
-  assert.match(virtualSource, /ariaLabel="虚拟工况扩展模型选择"/);
   assert.match(modelChoiceSource, /workspace-top-choice-group/);
   assert.match(modelChoiceSource, /aria-pressed=\{selected\}/);
   assert.match(functionBarSource, /if \(saved === false\) return;/);

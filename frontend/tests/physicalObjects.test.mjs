@@ -9,7 +9,7 @@ class MemoryStorage {
 }
 globalThis.localStorage = new MemoryStorage();
 const bundle = await build({ stdin: { contents: "export * from './src/workspace/physicalObjectStore'; export * from './src/workspace/trialDataFiles';", resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent' });
-const { usePhysicalObjectStore: physical, buildChartPoints, parseTrialCsv, findPhysicalTrialRecord, migratePhysicalState } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+const { usePhysicalObjectStore: physical, buildChartPoints, parseTrialCsv, findPhysicalTrialRecord, migratePhysicalState, findObjectCategory, getRecordCharts } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const field = (id, value = '10') => ({ id, name: id, value, form: '单值', description: '描述' });
 const file = id => ({ id, name: `${id}.csv`, mimeType: 'text/csv', size: 32, addedAt: '', headers: ['time', 'thrust'], rowCount: 3 });
 const chart = (rawFileId, scale = 1) => ({ name: '推力', rawFileId, xField: 'time', yField: 'thrust', chartType: 'line', startRow: 0, endRow: 0, scale, offset: 0, color: '#1677ff', smooth: false });
@@ -22,20 +22,20 @@ const fixture = () => {
   const trial = () => physical.getState().objects[0].configurations[0].experiments[0].trials[0];
   return { store, objectId, configurationId, experimentId, trialId, trial };
 };
-test('repeat executions have distinct records; each record owns its files, charts and saved tables', () => {
+test('repeat executions have distinct records; records own raw files and tables while the trial owns attributed shared charts', () => {
   const { store, trialId, trial } = fixture();
   const first = store.addTrialRecord(trialId, {}), second = store.addTrialRecord(trialId, { name: '复测' });
   assert.notEqual(first, second);assert.deepEqual(trial().records.map(item => item.executionNumber), [1, 2]);
   store.addRawFile(trialId, first, file('csv-a'));store.addRawFile(trialId, first, file('csv-a2'));store.addRawFile(trialId, second, file('csv-b'));
   const firstChart = store.saveChart(trialId, first, chart('csv-a'));
-  const secondChart = store.saveChart(trialId, first, chart('csv-a', 2));
+  const secondChart = store.saveChart(trialId, first, { ...chart('csv-a', 2), name: '修正推力' });
   store.saveChart(trialId, first, chart('csv-a', 3), firstChart);
   const tableId = store.saveTable(trialId, first, { name: '原始数据表', rawFileId: 'csv-a2', fields: ['time', 'thrust'], startRow: 0, endRow: 0 });
-  assert.equal(trial().records[0].charts.find(item => item.id === secondChart).scale, 2);
+  assert.equal(trial().charts.find(item => item.id === secondChart).scale, 2);
   assert.equal(trial().records[0].rawFiles.length, 2);assert.equal(trial().records[0].tables[0].id, tableId);
-  assert.equal(trial().records[1].rawFiles.length, 1);assert.equal(trial().records[1].charts.length, 0);
+  assert.equal(trial().records[1].rawFiles.length, 1);assert.equal(getRecordCharts(trial(), second).length, 0);
   store.updateTrialRecord(trialId, second, { description: '复测说明' });assert.equal(trial().records[0].description, undefined);
-  const saved = JSON.parse(localStorage.getItem('protangram-physical-objects-v1'));assert.equal(saved.version, 4);assert.equal(saved.state.objects[0].configurations[0].experiments[0].trials[0].records.length, 2);
+  const saved = JSON.parse(localStorage.getItem('protangram-physical-objects-v1'));assert.equal(saved.version, 6);assert.equal(saved.state.objects[0].configurations[0].experiments[0].trials[0].records.length, 2);
 });
 test('write operations require the exact record and never route files or results to another execution', () => {
   const { store, trialId, trial } = fixture();const a = store.addTrialRecord(trialId, {}), b = store.addTrialRecord(trialId, {});
@@ -81,7 +81,7 @@ test('v2 record and archives migrate to a stable trial with all CSV and chart re
   const current = oldRecord('current','2026-10-13'), archive = oldRecord('archive','2026-10-12');
   const migrated = migratePhysicalState(canonical({ id: 'exp', name: '布置', record: current, archivedRecords: [archive], settings: [field('s')], parameters: [field('p')] }));
   const trial = migrated.objects[0].configurations[0].experiments[0].trials[0];assert.equal(trial.id, 'trial-exp');assert.deepEqual(trial.records.map(record => record.id), ['archive','current']);
-  assert.deepEqual(trial.records[1].rawFiles,current.rawFiles);assert.deepEqual(trial.records[1].charts,current.charts);assert.equal(trial.loadSpectrum,'');assert.equal(trial.archivedRecords,undefined);assert.equal(trial.records[1].executionNumber,2);
+  assert.deepEqual(trial.records[1].rawFiles,current.rawFiles);assert.deepEqual(getRecordCharts(trial, 'current').map(({sourceRecordId, ...chart}) => chart),current.charts);assert.equal(trial.loadSpectrum,'');assert.equal(trial.archivedRecords,undefined);assert.equal(trial.records[1].executionNumber,2);
   assert.deepEqual(migratePhysicalState(migrated), migrated);
 });
 test('v3 migration retains existing trial IDs and references, merges fields without losing conflicting contents', () => {
@@ -91,7 +91,7 @@ test('v3 migration retains existing trial IDs and references, merges fields with
 });
 test('legacy trial may acquire a missing spectrum once; new execution still uses a new record ID', () => {
   physical.setState(migratePhysicalState(canonical({id:'exp',name:'布置',trials:[{id:'old-trial',name:'试验',record:oldRecord('old-record','2026-10-13')}]})));
-  const store=physical.getState();assert.throws(()=>store.addTrialRecord('old-trial',{}),/补充/);store.updateConcreteTrial('old-trial',{loadSpectrum:'补登载荷谱'});const next=store.addTrialRecord('old-trial',{});assert.notEqual(next,'old-record');assert.equal(findPhysicalTrialRecord(physical.getState().objects,'config','exp','old-record').charts[0].id,'old-record-chart');
+  const store=physical.getState();assert.throws(()=>store.addTrialRecord('old-trial',{}),/补充/);store.updateConcreteTrial('old-trial',{loadSpectrum:'补登载荷谱'});const next=store.addTrialRecord('old-trial',{});assert.notEqual(next,'old-record');assert.equal(getRecordCharts(physical.getState().objects[0].configurations[0].experiments[0].trials[0], 'old-record')[0].id,'old-record-chart');
 });
 
 test('partly migrated legacy records join the existing stable trial without duplicate entities or input mutation', () => {
@@ -111,6 +111,51 @@ test('the first store import hydrates v3 data before any page action, without an
   localStorage.setItem('protangram-physical-objects-v1',JSON.stringify({version:3,state:input}));
   const fresh = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}#initial-hydration`);
   assert.equal(fresh.usePhysicalObjectStore.persist.hasHydrated(),true);
-  const objects=fresh.usePhysicalObjectStore.getState().objects;assert.equal(objects.length,1);assert.equal(objects[0].configurations[0].experiments[0].trials[0].records[0].id,'old-record');
-  assert.equal(JSON.parse(localStorage.getItem('protangram-physical-objects-v1')).version,4);
+  const objects=fresh.usePhysicalObjectStore.getState().objects;assert.equal(objects.length,3);assert.equal(objects[0].configurations[0].experiments[0].trials[0].records[0].id,'old-record');
+  assert.equal(JSON.parse(localStorage.getItem('protangram-physical-objects-v1')).version,6);
+});
+
+
+test('categories stay available and each concrete object owns its parameters and test configurations', () => {
+  physical.setState(migratePhysicalState({objects: []}));
+  const store = physical.getState();
+  assert.deepEqual(store.objects.map(category => category.name), ['涵道风扇', '电机', '电推进']);
+  const categoryId = store.objects[0].id;
+  assert.equal(store.addRoot({name:'涵道风扇',type:'涵道风扇'}), categoryId);
+  const first=store.addConfiguration(categoryId,{name:'电涵道风扇 A'}), second=store.addConfiguration(categoryId,{name:'电涵道风扇 B'});
+  store.addField(first,'parameters',field('diameter'));
+  store.addExperiment(first,{name:'静推力布置',parameters:[]});
+  const devices=physical.getState().objects[0].configurations;
+  assert.deepEqual(devices.map(object=>object.id),[first,second]);
+  assert.equal(devices[0].parameters.length,1);assert.equal(devices[1].parameters.length,0);
+  assert.equal(devices[0].experiments.length,1);assert.equal(devices[1].experiments.length,0);
+  assert.throws(()=>store.addConfiguration('missing-category',{name:'不可错挂'}),/对象类别不存在/);
+  assert.equal(physical.getState().objects.length,3);
+});
+
+test('v4 grouping uses category instead of an extra equipment layer and preserves old links and record identities', () => {
+  const record=oldRecord('kept-record','2026-10-13');
+  const one=canonical({id:'exp',name:'试验构型',parameters:[],trials:[{id:'trial',name:'具体试验',loadSpectrum:'谱01',taskBookId:'task',records:[record]}]}).objects[0];
+  one.type='涵道风扇';one.name='电涵道风扇';
+  const two={...structuredClone(one),id:'another-group',name:'另一组风扇',configurations:[{...structuredClone(one.configurations[0]),id:'second-device',experiments:[]}]};
+  const original=structuredClone({objects:[one,two]}), migrated=migratePhysicalState(original);
+  assert.deepEqual(original,{objects:[one,two]});
+  assert.equal(migrated.objects.filter(category=>category.name==='涵道风扇').length,1);
+  assert.deepEqual(migrated.objects[0].configurations.map(object=>object.id),['config','second-device']);
+  assert.equal(findObjectCategory(migrated.objects,'another-group').id,'object');
+  const kept=findPhysicalTrialRecord(migrated.objects,'config','exp','kept-record');
+  assert.deepEqual(kept.rawFiles,record.rawFiles);assert.deepEqual(getRecordCharts(migrated.objects[0].configurations[0].experiments[0].trials[0], kept.id).map(({sourceRecordId, ...chart}) => chart),record.charts);
+  assert.equal(migrated.objects[0].configurations[0].experiments[0].trials[0].taskBookId,'task');
+  assert.deepEqual(migratePhysicalState(migrated),migrated);
+});
+
+test('mixed legacy devices and parent business fields are retained without duplicating on another migration', () => {
+  const old={objects:[{id:'legacy-device',name:'旧设备',type:'电机',parameters:[field('torque')],experiments:[]},
+    {id:'legacy-parent',name:'旧风扇',type:'涵道风扇',parameters:[field('diameter')],configurations:[{id:'child-device',name:'风扇B',parameters:[],experiments:[]}]}]};
+  const migrated=migratePhysicalState(old);
+  assert.equal(findObjectCategory(migrated.objects,'legacy-device').configurations[0].id,'legacy-device');
+  const category=findObjectCategory(migrated.objects,'legacy-parent');
+  assert.deepEqual(category.configurations.map(object=>object.id),['legacy-parent','child-device']);
+  assert.equal(category.configurations[0].parameters[0].id,'diameter');
+  assert.deepEqual(migratePhysicalState(migrated),migrated);
 });

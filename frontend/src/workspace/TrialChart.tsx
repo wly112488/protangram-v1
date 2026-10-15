@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { DerivedChart, RawDataFile } from './physicalObjectStore';
-import { buildChartPoints, readTrialFile } from './trialDataFiles';
+import { loadTrialChartOption } from './trialChartOutput';
 
 export default function TrialChart({ chart, rawFile }: { chart: DerivedChart; rawFile?: RawDataFile }) {
   const cacheKey = JSON.stringify(chart);
@@ -10,11 +10,8 @@ export default function TrialChart({ chart, rawFile }: { chart: DerivedChart; ra
   useEffect(() => {
     let current = true;
     if (!rawFile) return;
-    readTrialFile(rawFile.id).then(({ rows }) => {
+    loadTrialChartOption(chart, rawFile).then(option => {
       if (!current) return;
-      const points = buildChartPoints(rows, chart.xField, chart.yField, chart);
-      if (!points.length) { setResult({ key: cacheKey, error: '当前字段范围内没有可绘制的数值' }); return; }
-      const option = { animation: false, tooltip: { trigger: 'axis' }, grid: { left: 56, right: 24, top: 28, bottom: 48 }, xAxis: { type: 'value', name: chart.xField, scale: true }, yAxis: { type: 'value', name: chart.yField, scale: true }, series: [{ type: chart.chartType, data: points, smooth: chart.smooth, symbolSize: 6, itemStyle: { color: chart.color }, lineStyle: { color: chart.color } }] };
       setResult({ key: cacheKey, option });
     }).catch(reason => current && setResult({ key: cacheKey, error: reason instanceof Error ? reason.message : '读取原始文件失败' }));
     return () => { current = false; };

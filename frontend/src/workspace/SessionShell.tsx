@@ -28,7 +28,7 @@ const SessionShell: React.FC = () => {
   const task = tasks.find(item => item.id === taskId);
   const bridgeId = task ? sessions.find(item => item.taskId === task.id)?.id : requestedId;
   const legacyCapability = Boolean(getLegacySessionPath(location.pathname, 'placeholder'));
-  const needBridge = Boolean(taskRouteId && task || !location.pathname.startsWith('/sessions/') && legacyCapability);
+  const needBridge = Boolean(!taskRouteId && !location.pathname.startsWith('/sessions/') && legacyCapability);
   const projectLanding = location.pathname === '/projects' && !requestedId;
   useEffect(() => {
     setMobileOpen(false);

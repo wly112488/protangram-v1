@@ -11,27 +11,46 @@ export interface DerivedChart {
   startRow: number; endRow: number; scale: number; offset: number; color: string; smooth: boolean;
   modelId?: string; modelInputs?: ValueField[]; createdAt: string; updatedAt: string;
 }
+export interface TrialChartResult extends DerivedChart { sourceRecordId: string }
+export type ChartInput = Omit<DerivedChart, 'id' | 'createdAt' | 'updatedAt'>;
 export interface DerivedTable { id: string; name: string; rawFileId: string; fields: string[]; startRow: number; endRow: number; createdAt: string; updatedAt: string }
-export interface TestRecord { id: string; name: string; executionNumber: number; description?: string; createdAt: string; actualConditions: ValueField[]; measurements: ValueField[]; rawFiles: RawDataFile[]; charts: DerivedChart[]; tables: DerivedTable[] }
-export interface ConcreteTrial { id: string; name: string; description?: string; taskBookId?: string; loadSpectrum: string; loadSpectrumDescription?: string; designArtifactRef?: { projectId: string; artifactId: string }; designs?: DesignField[]; records: TestRecord[] }
-export interface ExperimentDefinition { id: string; name: string; category?: string; description?: string; designArtifactRef?: { projectId: string; artifactId: string }; parameters: ValueField[]; trials: ConcreteTrial[] }
+export interface TestRecord { id: string; name: string; executionNumber: number; description?: string; createdAt: string; actualConditions: ValueField[]; measurements: ValueField[]; rawFiles: RawDataFile[]; tables: DerivedTable[] }
+export interface ConcreteTrial { id: string; name: string; description?: string; taskBookId?: string; loadSpectrum: string; loadSpectrumDescription?: string; designArtifactRef?: { projectId: string; artifactId: string }; designs?: DesignField[]; records: TestRecord[]; charts: TrialChartResult[] }
+export const getRecordCharts = (trial: ConcreteTrial | undefined, recordId: string | undefined) => recordId ? (trial?.charts ?? []).filter(chart => chart.sourceRecordId === recordId) : [];
+const chartNameKey = (name: string) => name.trim().normalize('NFC').toLocaleLowerCase();
+export const hasTrialChartNameConflict = (trial: ConcreteTrial, name: string, current?: { id: string; sourceRecordId: string }) => (trial.charts ?? []).some(chart =>
+  chartNameKey(chart.name) === chartNameKey(name) && !(chart.id === current?.id && chart.sourceRecordId === current?.sourceRecordId));
+export function assertTrialChartName(trial: ConcreteTrial, name: string, current?: { id: string; sourceRecordId: string }) {
+  if (!name.trim()) throw new Error('请填写图表名称');
+  if (hasTrialChartNameConflict(trial, name, current)) throw new Error('本具体试验已有同名图表，请使用其他名称。');
+}
+// Stable codes used by professional services; legacy configurations stay unset until edited.
+export const TEST_TYPES = [{ value: 'aerodynamic', label: '气动试验' }, { value: 'thrust', label: '推力试验' }, { value: 'thermal', label: '热试验' }, { value: 'vibration', label: '振动试验' }, { value: 'other', label: '其他试验' }];
+export interface ExperimentDefinition { testType?: string; id: string; name: string; category?: string; description?: string; designArtifactRef?: { projectId: string; artifactId: string }; parameters: ValueField[]; trials: ConcreteTrial[] }
 export const isExperimentSetupLocked = (experiment: ExperimentDefinition) => experiment.trials.some(trial => trial.records.length > 0);
 export interface CalculationRecord extends TestRecord { inputs: ValueField[] }
 export interface Calculation { id: string; name: string; description?: string; inputs: ValueField[]; records: CalculationRecord[] }
 // Existing definitions remain readable by professional model selection. They are no longer created in the object workbench.
 export interface SimulationModel { id: string; name: string; description: string; inputs: ValueField[]; outputs: ValueField[]; defaults: ValueField[]; method: string; calculations: Calculation[] }
+// Persisted names are retained so existing professional references keep their IDs.
+// A configuration is now the concrete physical object; its parent is a category.
 export interface PhysicalConfiguration {
   id: string; name: string; description: string; basedOnId?: string; parameters: ValueField[]; materials: ValueField[];
   children: PhysicalObject[]; designs: DesignCase[]; experiments: ExperimentDefinition[]; models: SimulationModel[];
 }
 export interface PhysicalObject {
   id: string; name: string; type: string; description: string; configurations: PhysicalConfiguration[];
+  legacyCategories?: Array<{ id: string; name: string; description: string }>;
   basedOnId?: string; parameters: ValueField[]; materials: ValueField[]; children: PhysicalObject[]; designs: DesignCase[]; experiments: ExperimentDefinition[]; models: SimulationModel[];
 }
 
 const id = (prefix: string) => `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
 const blankConfig = (name: string, description = ''): PhysicalConfiguration => ({ id: id('config'), name, description, parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
 const blankFamily = (name: string, type = '自定义对象', description = ''): PhysicalObject => ({ id: id('object'), name, type, description, configurations: [], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
+export const findObjectCategory = (items: PhysicalObject[], categoryOrObjectId: string) => items.find(category => category.id === categoryOrObjectId || category.legacyCategories?.some(item => item.id === categoryOrObjectId) || category.configurations.some(object => object.id === categoryOrObjectId));
+function defaultCategories(): PhysicalObject[] {
+  return [['category-fan', '涵道风扇'], ['category-motor', '电机'], ['category-propulsion', '电推进']].map(([categoryId, name]) => ({ ...blankFamily(name, name), id: categoryId, legacyCategories: [] }));
+}
 const mapConfig = (items: PhysicalObject[], configId: string, update: (item: PhysicalConfiguration) => PhysicalConfiguration) => items.map(family => ({ ...family, configurations: family.configurations.map(config => config.id === configId ? update(config) : config) }));
 const mapExperiment = (items: PhysicalObject[], experimentId: string, update: (item: ExperimentDefinition) => ExperimentDefinition) => items.map(family => ({ ...family, configurations: family.configurations.map(config => ({ ...config, experiments: config.experiments.map(item => item.id === experimentId ? update(item) : item) })) }));
 const mapTrial = (items: PhysicalObject[], trialId: string, update: (item: ConcreteTrial) => ConcreteTrial) => items.map(family => ({ ...family, configurations: family.configurations.map(config => ({ ...config, experiments: config.experiments.map(experiment => ({ ...experiment, trials: experiment.trials.map(item => item.id === trialId ? update(item) : item) })) })) }));
@@ -49,40 +68,48 @@ const mapRecord = (items: PhysicalObject[], trialId: string, recordId: string, u
 export interface PhysicalObjectState {
   objects: PhysicalObject[];
   addRoot: (input: { name: string; type: string; description?: string }) => string;
-  addConfiguration: (familyId: string, input: { name: string; description?: string }) => string | null;
+  addConfiguration: (familyId: string, input: { name: string; description?: string }) => string;
   addField: (configurationId: string, section: 'parameters' | 'materials', item: Omit<ValueField, 'id'>) => void;
   updateField: (configurationId: string, section: 'parameters' | 'materials', fieldId: string, patch: Omit<ValueField, 'id'>) => void;
   addExperiment: (configurationId: string, item: Omit<ExperimentDefinition, 'id' | 'trials'>) => string;
-  addConcreteTrial: (experimentId: string, item: Omit<ConcreteTrial, 'id' | 'records'>) => string;
+  addConcreteTrial: (experimentId: string, item: Omit<ConcreteTrial, 'id' | 'records' | 'charts'>) => string;
   updateConcreteTrial: (trialId: string, patch: Partial<Pick<ConcreteTrial, 'name' | 'description' | 'taskBookId' | 'loadSpectrum' | 'loadSpectrumDescription' | 'designArtifactRef'>>) => void;
-  updateExperiment: (experimentId: string, patch: Partial<Pick<ExperimentDefinition, 'name' | 'description' | 'parameters'>>) => void;
+  updateExperiment: (experimentId: string, patch: Partial<Pick<ExperimentDefinition, 'name' | 'description' | 'parameters' | 'testType'>>) => void;
   addTrialRecord: (trialId: string, item: { name?: string; description?: string }) => string;
   updateTrialRecord: (trialId: string, recordId: string, patch: Partial<Pick<TestRecord, 'name' | 'description'>>) => void;
   addRawFile: (trialId: string, recordId: string, file: RawDataFile) => void;
-  saveChart: (trialId: string, recordId: string, chart: Omit<DerivedChart, 'id' | 'createdAt' | 'updatedAt'>, chartId?: string) => string;
+  saveChart: (trialId: string, recordId: string, chart: ChartInput, chartId?: string) => string;
   saveTable: (trialId: string, recordId: string, table: Omit<DerivedTable, 'id' | 'createdAt' | 'updatedAt'>, tableId?: string) => string;
 }
 
 export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set, get) => ({
-  objects: [],
-  addRoot: input => { const family = blankFamily(input.name, input.type, input.description); set(state => ({ objects: [...state.objects, family] })); return family.id; },
+  objects: defaultCategories(),
+  addRoot: input => {
+    const name = input.name.trim();
+    if (!name) throw new Error('请填写对象类别名称');
+    const existing = get().objects.find(category => category.name === name);
+    if (existing) return existing.id;
+    const family = blankFamily(name, name, input.description);
+    set(state => ({ objects: [...state.objects, family] })); return family.id;
+  },
   addConfiguration: (familyId, input) => {
-    if (!get().objects.some(item => item.id === familyId)) return null;
-    const config = blankConfig(input.name, input.description);
+    if (!get().objects.some(item => item.id === familyId)) throw new Error('所属对象类别不存在');
+    if (!input.name.trim()) throw new Error('请填写具体物理对象名称');
+    const config = blankConfig(input.name.trim(), input.description);
     set(state => ({ objects: state.objects.map(item => item.id === familyId ? { ...item, configurations: [...item.configurations, config] } : item) }));
     return config.id;
   },
   addField: (configurationId, section, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: [...config[section], { ...item, id: id('field') }] })) })),
   updateField: (configurationId, section, fieldId, patch) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: config[section].map(item => item.id === fieldId ? { ...item, ...patch, id: fieldId } : item) })) })),
   addExperiment: (configurationId, item) => {
-    if (!get().objects.some(family => family.configurations.some(config => config.id === configurationId))) throw new Error('所属具体构型不存在');
+    if (!get().objects.some(family => family.configurations.some(config => config.id === configurationId))) throw new Error('所属具体物理对象不存在');
     const experiment = { ...item, id: id('trial-configuration'), trials: [] };
     set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, experiments: [...config.experiments, experiment] })) }));return experiment.id;
   },
   addConcreteTrial: (experimentId, item) => {
     if (!item.loadSpectrum.trim()) throw new Error('请填写载荷谱名称或编号');
     if (!get().objects.some(family => family.configurations.some(config => config.experiments.some(experiment => experiment.id === experimentId)))) throw new Error('所属试验构型不存在');
-    const trial = { ...item, id: id('trial'), records: [] };
+    const trial = { ...item, id: id('trial'), records: [], charts: [] };
     set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => ({ ...experiment, trials: [...experiment.trials, trial] })) }));return trial.id;
   },
   updateConcreteTrial: (trialId, patch) => set(state => ({ objects: mapTrial(state.objects, trialId, trial => {
@@ -99,17 +126,19 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
     if (!trial) throw new Error('所属具体试验不存在');
     if (!trial.loadSpectrum.trim()) throw new Error('请先补充本试验的载荷谱名称或编号');
     const executionNumber = Math.max(0, ...trial.records.map(item => item.executionNumber)) + 1;
-    const record: TestRecord = { ...input, id: id('record'), name: input.name?.trim() || `第 ${executionNumber} 次试验记录`, executionNumber, createdAt: new Date().toISOString(), actualConditions: [], measurements: [], rawFiles: [], charts: [], tables: [] };
+    const record: TestRecord = { ...input, id: id('record'), name: input.name?.trim() || `第 ${executionNumber} 次试验记录`, executionNumber, createdAt: new Date().toISOString(), actualConditions: [], measurements: [], rawFiles: [], tables: [] };
     set(state => ({ objects: mapTrial(state.objects, trialId, item => ({ ...item, records: [...item.records, record] })) }));return record.id;
   },
   updateTrialRecord: (trialId, recordId, patch) => set(state => ({ objects: mapRecord(state.objects, trialId, recordId, record => ({ ...record, ...patch })) })),
   addRawFile: (trialId, recordId, file) => set(state => ({ objects: mapRecord(state.objects, trialId, recordId, record => ({ ...record, rawFiles: record.rawFiles.some(item => item.id === file.id) ? record.rawFiles : [...record.rawFiles, file] })) })),
   saveChart: (trialId, recordId, chart, chartId) => {
     const record = requireRecord(get().objects, trialId, recordId);
+    const trial = findTrial(get().objects, trialId)!;
     if (!record.rawFiles.some(file => file.id === chart.rawFileId && file.headers.includes(chart.xField) && file.headers.includes(chart.yField))) throw new Error('图表必须引用本记录的原始 CSV 字段');
-    if (chartId && !record.charts.some(item => item.id === chartId)) throw new Error('本记录中不存在该图表');
+    if (chartId && !trial.charts.some(item => item.id === chartId && item.sourceRecordId === recordId)) throw new Error('本记录中不存在该图表，不能变更图表的来源记录');
+    assertTrialChartName(trial, chart.name, chartId ? { id: chartId, sourceRecordId: recordId } : undefined);
     const now = new Date().toISOString(), idToSave = chartId ?? id('chart');
-    set(state => ({ objects: mapRecord(state.objects, trialId, recordId, item => ({ ...item, charts: chartId ? item.charts.map(old => old.id === chartId ? { ...old, ...chart, updatedAt: now } : old) : [...item.charts, { ...chart, id: idToSave, createdAt: now, updatedAt: now }] })) }));return idToSave;
+    set(state => ({ objects: mapTrial(state.objects, trialId, item => ({ ...item, charts: chartId ? item.charts.map(old => old.id === chartId && old.sourceRecordId === recordId ? { ...old, ...chart, id: old.id, createdAt: old.createdAt, name: chart.name.trim(), sourceRecordId: recordId, updatedAt: now } : old) : [...item.charts, { ...chart, name: chart.name.trim(), sourceRecordId: recordId, id: idToSave, createdAt: now, updatedAt: now }] })) }));return idToSave;
   },
   saveTable: (trialId, recordId, table, tableId) => {
     const record = requireRecord(get().objects, trialId, recordId);
@@ -119,11 +148,12 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
     const now = new Date().toISOString(), idToSave = tableId ?? id('table');
     set(state => ({ objects: mapRecord(state.objects, trialId, recordId, item => ({ ...item, tables: tableId ? item.tables.map(old => old.id === tableId ? { ...old, ...table, updatedAt: now } : old) : [...item.tables, { ...table, id: idToSave, createdAt: now, updatedAt: now }] })) }));return idToSave;
   },
-}), { name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage), version: 4, migrate: migratePhysicalState }));
+}), { name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage), version: 6, migrate: migratePhysicalState }));
 
 // Migration-only input shape. Old fields never remain as a parallel live record system.
-type LegacyTrial = Partial<ConcreteTrial> & { record?: TestRecord; archivedRecords?: TestRecord[] };
-type LegacyExperiment = Partial<Omit<ExperimentDefinition, 'trials'>> & { settings?: ValueField[]; record?: TestRecord; archivedRecords?: TestRecord[]; records?: Array<Partial<TestRecord> & { data?: ValueField[] }>; trials?: LegacyTrial[]; taskBookId?: string };
+type LegacyRecord = Partial<TestRecord> & { id: string; charts?: DerivedChart[]; data?: ValueField[] };
+type LegacyTrial = Partial<Omit<ConcreteTrial, 'records'>> & { records?: LegacyRecord[]; record?: LegacyRecord; archivedRecords?: LegacyRecord[] };
+type LegacyExperiment = Partial<Omit<ExperimentDefinition, 'trials'>> & { settings?: ValueField[]; record?: LegacyRecord; archivedRecords?: LegacyRecord[]; records?: LegacyRecord[]; trials?: LegacyTrial[]; taskBookId?: string };
 function mergeParameters(settings: ValueField[] = [], parameters: ValueField[] = []) {
   const merged = [...parameters];
   for (const field of settings) {
@@ -135,7 +165,7 @@ function mergeParameters(settings: ValueField[] = [], parameters: ValueField[] =
 }
 function migrateExperiment(legacy: LegacyExperiment): ExperimentDefinition {
   const { settings, record, archivedRecords = [], records = [], trials = [], taskBookId, ...metadata } = legacy;
-  const oldRecords = [record, ...archivedRecords, ...records].filter((item): item is TestRecord => Boolean(item));
+  const oldRecords = [record, ...archivedRecords, ...records].filter((item): item is LegacyRecord => Boolean(item));
   const existingIds = new Set(trials.flatMap(trial => [...(trial.records ?? []), ...(trial.record ? [trial.record] : []), ...(trial.archivedRecords ?? [])]).map(item => item.id));
   const remaining = oldRecords.filter(item => !existingIds.has(item.id));
   const inputTrials = trials.map(trial => ({ ...trial }));
@@ -144,15 +174,20 @@ function migrateExperiment(legacy: LegacyExperiment): ExperimentDefinition {
   else if (remaining.length || !inputTrials.length && taskBookId) inputTrials.unshift({ id: `trial-${legacy.id}`, name: legacy.name ?? '历史试验', description: legacy.description, taskBookId, designArtifactRef: legacy.designArtifactRef, records: remaining });
   const normalized = inputTrials.map(trial => {
     const { record: current, archivedRecords: historical = [], records: executions = [], ...trialMetadata } = trial;
-    const unique = new Map<string, Partial<TestRecord> & { data?: ValueField[] }>();
+    const unique = new Map<string, LegacyRecord>();
     for (const item of [...executions, ...(current ? [current] : []), ...historical]) if (!unique.has(item.id)) unique.set(item.id, item);
     const ordered = [...unique.values()].sort((a, b) => {
       const first = Date.parse(a.createdAt ?? ''), second = Date.parse(b.createdAt ?? '');
       return Number.isFinite(first) && Number.isFinite(second) ? first - second : 0;
     });
-    return { ...trialMetadata, taskBookId: trialMetadata.taskBookId ?? taskBookId, loadSpectrum: trial.loadSpectrum ?? '', records: ordered.map((item, index) => {
-      const { data, ...saved } = item;
-      return { ...saved, executionNumber: item.executionNumber ?? index + 1, actualConditions: item.actualConditions ?? [], measurements: item.measurements ?? data ?? [], rawFiles: item.rawFiles ?? [], charts: item.charts ?? [], tables: item.tables ?? [] } as TestRecord;
+    const sharedCharts = [...(trial.charts ?? [])];
+    for (const item of ordered) for (const chart of item.charts ?? []) {
+      if (!sharedCharts.some(saved => saved.id === chart.id && saved.sourceRecordId === item.id)) sharedCharts.push({ ...chart, sourceRecordId: item.id });
+    }
+    return { ...trialMetadata, charts: sharedCharts, taskBookId: trialMetadata.taskBookId ?? taskBookId, loadSpectrum: trial.loadSpectrum ?? '', records: ordered.map((item, index) => {
+      const { data, charts: _legacyCharts, ...saved } = item;
+      void _legacyCharts;
+      return { ...saved, executionNumber: item.executionNumber ?? index + 1, actualConditions: item.actualConditions ?? [], measurements: item.measurements ?? data ?? [], rawFiles: item.rawFiles ?? [], tables: item.tables ?? [] } as TestRecord;
     }) } as ConcreteTrial;
   });
   return { ...metadata, id: legacy.id!, name: legacy.name!, parameters: mergeParameters(settings, legacy.parameters), trials: normalized };
@@ -160,14 +195,34 @@ function migrateExperiment(legacy: LegacyExperiment): ExperimentDefinition {
 export function migratePhysicalState(persisted: unknown): Pick<PhysicalObjectState, 'objects'> {
   const old = (persisted as { objects?: Array<Record<string, unknown>> })?.objects ?? [];
   if (!Array.isArray(old)) throw new Error('物理对象存储格式无效，未覆盖原数据');
-  if (old.some(item => Array.isArray(item.configurations))) return { objects: old.map(item => ({ ...item, configurations: (item.configurations as PhysicalConfiguration[]).map(config => ({ ...config, experiments: (config.experiments ?? []).map(migrateExperiment) })) } as PhysicalObject)) };
   const groups = new Map<string, PhysicalObject>();
   for (const item of old) {
-    const type = String(item.type || '自定义对象'), familyName = type === '涵道风扇' ? '电涵道风扇' : type;
-    const family = groups.get(familyName) ?? blankFamily(familyName, type);
-    const config = { ...blankConfig(String(item.name || '默认构型'), String(item.description || '')), ...item, experiments: (Array.isArray(item.experiments) ? item.experiments as LegacyExperiment[] : []).map(migrateExperiment) } as PhysicalConfiguration;
-    family.configurations.push(config);groups.set(familyName, family);
+    const hasChildren = Array.isArray(item.configurations);
+    const declaredType = String(item.type || '').trim();
+    const name = declaredType && declaredType !== '自定义对象' ? declaredType : hasChildren ? String(item.name || '未分类对象') : '未分类对象';
+    const categoryName = name === '电涵道风扇' ? '涵道风扇' : name;
+    const incoming = hasChildren ? item.configurations as PhysicalConfiguration[] : [item as unknown as PhysicalConfiguration];
+    // Very old root-level business data is a device too; do not discard it when
+    // upgrading a mixed hierarchy that also has child devices.
+    const rootHasData = hasChildren && ['parameters', 'materials', 'children', 'designs', 'experiments', 'models'].some(key => Array.isArray(item[key]) && item[key].length);
+    const devices = rootHasData ? [item as unknown as PhysicalConfiguration, ...incoming] : incoming;
+    let category = groups.get(categoryName);
+    if (!category) {
+      category = { ...blankFamily(categoryName, categoryName), ...(hasChildren ? item : {}), name: categoryName, type: categoryName, configurations: [], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [], legacyCategories: [] } as PhysicalObject;
+      groups.set(categoryName, category);
+    }
+    if (hasChildren) {
+      const aliases = [...(item.legacyCategories as PhysicalObject['legacyCategories'] ?? [])];
+      if (item.id !== category.id || item.name !== categoryName) aliases.push({ id: String(item.id), name: String(item.name || ''), description: String(item.description || '') });
+      for (const alias of aliases) if (!category.legacyCategories!.some(saved => saved.id === alias.id)) category.legacyCategories!.push(alias);
+    }
+    for (const device of devices) {
+      const { configurations: _oldChildren, legacyCategories: _oldAliases, ...saved } = device as PhysicalConfiguration & Partial<PhysicalObject>;
+      void _oldChildren; void _oldAliases;
+      category.configurations.push({ ...blankConfig(device.name || '未命名物理对象'), ...saved, experiments: (device.experiments ?? []).map(migrateExperiment) });
+    }
   }
+  for (const category of defaultCategories()) if (!groups.has(category.name)) groups.set(category.name, category);
   return { objects: [...groups.values()] };
 }
 export const flattenObjects = (objects: PhysicalObject[], path = ''): Array<{ object: PhysicalConfiguration & { type: string }; path: string }> => objects.flatMap(family => family.configurations.map(config => ({ object: { ...config, type: family.type }, path: `${path ? `${path} / ` : ''}${family.name} / ${config.name}` })));

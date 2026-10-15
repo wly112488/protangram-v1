@@ -194,3 +194,21 @@ test('task association follows the concrete trial and sibling executions keep in
   physical.getState().updateConcreteTrial(a.trialId, { taskBookId: undefined });
   assert.equal(sessions.getState().getWorkspaceSession(id).taskBookId, undefined);
 });
+
+
+test('category consolidation preserves professional sessions and artifact references for each device record', () => {
+  const {a,b}=fixture();
+  const sessionId=sessions.getState().ensurePhysicalSession(a,'已有分析');
+  const original=structuredClone(physical.getState().objects[0]);
+  original.type='涵道风扇';original.name='风扇分组A';original.configurations=original.configurations.filter(object=>object.id===a.physicalObjectId);
+  const sibling={...structuredClone(original),id:'old-group-b',name:'风扇分组B',configurations:structuredClone(physical.getState().objects[0].configurations.filter(object=>object.id===b.physicalObjectId))};
+  physical.setState(api.migratePhysicalState({objects:[original,sibling]}));
+  const source=api.resolvePhysicalSource(physical.getState().objects,a);
+  assert.equal(source.missing,false);assert.equal(source.record.id,a.testRecordId);
+  assert.equal(api.resolvePhysicalSource(physical.getState().objects,b).record.id,b.testRecordId);
+  const reused=sessions.getState().ensurePhysicalSession(a,'重开分析');assert.equal(reused,sessionId);
+  const oldURL=api.physicalSourcePath(physical.getState().objects,b);
+  assert.equal(new URL(oldURL,'http://localhost').searchParams.get('configurationId'),b.physicalObjectId);
+  assert.equal(api.findObjectCategory(physical.getState().objects,'old-group-b').id,original.id);
+  assert.equal(physical.getState().objects[0].configurations.length,2);
+});

@@ -48,7 +48,7 @@ export const getSourceArtifacts = (projects: Project[], sessions: WorkSession[],
 
 export const resolveRecordChart = (objects: PhysicalObject[], reference: RecordChartReference) => {
   const source = resolvePhysicalSource(objects, reference);
-  const chart = source.record?.charts.find(item => item.id === reference.chartId);
+  const chart = source.trial?.charts.find(item => item.id === reference.chartId && item.sourceRecordId === source.record?.id);
   return chart && !source.missing ? { ...source, chart, rawFile: source.record?.rawFiles.find(item => item.id === chart.rawFileId) } : undefined;
 };
 

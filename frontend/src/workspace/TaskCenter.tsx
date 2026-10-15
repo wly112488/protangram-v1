@@ -76,7 +76,7 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
         <div className="session-home-section-heading"><h2>任务书关联</h2><Space><Text type="secondary">{tasks.length} 项</Text><Button icon={<UploadOutlined />} onClick={() => setCreateOpen(true)}>新建任务书关联</Button></Space></div>
         {tasks.length === 0 ? (
           <Card className="task-center-empty">
-            <Empty description="创建任务书关联 ID 后，可在试验构型中选择；PDF 可选。" />
+            <Empty description="创建任务书关联 ID 后，可发起试验或关联已有自主试验；PDF 可选。" />
           </Card>
         ) : (
           <List
@@ -101,7 +101,7 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
                     title={<span className="task-card-title">{task.title}</span>}
                     extra={<Tag color={task.status === '进行中' ? 'blue' : task.status === '已完成' ? 'green' : 'default'}>{task.status}</Tag>}
                     actions={[
-                      <Button type="link" key="open" onClick={() => navigate(`/physical-objects?view=taskbooks&taskId=${encodeURIComponent(task.id)}`)}>查看关联试验与成果</Button>,
+                      <Button type="link" key="open" onClick={() => navigate(`/physical-objects?view=taskbooks&taskId=${encodeURIComponent(task.id)}`)}>管理关联试验与成果</Button>,
                       <Text type="secondary" key="updated">更新于 {new Date(task.updatedAt).toLocaleDateString('zh-CN')}</Text>,
                     ]}
                   >

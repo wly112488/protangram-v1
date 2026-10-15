@@ -45,7 +45,7 @@ const SessionWorkbench: React.FC = () => {
   const project = projects.find(item => item.id === session.projectId && !item.sessionOwnerId);
   const context = useSessionStore.getState().getWorkspaceSession(session.id);
   const physicalSource = resolvePhysicalSource(objects, session.businessScope);
-  const physicalSourceLabel = [context?.physicalObjectName, context?.experimentName, context?.trialName, context?.modelName, context?.taskBookName].filter(Boolean).join(' · ');
+  const physicalSourceLabel = [context?.physicalObjectName, context?.experimentName, context?.trialName, context?.testRecordName, context?.modelName, context?.taskBookName].filter(Boolean).join(' · ');
   const routeState = location.state as { returnTo?: string; returnState?: unknown } | null;
   const returnTo = routeState?.returnTo;
   const resourceProject = projects.find(item => item.id === session.storageProjectId);

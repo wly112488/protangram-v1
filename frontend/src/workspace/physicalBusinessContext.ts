@@ -1,6 +1,8 @@
-import type { PhysicalObject } from './physicalObjectStore';
+import type { PhysicalObject, TestRecord } from './physicalObjectStore';
 import type { PhysicalBusinessScope, WorkSession } from './sessionModel';
 import type { Project, ProjectArtifact } from './types';
+
+export const recordLabel = (record: TestRecord) => record.name === `第 ${record.executionNumber} 次试验记录` ? record.name : `第 ${record.executionNumber} 次 · ${record.name}`;
 
 export interface ArtifactReference { projectId: string; artifactId: string }
 export interface RecordChartReference { physicalObjectId: string; experimentId: string; trialId?: string; testRecordId: string; chartId: string }
@@ -17,10 +19,9 @@ export const resolvePhysicalSource = (objects: PhysicalObject[], scope?: Physica
   const configuration = family?.configurations.find(item => item.id === scope?.physicalObjectId);
   const experiment = configuration?.experiments.find(item => item.id === scope?.experimentId);
   const requestedTrial = experiment?.trials?.find(item => item.id === scope?.trialId);
-  const matchingTrial = scope?.testRecordId ? experiment?.trials?.find(item => [item.record, ...(item.archivedRecords ?? [])].some(record => record?.id === scope.testRecordId)) : undefined;
+  const matchingTrial = scope?.testRecordId ? experiment?.trials?.find(item => item.records.some(record => record.id === scope.testRecordId)) : undefined;
   const trial = scope?.trialId != null ? requestedTrial : matchingTrial;
-  const legacyRecord = [experiment?.record, ...(experiment?.archivedRecords ?? [])].find(item => item?.id === scope?.testRecordId);
-  const record = trial ? [trial.record, ...(trial.archivedRecords ?? [])].find(item => item?.id === scope?.testRecordId) : legacyRecord;
+  const record = trial?.records.find(item => item.id === scope?.testRecordId);
   const missing = Boolean(scope?.physicalObjectId && (!configuration || scope.experimentId && !experiment || scope.trialId != null && !trial || scope.testRecordId != null && !record));
   return { family, configuration, experiment, trial, record, missing };
 };

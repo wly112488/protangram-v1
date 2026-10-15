@@ -101,6 +101,7 @@ export const useSessionStore = create<SessionStore>((set, get) => {
       return source.configuration && !source.missing ? { ...context,
         physicalObjectName: source.configuration.name, experimentName: source.experiment?.name,
         trialName: source.trial?.name, testRecordName: source.record?.name,
+        ...(source.trial ? { taskBookId: source.trial.taskBookId, taskBookName: useTaskStore.getState().tasks.find(task => task.id === source.trial?.taskBookId)?.title } : {}),
       } : context;
     },
     openSession: (id, capability) => {

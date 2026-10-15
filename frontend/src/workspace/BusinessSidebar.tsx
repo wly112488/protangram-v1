@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Tree } from 'antd';
-import { BookOutlined, HomeOutlined, PlusOutlined, TableOutlined, ToolOutlined } from '@ant-design/icons';
+import { BookOutlined, HomeOutlined, PlusOutlined, TableOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePhysicalObjectStore } from './physicalObjectStore';
 import { useTaskStore } from './taskStore';
 import { useSessionStore } from './sessionStore';
-import { physicalSourcePath } from './physicalBusinessContext';
+import { resolvePhysicalSource } from './physicalBusinessContext';
 
 const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }> = ({ mobileOpen, onNavigate }) => {
   const objects = usePhysicalObjectStore(state => state.objects);
@@ -18,7 +18,8 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
   const routeTaskId = location.pathname.match(/^\/tasks\/([^/]+)/)?.[1];
   const selectedObject = query.get('objectId') || session?.businessScope?.physicalObjectId;
   const selectedConfiguration = query.get('configurationId') || selectedObject;
-  const selectedTask = query.get('taskId') || routeTaskId || session?.businessScope?.taskBookId || session?.taskId;
+  const physicalTrial = resolvePhysicalSource(objects, session?.businessScope).trial;
+  const selectedTask = query.get('taskId') || routeTaskId || (physicalTrial ? physicalTrial.taskBookId : session?.businessScope?.taskBookId) || session?.taskId;
   const routeExperimentId = query.get('experimentId') || session?.businessScope?.experimentId;
   const [expansion, setExpansion] = useState<{ route: string; keys: string[] }>({ route: '', keys: [] });
   const routeObject = objects.find(item => item.id === selectedObject || item.configurations.some(config => config.id === selectedConfiguration || config.experiments.some(experiment => experiment.id === routeExperimentId)));
@@ -41,7 +42,6 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
     <div className="session-sidebar-scroll">
       <button className={`session-sidebar-link ${location.pathname === '/' || location.pathname.startsWith('/physical-objects') && !selectedTask ? 'is-active' : ''}`} onClick={() => open('/')}><TableOutlined />试验工作表</button>
       <button className={`session-sidebar-link ${location.pathname === '/task-center' ? 'is-active' : ''}`} onClick={() => open('/task-center')}><HomeOutlined />任务书工作台</button>
-      <button className={`session-sidebar-link ${query.get('view') === 'tools' ? 'is-active' : ''}`} onClick={() => open(physicalSourcePath(objects, session?.businessScope, 'tools') ?? `/physical-objects?${new URLSearchParams({ ...Object.fromEntries(query), view: 'tools' })}`)}><ToolOutlined />专业功能</button>
       <section className="session-nav-section session-nav-section--separated">
         <div className="session-section-label"><span>物理对象</span><button type="button" aria-label="新建物理对象" title="新建物理对象" className="business-tree-add" onClick={() => open('/physical-objects?create=family')}><PlusOutlined /></button></div>
         {objects.length ? <Tree className="business-object-tree" treeData={treeData} expandedKeys={treeExpandedKeys} autoExpandParent={false} onExpand={keys => setExpansion({ route: expansionRoute, keys: keys.map(String) })} selectedKeys={[routeExperimentId || query.get('configurationId') || query.get('objectId') || selectedConfiguration].filter((key): key is string => Boolean(key))} onSelect={keys => {

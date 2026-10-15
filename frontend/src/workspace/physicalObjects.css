@@ -27,9 +27,6 @@
 .physical-card-list > .ant-btn { align-self: flex-start; }
 .physical-card-list h5.ant-typography { margin: 12px 0 7px; }
 .physical-record-card { margin-top: 10px; background: #fbfcfe; }
-.physical-model-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
-.physical-model-grid > div { min-width: 0; padding: 10px; border-radius: 8px; background: #f8fafc; }
-.physical-model-grid h5.ant-typography { margin-top: 0; }
 .physical-taskbook-view { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
 .physical-taskbook-select { border-color: #e8edf4; border-radius: 9px; }
 .physical-taskbook-select > .ant-card-body { display: flex; flex-direction: column; gap: 14px; }
@@ -58,9 +55,8 @@
 .physical-experiment-heading h5.ant-typography, .physical-charts-heading h5.ant-typography { margin: 0; }
 .physical-experiment-card { border-color: #e7ebf1; border-radius: 10px; }
 .physical-experiment-card > .ant-card-body { padding-top: 12px; }
-.physical-plan-fields, .physical-record-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-.physical-plan-fields > div, .physical-record-columns > div { min-width: 0; }
-.physical-record-section { display: flex; flex-direction: column; gap: 13px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #edf0f4; }
+.physical-record-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.physical-record-columns > div { min-width: 0; }
 .physical-record-heading { align-items: flex-start; }
 .physical-file-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px; border-radius: 8px; background: #f7f9fc; }
 .physical-file-row > span { flex: 1; min-width: 0; color: #65758a; font-size: 12px; overflow-wrap: anywhere; }
@@ -68,15 +64,9 @@
 .physical-charts-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .physical-charts-grid > .ant-card { min-width: 0; border-color: #e8edf4; border-radius: 9px; }
 .physical-chart-loading { height: 300px; display: grid; place-items: center; color: #8793a3; }
-.physical-form-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
-.physical-form-row { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(100px, 1fr) minmax(72px, .65fr) minmax(80px, .65fr) auto; gap: 8px; align-items: start; }
-.physical-form-row .ant-form-item { margin-bottom: 8px; }
 .physical-upload-section { display: flex; flex-direction: column; gap: 10px; }
-.physical-model-list > .ant-card-body { display: flex; flex-wrap: wrap; gap: 18px; }
-.physical-model-list > .ant-card-body > div { display: grid; gap: 4px; }
 .physical-task-record { display: flex; align-items: center; gap: 12px; padding-top: 12px; }
 .physical-design-case { display: grid; gap: 6px; margin-bottom: 12px; }
-.physical-design-row { grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(70px, .7fr) minmax(90px, .75fr) minmax(90px, .75fr) auto; }
 .physical-taskbook-view { grid-template-columns: 280px minmax(0, 1fr); }
 .physical-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
 .physical-tool-grid > .ant-card { border-color: #e8edf4; border-radius: 9px; }
@@ -90,7 +80,6 @@
 .physical-list-row:last-child { border-bottom: 0; }
 .physical-level-back { margin-top: -12px; }
 .physical-field-name.has-description { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
-.physical-compact-row { grid-template-columns: minmax(100px, 1fr) minmax(110px, 1.2fr) minmax(72px, .6fr) minmax(110px, 1fr) auto; }
 .physical-parameter-list { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
 .physical-parameter-entry { padding-bottom: 8px; border-bottom: 1px solid #edf0f4; }
 .physical-parameter-entry:last-child { border-bottom: 0; }
@@ -108,15 +97,13 @@
 @media (max-width: 640px) {
   .physical-heading { align-items: flex-start; flex-direction: column; }
   .physical-heading > .ant-space { width: 100%; flex-wrap: wrap; }
-  .physical-section-grid, .physical-model-grid, .physical-plan-fields, .physical-record-columns, .physical-charts-grid { grid-template-columns: 1fr; }
-  .physical-form-row { grid-template-columns: 1fr 1fr; }
+  .physical-section-grid, .physical-record-columns, .physical-charts-grid { grid-template-columns: 1fr; }
   .physical-config-title { align-items: flex-start; flex-direction: column; }
   .physical-stats { gap: 8px; }
   .physical-parameter-row { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) 34px; }
   .physical-parameter-row .ant-form-item:nth-of-type(3) { grid-column: 1 / 3; }
   .physical-parameter-row > .ant-btn { grid-column: 4; grid-row: 1; }
   .physical-parameter-description { max-width: 100%; }
-  .physical-compact-row { grid-template-columns: 1fr 1fr; }
 }
 
 .physical-source-panel { margin: 0 0 16px; }
@@ -125,3 +112,15 @@
 .physical-model-input { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .physical-model-input .ant-input { max-width: 300px; }
 .physical-record-actions { margin: 12px 0; }
+
+.physical-field-row > .physical-parameter-edit { margin-left: auto; flex-shrink: 0; }
+.physical-execution-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.physical-task-create { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.physical-task-create .ant-select { width: 100%; }
+.physical-record-heading, .physical-file-row, .physical-charts-heading { margin-bottom: 14px; }
+.physical-record-heading > div { min-width: 0; overflow-wrap: anywhere; }
+.physical-data-table { margin-top: 12px; }
+.physical-task-record { justify-content: space-between; align-items: flex-start; }
+@media (max-width: 640px) {
+  .physical-record-heading, .physical-charts-heading, .physical-task-record { flex-wrap: wrap; }
+}

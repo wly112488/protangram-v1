@@ -6,7 +6,11 @@ import { useProjectStore } from './projectStore';
 import type { ProjectArtifact, ProjectArtifactType, ProjectView } from './types';
 import { useSessionRouteState } from './useSessionState';
 import { useSessionStore } from './sessionStore';
-import { artifactResultLabel } from './physicalBusinessContext';
+import { artifactResultLabel, physicalSourcePath } from './physicalBusinessContext';
+import { usePhysicalObjectStore } from './physicalObjectStore';
+import { Navigate } from 'react-router-dom';
+import AnalysisResults from './AnalysisResults';
+import { collectAnalysisResults } from './analysisResultModel';
 
 const { Text, Title } = Typography;
 
@@ -208,58 +212,21 @@ const WorksheetView: React.FC<{ projectId: string }> = ({ projectId }) => {
 
 const ChartsView: React.FC<{ projectId: string }> = ({ projectId }) => {
   const project = useProjectStore((state) => state.projects.find((item) => item.id === projectId) ?? null);
-  const chartEntries = useMemo(() => {
-    if (!project) return [];
-    return project.artifacts.flatMap((artifact) => {
-      const charts = artifact.payload.charts;
-      if (!Array.isArray(charts)) return [];
-      return charts.map((chart, index) => {
-        const record = typeof chart === 'object' && chart !== null ? chart as Record<string, unknown> : {};
-        return {
-          key: `${artifact.id}-${String(record.id ?? index)}`,
-          title: String(record.title ?? `图表 ${index + 1}`),
-          source: artifact.title,
-          artifactType: artifact.type,
-          resultLabel: artifactResultLabel(artifact),
-        };
-      });
-    });
-  }, [project]);
-
-  return (
-    <div className="workspace-content-stack">
-      <div className="workspace-content-heading">
-        <div>
-          <div className="workspace-kicker">项目聚合视图</div>
-          <Title level={3}>数据图表</Title>
-          <Text type="secondary">汇总已保存专业成果中的图表摘要；原始记录图表在共享来源中查看。</Text>
-        </div>
-      </div>
-      {chartEntries.length > 0 ? (
-        <div className="workspace-chart-grid">
-          {chartEntries.map((chart) => (
-            <Card className="workspace-card workspace-chart-card" bordered={false} key={chart.key}>
-              <div className="workspace-chart-placeholder">图表</div>
-              <strong>{chart.title}</strong><Tag>{chart.resultLabel}</Tag>
-              <Text type="secondary">来自：{chart.source}</Text>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无已保存图表" />
-      )}
-    </div>
-  );
+  return <AnalysisResults entries={collectAnalysisResults(undefined, project?.artifacts ?? []).filter(entry => entry.kind === 'chart')} />;
 };
 
 const ProjectContent: React.FC = () => {
   const incoming = useSessionRouteState();
   const sessionId = incoming?.workspaceSession?.sessionId;
+  const objects = usePhysicalObjectStore(state => state.objects);
+  const physicalPath = physicalSourcePath(objects, incoming?.workspaceSession);
   const sessionTitle = useSessionStore(state => state.sessions.find(item => item.id === sessionId)?.title);
   const storedActiveProjectId = useProjectStore((state) => state.activeProjectId);
   const activeProjectId = incoming?.workspaceSession?.targetProjectId ?? storedActiveProjectId;
   const activeView = useProjectStore((state) => state.activeView);
   const project = useProjectStore((state) => state.projects.find((item) => item.id === activeProjectId) ?? null);
+
+  if (physicalPath) return <Navigate to={physicalPath} replace />;
 
   if (!project || !activeProjectId) {
     return (

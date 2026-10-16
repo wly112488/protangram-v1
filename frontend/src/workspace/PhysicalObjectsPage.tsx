@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Breadcrumb, Button, Card, Empty, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs, Tag, Tooltip, Typography, Upload, message } from 'antd';
-import { BarChartOutlined, FileAddOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
+import { FileAddOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload/interface';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import TrialChart from './TrialChart';
-import TrialDataTable from './TrialDataTable';
+import AnalysisResults from './AnalysisResults';
+import { collectAnalysisResults, getTrialArtifacts } from './analysisResultModel';
 import PhysicalTrialsTable from './PhysicalTrialsTable';
 import { artifactResultLabel, getSourceArtifacts, recordLabel } from './physicalBusinessContext';
 import { useProjectStore } from './projectStore';
 import type { ProjectArtifact } from './types';
-import { TEST_TYPES, assertTrialChartName, getRecordCharts, hasTrialChartNameConflict, isExperimentSetupLocked, usePhysicalObjectStore, type ChartInput, type ConcreteTrial, type DerivedChart, type DerivedTable, type ExperimentDefinition, type PhysicalConfiguration, type RawDataFile, type TestRecord, type TrialChartResult, type ValueField } from './physicalObjectStore';
+import { TEST_TYPES, assertTrialChartName, hasTrialChartNameConflict, isExperimentSetupLocked, usePhysicalObjectStore, type ChartInput, type ConcreteTrial, type DerivedChart, type DerivedTable, type ExperimentDefinition, type PhysicalConfiguration, type RawDataFile, type TestRecord, type TrialChartResult, type ValueField } from './physicalObjectStore';
 import { useTaskStore } from './taskStore';
 import { useSessionStore } from './sessionStore';
 import { getSessionPath, type PhysicalBusinessScope, type SessionCapability } from './sessionModel';
@@ -82,15 +83,10 @@ const PhysicalObjectsPage: React.FC = () => {
   const [chartHeaders, setChartHeaders] = useState<string[]>([]);
   const [chartDataError, setChartDataError] = useState('');
   const [chartPreview, setChartPreview] = useState<DerivedChart>();
-  const [viewingChart, setViewingChart] = useState<{ id: string; sourceRecordId: string }>();
   const [exporting, setExporting] = useState(false);
   const [form] = Form.useForm();
   const createIntent = params.get('create');
   const { family, configuration, experiment, trial, record, requestedRecordUnavailable, missing: sourceUnavailable } = resolvePhysicalNavigation(objects, params);
-  const recordCharts = getRecordCharts(trial, record?.id);
-  const viewedChart = trial?.charts.find(chart => chart.id === viewingChart?.id && chart.sourceRecordId === viewingChart.sourceRecordId);
-  const viewedRecord = trial?.records.find(item => item.id === viewedChart?.sourceRecordId);
-  const viewedFile = viewedRecord?.rawFiles.find(file => file.id === viewedChart?.rawFileId);
   const editingExperiment = configuration?.experiments.find(item => item.id === editingExperimentId);
   const setupLocked = Boolean(editingExperiment && isExperimentSetupLocked(editingExperiment));
   const activeTab = params.get('view') === 'tools' ? 'tools' : params.get('view') === 'taskbooks' || params.has('taskId') ? 'taskbooks' : 'objects';
@@ -110,10 +106,8 @@ const PhysicalObjectsPage: React.FC = () => {
     if (sourceUnavailable) return message.error('业务来源已失效，请选择已有来源');
     const prediction = key === 'digitalTwin' || key === 'virtualCondition';
     if (prediction && !experiment) return message.info('请先打开目标试验构型');
-    if (trial && trial.records.length > 1 && !record && !prediction && key !== 'doe') return message.info('请先打开要使用的试验记录');
     const capability = capabilityPaths[key];
     const scope: PhysicalBusinessScope = { physicalObjectId: configuration?.id, physicalObjectName: configuration?.name, experimentId: experiment?.id, experimentName: experiment?.name, trialId: trial?.id, trialName: trial?.name, testRecordId: record?.id, testRecordName: record?.name, taskBookId: trial?.taskBookId, taskBookName: tasks.find(task => task.id === trial?.taskBookId)?.title };
-    if (prediction) { delete scope.trialId; delete scope.trialName; delete scope.testRecordId; delete scope.testRecordName; delete scope.taskBookId; delete scope.taskBookName; }
     const id = useSessionStore.getState().ensurePhysicalSession(scope, `${configuration?.name ?? '工作'} · 专业工作`);
     useSessionStore.getState().openSession(id, capability); navigate(getSessionPath(id, capability));
   };
@@ -225,8 +219,9 @@ const PhysicalObjectsPage: React.FC = () => {
   };
   const openTable = (table?: DerivedTable) => {
     if (!record) return;
-    startDialog('table', table ? { ...table, startRow: table.startRow + 1 } : { name: `数据表 ${record.tables.length + 1}`, startRow: 1, endRow: 0 });
-    setEditingTableId(table?.id); setChartHeaders(table ? record.rawFiles.find(item => item.id === table.rawFileId)?.headers ?? [] : []);
+    const file = record.rawFiles.find(item => table ? item.id === table.rawFileId : item.headers.length);
+    startDialog('table', table ? { ...table, startRow: table.startRow + 1 } : { name: `数据表 ${record.tables.length + 1}`, rawFileId: file?.id, fields: file?.headers, startRow: 1, endRow: 0 });
+    setEditingTableId(table?.id); setChartHeaders(file?.headers ?? []);
   };
   const loadChartHeaders = (fileId: string) => { const headers = record?.rawFiles.find(item => item.id === fileId)?.headers ?? []; setChartHeaders(headers); setChartDataError(headers.length ? '' : '此文件没有可绘制的 CSV 字段'); form.setFieldsValue({ xField: headers[0], yField: headers.find(header => header !== headers[0]) ?? headers[0], fields: headers }); };
   const dialogTitles: Record<Exclude<Dialog, null>, string> = { family: '新建对象类别', configuration: `在${family?.name ?? ''}下新建具体物理对象`, parameter: editingParameterId ? '编辑技术参数' : '新增技术参数', experiment: editingExperimentId ? '编辑试验构型' : `在${configuration?.name ?? ''}下新建试验构型`, trial: editingTrialId ? '编辑具体试验' : `在${experiment?.name ?? ''}下新建具体试验`, record: editingRecordId ? '编辑试验记录 / 添加文件' : '新增一次试验记录', chart: editingChartId ? '编辑图表配置' : '新建图表', table: editingTableId ? '编辑数据表配置' : '新建数据表' };
@@ -270,11 +265,12 @@ const PhysicalObjectsPage: React.FC = () => {
     <Card size="small" title="技术参数" extra={<Button size="small" onClick={() => startDialog('parameter', { parameters: [{ name: '', value: '', unit: '', description: '' }] })}>新增参数</Button>}>{config.parameters.length ? <div className="physical-field-list">{config.parameters.map(item => <div className="physical-field-row" key={item.id}><Tooltip title={item.description || undefined}><span className={item.description ? 'physical-field-name has-description' : ''}>{item.name}</span></Tooltip><strong>{item.value || '—'} {item.unit}</strong><Button className="physical-parameter-edit" type="link" size="small" onClick={() => { startDialog('parameter', { parameters: [{ ...item }] }); setEditingParameterId(item.id); }}>编辑</Button></div>)}</div> : <Text type="secondary">暂无参数</Text>}</Card>
     {config.designs.length > 0 && <Card size="small" title="对象通用要求">{config.designs.map(design => <div key={design.id} className="physical-design-case"><strong>{design.name}</strong>{design.fields.map(field => <div className="physical-field-row" key={field.id}><Tag>{field.usage}</Tag><span>{field.name}</span><strong>{field.comparison ? `${field.comparison} ` : ''}{field.value} {field.unit}</strong></div>)}</div>)}</Card>}
   </>;
-  const experimentPage = (item: ExperimentDefinition, config: PhysicalConfiguration) => <>
+  const experimentPage = (item: ExperimentDefinition, config: PhysicalConfiguration) => {
+    const results = collectAnalysisResults(undefined, getSourceArtifacts(projects, sessions, { physicalObjectId: config.id, experimentId: item.id }));
+    return <>
     <div className="physical-config-title"><div><Text type="secondary">试验构型</Text><Title level={4}>{item.name}</Title>{item.description && <Text>{item.description}</Text>}</div><Button onClick={() => { startDialog('experiment', { name: item.name, description: item.description, testType: item.testType, parameters: item.parameters }); setEditingExperimentId(item.id); }}>编辑试验构型</Button></div>
     {item.designArtifactRef && <ReferencedDesign artifact={projects.find(project => project.id === item.designArtifactRef?.projectId)?.artifacts.find(artifact => artifact.id === item.designArtifactRef?.artifactId)} />}
     <Card size="small" title="试验构型参数">{renderFields(item.parameters)}</Card>
-    <Space wrap><Button onClick={() => launchCapability('digitalTwin')}>数字孪生</Button><Button onClick={() => launchCapability('virtualCondition')}>虚拟工况扩展</Button></Space>
     <Card size="small" title={`具体试验 · ${item.trials.length}`} extra={<Button type="primary" size="small" onClick={() => startDialog('trial', { taskBookId: params.get('taskBookId') || undefined })}>新建具体试验</Button>}>
       <PhysicalTrialsTable trials={item.trials} tasks={tasks} params={params} onQueryChange={patch => {
         const next = new URLSearchParams(params);
@@ -282,10 +278,13 @@ const PhysicalObjectsPage: React.FC = () => {
         setParams(next, { replace: true, flushSync: true });
       }} onOpen={trialId => setRoute({ objectId: family!.id, configurationId: config.id, experimentId: item.id, trialId })} />
     </Card>
-  </>;
+    {results.length > 0 && <AnalysisResults entries={results} />}
+    </>;
+  };
   const trialPage = (entry: ConcreteTrial, item: ExperimentDefinition, config: PhysicalConfiguration) => {
     const sourceScope = { physicalObjectId: config.id, experimentId: item.id, trialId: entry.id, testRecordId: record?.id };
-    const artifacts = record ? getSourceArtifacts(projects, sessions, sourceScope) : [];
+    const artifacts = getTrialArtifacts(projects, sessions, sourceScope, entry);
+    const results = collectAnalysisResults(entry, artifacts, record?.id);
     return <>
       <div className="physical-config-title"><div><Text type="secondary">{record ? '试验记录' : '具体试验'}</Text><Title level={4}>{record ? recordLabel(record) : entry.name}</Title>{!record && entry.description && <Text>{entry.description}</Text>}</div>{!record && <Button onClick={() => { startDialog('trial', { ...entry, designArtifactId: entry.designArtifactRef?.artifactId }); setEditingTrialId(entry.id); }}>编辑具体试验</Button>}</div>
       <Card size="small" title="试验信息"><Text strong>载荷谱：{entry.loadSpectrum || '旧数据未登记，请编辑补充'}</Text>{entry.loadSpectrumDescription && <div>{entry.loadSpectrumDescription}</div>}<div><Text type="secondary">{entry.taskBookId ? `任务书：${tasks.find(task => task.id === entry.taskBookId)?.title || entry.taskBookId}（ID：${entry.taskBookId}）` : '自主试验'}</Text></div></Card>
@@ -297,27 +296,14 @@ const PhysicalObjectsPage: React.FC = () => {
             { title: '执行记录', dataIndex: 'name', width: 230, render: (_, execution) => <Button className="physical-trial-name" type="link" onClick={() => setRoute({ objectId: family!.id, configurationId: config.id, experimentId: item.id, trialId: entry.id, recordId: execution.id })}>{recordLabel(execution)}</Button> },
             { title: '执行时间', dataIndex: 'createdAt', width: 180, render: (date: string) => date && Number.isFinite(Date.parse(date)) ? new Date(date).toLocaleString('zh-CN') : '未登记' },
             { title: 'CSV 文件', width: 90, render: (_, execution) => execution.rawFiles.length },
-            { title: '生成图表 / 数据表', width: 140, render: (_, execution) => `${getRecordCharts(entry, execution.id).length} / ${execution.tables.length}` },
+            { title: '图表 / 数据表 / 指标', width: 170, render: (_, execution) => { const own = collectAnalysisResults(entry, getTrialArtifacts(projects, sessions, { ...sourceScope, testRecordId: execution.id }, entry), execution.id); return ['chart', 'table', 'metric'].map(kind => own.filter(result => result.kind === kind).length).join(' / '); } },
           ]} />
-      </Card> : <Card size="small" title="原始数据与分析成果">
+      </Card> : <Card size="small" title="执行记录与原始数据">
           <div className="physical-record-heading"><div><strong>{recordLabel(record)}</strong>{record.description && <div>{record.description}</div>}<div><Text type="secondary">记录 ID：{record.id}</Text></div></div><Button onClick={editRecord}>编辑记录 / 添加文件</Button></div>
           {(record.actualConditions.length > 0 || record.measurements.length > 0) && <div className="physical-record-columns"><div><Text strong>历史实际条件</Text>{renderFields(record.actualConditions)}</div><div><Text strong>历史测量备注</Text>{renderFields(record.measurements)}</div></div>}
           <div className="physical-file-row"><Space><FileAddOutlined /><strong>CSV 原始文件</strong><Tag>{record.rawFiles.length}</Tag></Space><span>{record.rawFiles.map(file => `${file.name} · ${file.rowCount} 行`).join('；') || '暂无文件，请添加本次执行的 CSV'}</span></div>
-          <div className="physical-charts-heading"><Title level={5}><BarChartOutlined /> 图表与数据表</Title><Space wrap><Button size="small" disabled={!record.rawFiles.some(file => file.headers.length)} onClick={() => openTable()}>新建数据表</Button><Button type="primary" size="small" disabled={!record.rawFiles.some(file => file.headers.length)} onClick={() => openChart()}>新建图表</Button></Space></div>
-          {recordCharts.length > 0 && <div className="physical-charts-grid">{recordCharts.map(chart => <Card key={chart.id} size="small" title={chart.name} extra={<Space><Button type="link" onClick={() => openChart(chart)}>配置</Button><Button type="link" disabled={exporting} onClick={() => exportSavedChart(chart)}>导出 PNG</Button></Space>}><Text type="secondary">{record.rawFiles.find(file => file.id === chart.rawFileId)?.name} · {chart.xField} / {chart.yField}</Text>{hasTrialChartNameConflict(entry, chart.name, chart) && <Tag color="orange">历史重名，保存或导出前请改名</Tag>}<TrialChart chart={chart} rawFile={record.rawFiles.find(file => file.id === chart.rawFileId)} /></Card>)}</div>}
-          {record.tables.map(table => <Card key={table.id} className="physical-data-table" size="small" title={table.name} extra={<Button type="link" onClick={() => openTable(table)}>配置</Button>}><TrialDataTable table={table} rawFile={record.rawFiles.find(file => file.id === table.rawFileId)} /></Card>)}
-          <Space wrap className="physical-record-actions">{Object.entries(capabilityNames).map(([key, label]) => <Button key={key} size="small" onClick={() => launchCapability(key)}>{label}</Button>)}</Space>
-          {artifacts.length > 0 && <div><Text strong>本次记录的专业成果</Text>{artifacts.map(artifact => <div key={`${artifact.projectId}/${artifact.id}`}><Text>{artifact.title}</Text> <Tag>{artifactResultLabel(artifact)}</Tag></div>)}</div>}
       </Card>}
-      {!record && <Card size="small" className="physical-shared-charts" title={`共享图表成果 · ${entry.charts.length}`}>
-        <Table<TrialChartResult> size="middle" rowKey={chart => JSON.stringify([chart.sourceRecordId, chart.id])} dataSource={entry.charts} scroll={{ x: 700 }}
-          locale={{ emptyText: '尚无图表成果，请从执行记录生成并保存' }} pagination={{ pageSize: 10, showSizeChanger: false }} columns={[
-            { title: '图表名称', dataIndex: 'name', width: 210, render: (name: string, chart) => <>{name}{hasTrialChartNameConflict(entry, name, chart) && <Tag color="orange">历史重名</Tag>}</> },
-            { title: '来源记录', dataIndex: 'sourceRecordId', width: 220, render: (id: string) => { const source = entry.records.find(item => item.id === id); return source ? recordLabel(source) : `来源记录已失效：${id}`; } },
-            { title: '原始 CSV', width: 190, render: (_, chart) => entry.records.find(item => item.id === chart.sourceRecordId)?.rawFiles.find(file => file.id === chart.rawFileId)?.name || `引用已失效：${chart.rawFileId}` },
-            { title: '操作', width: 80, render: (_, chart) => <Button type="link" onClick={() => setViewingChart({ id: chart.id, sourceRecordId: chart.sourceRecordId })}>查看</Button> },
-          ]} />
-      </Card>}
+      <AnalysisResults trial={entry} activeKind={params.get('result') ?? 'chart'} onKindChange={kind => { const next = new URLSearchParams(params); next.set('result', kind); setParams(next, { replace: true }); }} entries={results} shared={!record} extra={record && <Space wrap><Button size="small" disabled={!record.rawFiles.some(file => file.headers.length)} onClick={() => openTable()}>新建数据表</Button><Button type="primary" size="small" disabled={!record.rawFiles.some(file => file.headers.length)} onClick={() => openChart()}>新建图表</Button></Space>} actions={result => record ? <Space>{result.chart && <><Button type="link" onClick={() => openChart(result.chart)}>配置</Button><Button type="link" disabled={exporting} onClick={() => exportSavedChart(result.chart!)}>导出 PNG</Button></>}{result.table && <Button type="link" onClick={() => openTable(result.table)}>配置</Button>}</Space> : result.record && <Button type="link" onClick={() => setRoute({ ...trialRoute, recordId: result.record!.id })}>前往来源记录</Button>} />
     </>;
   };
   const objectPage = () => <Empty description={objects.length ? '从左侧选择具体物理对象或试验构型' : '请先创建对象类别'} />;
@@ -331,9 +317,6 @@ const PhysicalObjectsPage: React.FC = () => {
       { key: 'tools', label: '专业功能', children: <div className="physical-tool-grid">{Object.entries(capabilityNames).map(([key, label]) => <Card key={key} size="small" title={label}><Text type="secondary">{configuration ? `${trial ? `当前试验：${trial.name}` : `当前对象：${configuration.name}`}` : '独立使用'}</Text><Button type="primary" block onClick={() => launchCapability(key)}>打开</Button></Card>)}</div> },
     ]} /></Card>
     <Modal title={dialog ? dialogTitles[dialog] : ''} open={Boolean(dialog)} onCancel={() => { if (!saving) setDialog(null); }} onOk={() => form.submit()} confirmLoading={saving} cancelButtonProps={{ disabled: saving }} okText="保存" cancelText="取消" destroyOnHidden width={dialog === 'chart' || dialog === 'table' ? 820 : 640} okButtonProps={{ icon: <SaveOutlined /> }} footer={dialog === 'chart' ? <Space wrap><Button disabled={saving} onClick={() => setDialog(null)}>取消</Button><Button disabled={saving} onClick={generatePreview}>生成预览</Button><Button loading={saving} onClick={() => { form.validateFields().then(values => submit(values, true)).catch(() => {}); }}>保存并导出 PNG</Button><Button type="primary" loading={saving} onClick={() => form.submit()}>保存成果</Button></Space> : undefined}>{dialogContent()}</Modal>
-    <Modal title={viewedChart?.name} open={Boolean(viewedChart)} onCancel={() => setViewingChart(undefined)} width={860} destroyOnHidden footer={<Space><Button onClick={() => setViewingChart(undefined)}>关闭</Button>{viewedRecord && <Button onClick={() => { setViewingChart(undefined); setRoute({ ...trialRoute, recordId: viewedRecord.id }); }}>前往来源记录</Button>}</Space>}>
-      {viewedChart && <div className="physical-shared-chart-preview"><Text>来源记录：{viewedRecord ? recordLabel(viewedRecord) : viewedChart.sourceRecordId}</Text><div><Text>原始 CSV：{viewedFile?.name || '引用已失效'}</Text></div><Text type="secondary">记录 ID：{viewedChart.sourceRecordId} · 文件 ID：{viewedChart.rawFileId}</Text><div><Text type="secondary">字段：{viewedChart.xField} / {viewedChart.yField} · 数据行：{viewedChart.startRow + 1}–{viewedChart.endRow || '末尾'} · Y 缩放：{viewedChart.scale} · 偏移：{viewedChart.offset}</Text></div><TrialChart chart={viewedChart} rawFile={viewedFile} /></div>}
-    </Modal>
   </div>;
 };
 

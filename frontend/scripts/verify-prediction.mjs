@@ -1,158 +1,154 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 const require = createRequire(process.env.PROTANGRAM_PLAYWRIGHT_ROOT ?? '/tmp/protangram-browser-check/node_modules/playwright/package.json');
 const { chromium } = require('playwright');
-const baseURL = process.env.PROTANGRAM_TEST_URL ?? 'http://localhost:5190';
-const output = resolve('node_modules/.tmp/prediction'); await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'], executablePath: process.env.PROTANGRAM_CHROMIUM_PATH ?? '/tmp/protangram-browser-check/browsers/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell', env: { ...process.env, LD_LIBRARY_PATH: '/tmp/protangram-browser-check/runtime/usr/lib/x86_64-linux-gnu', FONTCONFIG_FILE: '/tmp/protangram-browser-check/windows-fonts.conf' } });
-const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-const page = await context.newPage(); page.setDefaultTimeout(12000);
-const errors = [], passed = [], requests = [], blockedWrites = [];
+const baseURL = process.env.PROTANGRAM_TEST_URL ?? 'http://127.0.0.1:5173';
+const output = 'node_modules/.tmp/professional-interactions'; await mkdir(output, { recursive: true });
+const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'], executablePath: process.env.PROTANGRAM_CHROMIUM_PATH ?? '/tmp/protangram-browser-check/browsers/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell', env: { ...process.env, LD_LIBRARY_PATH: '/tmp/protangram-browser-check/runtime/usr/lib/x86_64-linux-gnu' } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+const page = await context.newPage(); page.setDefaultTimeout(15000);
+const errors = [], passed = [], unexpectedWrites = [], requests = [];
 page.on('pageerror', error => errors.push(error.message));
-let scenario = 'live-missing', savedTasks = [], lastRequest;
-const ref = (id, name) => ({ physicalObjectId: 'device', physicalObjectName: '验证风扇', experimentId: id, experimentName: name });
-const local = { modelId: 'local-model', modelName: '本构型推力模型', version: 'V1', sourceConfiguration: ref('target', '目标构型'), availability: 'available', applicability: '后端确认适用', inputFields: [{ key: 'speed', label: '目标转速', type: 'number', required: true, unit: 'rpm', min: 0 }] };
-const cross = { ...local, modelId: 'cross-model', modelName: '跨构型推力模型', version: 'V3', sourceConfiguration: ref('source', '来源构型') };
+
+// Prediction requests deliberately fail: the complete presentation flow must be local.
 await context.route('**/api/**', async route => {
-  const request = route.request(), url = new URL(request.url());
-  if (!url.pathname.startsWith('/api/prediction/')) {
-    if (request.method() !== 'GET') { blockedWrites.push(request.url()); return route.abort(); }
-    return route.continue();
+  const request = route.request();
+  if (new URL(request.url()).pathname.startsWith('/api/prediction/') || request.method() !== 'GET') {
+    unexpectedWrites.push(request.url());
+    return route.fulfill({ status: 404, body: 'Cannot POST prediction' });
   }
-  requests.push({ method: request.method(), path: url.pathname, query: url.search });
-  if (scenario === 'live-missing') return route.continue();
-  const respond = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ success: status < 400, ...(status < 400 ? { data } : { error: data }) }) });
-  if (url.pathname.endsWith('/models')) {
-    let models = scenario === 'multiple' ? [local, cross] : scenario === 'empty' ? [] : scenario === 'not-ready' ? [{ ...cross, availability: 'not_ready', message: '模型训练中' }] : scenario === 'local' ? [local] : [cross];
-    return respond({ serviceReady: scenario !== 'service-down', persistenceReady: scenario !== 'no-save', models, message: scenario === 'service-down' ? '计算服务维护中' : undefined });
-  }
-  if (request.method() === 'GET') return respond(savedTasks.filter(task => task.service === url.searchParams.get('service')));
-  if (url.pathname.endsWith('/save')) {
-    if (scenario === 'save-fail') return respond('保存失败，请重试', 503);
-    const task = { ...lastRequest, saved: true }; savedTasks = [task]; return respond(task);
-  }
-  if (scenario === 'run-fail') return respond('目标状态超出服务允许范围', 422);
-  const input = request.postDataJSON();
-  lastRequest = { ...input, taskId: `task-${input.requestId}`, status: 'completed', resultMode: scenario === 'demo-response' ? 'demo' : 'computed', completedAt: '2026-10-15T08:00:00Z', saved: false, result: { summary: '接口夹具预测完成', columns: [{ key: 'thrust', label: '预测推力', unit: 'N' }], rows: [{ thrust: 18.2 }] } };
-  if (scenario === 'wrong-target') lastRequest.targetConfiguration = { ...input.targetConfiguration, experimentId: 'source' };
-  if (scenario === 'delayed') await new Promise(resolve => setTimeout(resolve, 1000));
-  return respond(lastRequest);
+  return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) });
 });
+page.on('request', request => { if (new URL(request.url()).pathname.startsWith('/api/prediction/')) requests.push(request.url()); });
 const test = async (name, work) => { await work(); passed.push(name); console.log(`PASS ${name}`); };
-const physicalURL = `${baseURL}/physical-objects?objectId=category&configurationId=device&experimentId=target`;
 const content = () => page.locator('.session-professional-content');
-let sessionURL, originalObjects;
-const enter = async (next, service = 'virtual-condition') => {
-  scenario = next;
-  await page.goto(`${sessionURL.replace(/virtual-condition$/, service)}`, { waitUntil: 'networkidle' });
+const resultCard = () => content().locator('#business-result');
+const artifacts = () => page.evaluate(() => JSON.parse(localStorage.getItem('protangram-project-workspace-v1')).state.projects.flatMap(project => project.artifacts));
+const rawState = () => page.evaluate(() => JSON.parse(localStorage.getItem('protangram-physical-objects-v1')).state.objects);
+const physicalURL = (recordId, experimentId = 'setup', trialId = 'trial') => `${baseURL}/physical-objects?${new URLSearchParams({ objectId: 'category', configurationId: 'device', experimentId, ...(trialId ? { trialId } : {}), ...(recordId ? { recordId } : {}) })}`;
+const launch = async label => {
+  await page.getByRole('tab', { name: '专业功能', exact: true }).click();
+  await page.locator('.physical-tool-grid > .ant-card').filter({ has: page.locator('.ant-card-head-title', { hasText: label }) }).getByRole('button', { name: /打\s*开/ }).click();
+  await page.waitForURL(/\/sessions\//); await content().locator('.workspace-business-page').waitFor();
 };
-const predict = async () => { await content().getByLabel('目标转速 / rpm').fill('3500'); await content().getByLabel('目标转速 / rpm').press('Tab'); await content().getByRole('button', { name: '执行预测', exact: true }).click(); };
+const noTechnicalUI = async () => {
+  assert.doesNotMatch(await page.locator('body').innerText(), /选择模型|模型来源构型|服务未接入|计算未完成|HTTP 404|本次成果未保存/);
+  assert.equal(await page.locator('.physical-source-panel').count(), 0);
+  assert.equal(await page.locator('input[type=file]:visible').count(), 0);
+  assert.equal(await page.getByRole('combobox', { name: /选择已有业务来源|引用已有成果/ }).count(), 0);
+};
+const confirm = async fields => {
+  await content().getByRole('button', { name: /计算条件/ }).click();
+  const dialog = page.getByRole('dialog');
+  for (const [name, value] of Object.entries(fields)) await dialog.getByLabel(name, { exact: true }).fill(String(value));
+  await dialog.getByRole('button', { name: /确\s*认$/ }).click(); await dialog.waitFor({ state: 'hidden' });
+};
+const execute = async () => {
+  await content().getByRole('button', { name: '执行预测', exact: true }).click();
+  await resultCard().getByText(/演示计算完成，共/).waitFor();
+  await resultCard().getByText('演示结果', { exact: true }).waitFor();
+};
+const save = async () => {
+  await resultCard().getByRole('button', { name: /保存成果$/ }).click();
+  await resultCard().getByText('已保存到共享成果', { exact: true }).waitFor();
+  assert.equal(await resultCard().getByRole('button', { name: /保存成果$/ }).isDisabled(), true);
+};
+let original, firstSessionURL;
 try {
   await page.goto(baseURL, { waitUntil: 'networkidle' });
-  await page.evaluate(() => {
-    const field = { id: 'angle', name: '安装角', value: '15', unit: '°', form: '单值' };
-    const device = { id: 'device', name: '验证风扇', description: '', parameters: [], materials: [], children: [], designs: [], models: [], experiments: [{ id: 'target', name: '目标构型', testType: 'thrust', parameters: [field], trials: [] }, { id: 'source', name: '来源构型', testType: 'thrust', parameters: [], trials: [] }] };
-    localStorage.setItem('protangram-physical-objects-v1', JSON.stringify({ version: 6, state: { objects: [{ id: 'category', name: '涵道风扇', type: '涵道风扇', description: '', configurations: [device], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] }] } }));
-  });
-  await page.goto(physicalURL, { waitUntil: 'networkidle' });
-  await test('试验类型仅在构型维护中选择，编辑后保留原参数和构型身份', async () => {
-    await page.getByRole('button', { name: '编辑试验构型', exact: true }).click();
-    const dialog = page.getByRole('dialog');
-    await dialog.getByLabel('适用试验类型').click();
-    await page.locator('.ant-select-dropdown:visible').getByText('气动试验', { exact: true }).click();
-    await dialog.getByRole('button', { name: /保\s*存$/ }).click(); await dialog.waitFor({ state: 'hidden' });
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('protangram-physical-objects-v1')).state.objects);
-    assert.equal(stored[0].configurations[0].experiments[0].testType, 'aerodynamic');
-    assert.equal(stored[0].configurations[0].experiments[0].parameters[0].value, '15');
-    assert.equal(await page.getByLabel('适用试验类型').count(), 0);
-    originalObjects = stored;
-  });
-  await test('从目标构型直接进入；实际后端缺少接口时真实显示待接入', async () => {
-    await page.getByRole('button', { name: '虚拟工况扩展', exact: true }).click();
-    await page.waitForURL(/\/sessions\/.+\/virtual-condition/); sessionURL = page.url();
-    await content().getByText(/预测服务尚未接入|预测服务不可用（HTTP 500）/).waitFor();
-    assert.equal(await content().getByRole('button', { name: '执行预测', exact: true }).isDisabled(), true);
-    const scope = await page.evaluate(() => JSON.parse(localStorage.getItem('protangram-work-sessions-v1')).sessions.at(-1).businessScope);
-    assert.equal(scope.experimentId, 'target'); assert.equal(scope.trialId, undefined); assert.equal(scope.testRecordId, undefined);
-  });
-  await test('当前构型单个可用模型自动选择，不再重复构型区或上传 CSV', async () => {
-    await enter('local');
-    await content().getByText(/本构型推力模型 · V1 · 来源：验证风扇 \/ 目标构型（本构型）/).waitFor();
-    assert.equal(await page.locator('.physical-source-panel').count(), 0);
-    assert.equal(await content().getByRole('combobox').count(), 0);
-    assert.equal(await content().locator('input[type=file]').count(), 0);
-    assert.doesNotMatch(await content().innerText(), /当前试验构型|构型参数：自动继承|构型状态：已读取|适用试验类型/);
-    await predict(); await content().getByText('接口夹具预测完成', { exact: true }).waitFor();
-    assert.equal(lastRequest.model.sourceConfiguration.experimentId, 'target');
-  });
-  await test('目标构型无真实试验或 CSV，后端允许跨构型模型即可预测并保存到目标构型', async () => {
-    await enter('cross');
-    await content().getByText(/跨构型推力模型 · V3 · 来源：验证风扇 \/ 来源构型（其他构型）/).waitFor();
-    await predict(); await content().getByText('接口夹具预测完成', { exact: true }).waitFor();
-    assert.equal(lastRequest.targetConfiguration.experimentId, 'target');
-    assert.equal(lastRequest.targetConfiguration.testType, 'aerodynamic'); // No frontend type compatibility algorithm.
-    assert.equal(lastRequest.targetConfiguration.configurationParameters[0].value, '15');
-    assert.equal(lastRequest.inputs.speed, 3500); assert.equal(lastRequest.model.sourceConfiguration.experimentId, 'source');
-    assert.equal(lastRequest.targetConfiguration.trialId, undefined); assert.equal(lastRequest.targetConfiguration.testRecordId, undefined);
-    await content().getByRole('button', { name: '保存预测结果', exact: true }).click();
-    await content().getByText('已保存到目标构型', { exact: true }).waitFor();
-    await page.screenshot({ path: `${output}/cross-configuration-result.png`, fullPage: true });
-    await page.reload({ waitUntil: 'networkidle' });
-    const row = content().getByRole('row').filter({ hasText: savedTasks[0].taskId });
-    await row.getByRole('button', { name: '查看结果' }).click();
-    await page.getByRole('dialog').getByText('验证风扇 / 目标构型', { exact: true }).waitFor();
-    await page.getByRole('dialog').getByText('验证风扇 / 来源构型', { exact: true }).waitFor();
-    await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-  });
-  await test('多个可用模型展示不同来源，显式选择后使用同一预测流程', async () => {
-    await enter('multiple');
-    await content().getByRole('combobox', { name: '适用模型' }).click();
-    await page.locator('.ant-select-dropdown:visible').getByText(/跨构型推力模型 · V3 · 来源：验证风扇 \/ 来源构型（其他构型）/).click();
-    await predict(); await content().getByText('接口夹具预测完成', { exact: true }).waitFor();
-    assert.equal(lastRequest.model.modelId, 'cross-model');
-  });
-  await test('没有适用模型、模型训练中、服务未就绪都禁止执行且真实反馈', async () => {
-    for (const [state, text] of [['empty', '暂无适用于此目标构型的模型'], ['not-ready', '模型尚未就绪，暂无可用模型'], ['service-down', '计算服务维护中']]) {
-      await enter(state); await content().getByText(text, { exact: true }).waitFor();
-      assert.equal(await content().getByRole('button', { name: '执行预测', exact: true }).isDisabled(), true);
+  await page.evaluate(async () => {
+    const load = new Function('path', 'return import(path)');
+    const { saveTrialFile } = await load('/src/workspace/trialDataFiles.ts');
+    const records = [];
+    for (let i = 1; i <= 2; i++) {
+      await saveTrialFile(`csv-${i}`, new File([`time,speed\n0,${i * 1000}\n1,${i * 2000}\n`], `record${i}.csv`, { type: 'text/csv' }));
+      records.push({ id: `record-${i}`, name: `第 ${i} 次试验记录`, executionNumber: i, createdAt: '2026-10-16', actualConditions: i === 2 ? [{ id: 'speed', name: '转速', value: '5000', unit: 'rpm', form: '单值' }, { id: 'temperature', name: '温度', value: '30', unit: '℃', form: '单值' }, { id: 'pressure', name: '压力', value: '100', unit: 'kPa', form: '单值' }] : [], measurements: [], tables: [], rawFiles: [{ id: `csv-${i}`, name: `record${i}.csv`, mimeType: 'text/csv', headers: ['time', 'speed'], rowCount: 2, size: 30, addedAt: '' }] });
+    }
+    const angle = { id: 'angle', name: '安装角', value: '15', unit: '°', form: '单值' };
+    const chart = { id: 'raw-curve', name: '第二次转速曲线', sourceRecordId: 'record-2', rawFileId: 'csv-2', xField: 'time', yField: 'speed', chartType: 'line', startRow: 0, endRow: 0, scale: 1, offset: 0, color: '#1677ff', smooth: false, createdAt: '', updatedAt: '' };
+    const device = { id: 'device', name: '风扇 A', description: '', parameters: [], materials: [], children: [], designs: [], models: [], experiments: [{ id: 'setup', name: '试验构型 A', testType: 'thrust', parameters: [angle], trials: [{ id: 'trial', name: '性能试验', loadSpectrum: 'LS-01', charts: [chart], records }] }, { id: 'empty', name: '待验证构型', testType: 'thrust', parameters: [angle], trials: [] }] };
+    localStorage.setItem('protangram-physical-objects-v1', JSON.stringify({ version: 6, state: { objects: [{ id: 'category', name: '涵道风扇', type: '涵道风扇', configurations: [device], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] }] } }));
+    const { useProjectStore } = await load('/src/workspace/projectStore.ts');
+    const projectId = useProjectStore.getState().createProject({ name: '既有分析', sessionOwnerId: 'existing' });
+    for (const [id, type, source, nature] of [['analysis-input', 'analysis', '试验数据分析', 'analysis'], ['twin-input', 'calibration', '数字孪生', 'digitalTwin'], ['virtual-input', 'virtualCondition', '虚拟工况', 'virtualPrediction']]) {
+      useProjectStore.getState().addArtifact(projectId, { id, type, source, title: id, summary: '原有成果', payload: { resultMode: 'computed', resultNature: nature, sourceScope: { physicalObjectId: 'device', experimentId: 'setup', trialId: 'trial', testRecordId: 'record-2' }, results: [{ id: 'metric', kind: 'metric', name: id, value: 12 }] } });
     }
   });
-  await test('计算失败、演示结果和错误目标结果不会成为可保存预测成果', async () => {
-    for (const state of ['run-fail', 'demo-response', 'wrong-target']) {
-      await enter(state); await predict();
-      await content().getByText(state === 'run-fail' ? '目标状态超出服务允许范围' : '预测结果来源、输入或计算状态不匹配，未保存为预测成果', { exact: true }).waitFor();
-      assert.equal(await content().getByRole('button', { name: '保存预测结果', exact: true }).count(), 0);
+  await page.goto(physicalURL('record-1'), { waitUntil: 'networkidle' }); original = await rawState();
+
+  await test('智能设计与分析只需业务参数，不选择来源、成果或模型', async () => {
+    await launch('智能试验设计'); firstSessionURL = page.url(); await noTechnicalUI();
+    for (const name of ['试验配置', '约束']) {
+      await content().getByRole('button', { name: new RegExp(name) }).click();
+      await page.getByRole('dialog').getByRole('button', { name: /确\s*定$/ }).click(); await page.getByRole('dialog').waitFor({ state: 'hidden' });
     }
+    await content().getByRole('button', { name: /生成推荐方案$/ }).click();
+    await content().getByRole('button', { name: '确认方案并创建试验任务', exact: true }).waitFor();
+    await page.goto(firstSessionURL.replace(/doe$/, 'analysis'), { waitUntil: 'networkidle' }); await noTechnicalUI();
+    await content().getByRole('button', { name: /分析配置/ }).click();
+    await page.getByRole('dialog').getByRole('button', { name: /确\s*定$/ }).click(); await page.getByRole('dialog').waitFor({ state: 'hidden' });
+    assert.equal(await content().getByRole('button', { name: /开始分析$/ }).isEnabled(), true);
   });
-  await test('保存失败保留结果以便重试；修改输入清除旧结果，保存未接入则禁用', async () => {
-    await enter('save-fail'); await predict(); await content().getByText('接口夹具预测完成', { exact: true }).waitFor();
-    await content().getByRole('button', { name: '保存预测结果', exact: true }).click();
-    await content().getByText('保存失败，请重试', { exact: true }).waitFor();
-    assert.equal(await content().getByText('待保存', { exact: true }).count(), 1);
-    scenario = 'cross'; await content().getByRole('button', { name: '保存预测结果', exact: true }).click();
-    await content().getByText('已保存到目标构型', { exact: true }).waitFor();
-    await content().getByLabel('目标转速 / rpm').fill('3700');
-    assert.equal(await content().getByRole('button', { name: '保存预测结果', exact: true }).count(), 0);
-    await enter('no-save'); await predict(); await content().getByText('预测结果保存服务尚未就绪，当前结果尚未归档', { exact: true }).waitFor();
-    assert.equal(await content().getByRole('button', { name: '保存预测结果', exact: true }).isDisabled(), true);
+  await test('数字孪生无需后端即可执行并保存，同一成果保存后按钮禁用', async () => {
+    await page.goto(firstSessionURL.replace(/doe$/, 'digital-twin'), { waitUntil: 'networkidle' });
+    await confirm({ '目标转速 / rpm': 3500 }); await execute(); await noTechnicalUI();
+    await resultCard().getByText('18.2', { exact: true }).waitFor(); await save();
+    const all = await artifacts(), artifact = all.at(-1);
+    assert.equal(all.length, 4); assert.equal(artifact.payload.resultMode, 'demo');
+    assert.equal(artifact.payload.resultNature, 'digitalTwin'); assert.equal(artifact.payload.sourceScope.testRecordId, 'record-1');
+    assert.equal(artifact.payload.inputs.speed, 3500); assert.equal(artifact.payload.model, undefined); assert.equal(artifact.payload.csvData, undefined);
+    assert.equal(artifact.payload.upstreamArtifactRefs.length, 3); assert.match(artifact.payload.results[0].basis.join('；'), /前端演示数据/);
+    assert.deepEqual(await rawState(), original);
   });
-  await test('数字孪生共享预测流程；切换功能时丢弃过期响应', async () => {
-    await enter('cross', 'digital-twin'); await predict(); await content().getByText('接口夹具预测完成', { exact: true }).waitFor();
-    assert.equal(lastRequest.service, 'digitalTwin');
-    await enter('delayed'); await predict();
-    await page.getByRole('navigation', { name: '当前会话专业能力' }).getByRole('button', { name: /数字孪生/ }).click();
-    await content().getByRole('heading', { name: '目标构型 · 数字孪生预测' }).waitFor();
-    await page.waitForTimeout(1200);
-    assert.equal(await content().getByText('接口夹具预测完成', { exact: true }).count(), 0);
+  await test('已保存结果返回原记录，刷新后保留，记录与共享视图引用同一成果', async () => {
+    await page.getByRole('button', { name: /查看刚保存的结果$/ }).click();
+    assert.equal(new URL(page.url()).searchParams.get('recordId'), 'record-1');
+    const results = page.locator('.physical-analysis-results'); await results.getByText('18.2', { exact: true }).waitFor();
+    await results.getByText('演示成果', { exact: true }).waitFor();
+    await page.reload({ waitUntil: 'networkidle' }); await results.getByText('18.2', { exact: true }).waitFor();
+    assert.equal((await artifacts()).length, 4);
   });
-  await test('真实试验、CSV、图表、模型目录和原构型参数始终未被预测写入', async () => {
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('protangram-physical-objects-v1')).state.objects);
-    assert.deepEqual(stored, originalObjects);
-    assert.deepEqual(blockedWrites, []); assert.deepEqual(errors, []);
+  await test('虚拟工况按输入范围生成指定数量结果，旧引用勾选不影响自动上下文', async () => {
+    await page.evaluate(async id => {
+      const load = new Function('path', 'return import(path)');
+      const { useSessionStore } = await load('/src/workspace/sessionStore.ts');
+      const { getSessionDraftKey } = await load('/src/workspace/sessionModel.ts');
+      const state = useSessionStore.getState(); state.updateDraft(id, 'virtualCondition', getSessionDraftKey('referencedResultKeys', state.getWorkspaceSession(id)), []);
+    }, new URL(firstSessionURL).pathname.split('/')[2]);
+    await page.goto(firstSessionURL.replace(/doe$/, 'virtual-condition'), { waitUntil: 'networkidle' });
+    await confirm({ '转速下限 / rpm': 4000, '转速上限 / rpm': 6000, '工况数量': 6 }); await execute(); await save();
+    const artifact = (await artifacts()).at(-1);
+    assert.equal(artifact.payload.resultNature, 'virtualPrediction'); assert.equal(artifact.payload.resultMode, 'demo');
+    assert.equal(artifact.payload.results[0].rows.length, 6); assert.equal(artifact.payload.results[0].rows[0].speed, 4000); assert.equal(artifact.payload.results[0].rows.at(-1).speed, 6000);
+    assert.equal(artifact.payload.upstreamArtifactRefs.length, 4); assert.deepEqual(artifact.payload.sourceContext.rawFiles.map(file => file.id), ['csv-1', 'csv-2']);
+    await noTechnicalUI(); assert.deepEqual(await rawState(), original);
   });
-  await writeFile(`${output}/results.json`, JSON.stringify({ baseURL, note: '仅服务未接入场景使用实际后端；其余场景使用隔离浏览器接口夹具，不代表后端计算或持久化已实现。', passed, pageErrors: errors, blockedWrites, requests }, null, 2));
+  await test('原始 CSV 内容不可读取也不阻断前端展示，目标输入不改写实测条件', async () => {
+    const id = await page.evaluate(async () => {
+      await new Promise((resolve, reject) => {
+        const open = indexedDB.open('protangram-trial-files', 1);
+        open.onsuccess = () => { const db = open.result; const tx = db.transaction('files', 'readwrite'); tx.objectStore('files').clear(); tx.oncomplete = () => { db.close(); resolve(); }; tx.onerror = reject; };
+        open.onerror = reject;
+      });
+      const { useSessionStore } = await (new Function('path', 'return import(path)'))('/src/workspace/sessionStore.ts');
+      return useSessionStore.getState().ensurePhysicalSession({ physicalObjectId: 'device', experimentId: 'setup', trialId: 'trial', testRecordId: 'record-2' }, '第二次执行');
+    });
+    await page.goto(`${baseURL}/sessions/${id}/digital-twin`, { waitUntil: 'networkidle' });
+    await confirm({ '目标转速 / rpm': 4500 }); await execute(); await save(); await noTechnicalUI();
+    const artifact = (await artifacts()).at(-1); assert.equal(artifact.payload.sourceScope.testRecordId, 'record-2'); assert.equal(artifact.payload.results[0].rows[0].speed, 4500);
+    assert.deepEqual(await rawState(), original);
+  });
+  await test('无 CSV 构型可完成虚拟工况全流程，窄屏没有来源或技术状态入口', async () => {
+    await page.goto(physicalURL(undefined, 'empty', ''), { waitUntil: 'networkidle' }); await launch('虚拟工况');
+    await confirm({ '转速下限 / rpm': 8000, '工况数量': 3 }); await execute(); await save();
+    const artifact = (await artifacts()).at(-1); assert.equal(artifact.payload.sourceScope.experimentId, 'empty'); assert.deepEqual(artifact.payload.sourceContext.rawFiles, []);
+    await page.setViewportSize({ width: 390, height: 844 }); await noTechnicalUI(); await page.screenshot({ path: `${output}/prediction-mobile.png`, fullPage: true });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.setViewportSize({ width: 1440, height: 1100 }); await page.screenshot({ path: `${output}/professional-preview.png`, fullPage: true });
+  });
+  assert.deepEqual(errors, []); assert.deepEqual(unexpectedWrites, []); assert.deepEqual(requests, []);
+  await writeFile(`${output}/results.json`, JSON.stringify({ passed, pageErrors: errors, unexpectedWrites, predictionRequests: requests }, null, 2));
 } catch (error) {
   await page.screenshot({ path: `${output}/failure.png`, fullPage: true }).catch(() => {});
   await writeFile(`${output}/failure.txt`, `${error.stack}\n${page.url()}\n${await page.locator('body').innerText()}\n${JSON.stringify(errors)}`); throw error;

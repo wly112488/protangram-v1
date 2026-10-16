@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
+import type { EChartsOption } from 'echarts';
 import ductFlowDiagram from '@/assets/duct_flow_diagram.png';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import type { BusinessAction, BusinessRouteState, DataContract, TaskContract } from '@/types/businessContext';
@@ -19,7 +20,7 @@ import { createAnalysisArtifactInput, createRootCauseArtifactInput } from '@/wor
 import { createTaskContextSearch, createTaskReturnPath, createWorkspaceNavigationState } from '@/workspace/businessSessionModel';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
-import { useSessionModels } from '@/workspace/useSessionModels';
+import type { AnalysisResult } from '@/workspace/analysisResultModel';
 import '@/workspace/visualIntegrations.css';
 
 const { Title, Text, Paragraph } = Typography;
@@ -46,7 +47,7 @@ const DEFAULT_CONFIG = {
   metrics: ['出口温度', '推力', '压力', '振动'], scope: '全部工况', comparison: '实测数据与模型预测',
   contents: ['趋势分析', '异常检测', '根因分析'], sensitivity: '中',
 };
-const EMPTY_CONFIRMATION = { task: false, data: false, config: false };
+const EMPTY_CONFIRMATION = { config: false };
 
 const ANOMALIES = [
   { key: 'temperature', event: '出口温度异常', condition: '工况07', time: '13:25', level: '高' },
@@ -94,63 +95,49 @@ const AnalysisProjects: React.FC = () => {
   const { setContext } = useTrialAIAssistant();
   const incoming = useSessionRouteState();
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem, physicalSource, addArtifact } = useWorkspaceBusinessSession(incoming);
-  const { models: globalModels } = useSessionModels();
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
-  const routedTaskContract = incoming?.task ?? (activeTask ? {
+  const routedTaskContract = useMemo(() => incoming?.task ?? (activeTask ? {
     taskId: activeTask.id,
     taskName: activeTask.title,
     taskType: '任务书分析',
     source: activeTask.sourceName || '任务中心',
     status: activeTask.status === '已完成' ? '已完成' as const : '待执行' as const,
-  } : undefined);
-  const routedTask = routedTaskContract ? {
+  } : undefined), [incoming?.task, activeTask]);
+  const routedTask = useMemo(() => routedTaskContract ? {
     id: routedTaskContract.taskId, name: routedTaskContract.taskName, source: routedTaskContract.source, status: routedTaskContract.status,
     experimentFile: incoming?.data?.dataName ?? `${routedTaskContract.taskId}.csv`, environmentFile: `environment_${routedTaskContract.taskId}.csv`,
     controlFile: `control_${routedTaskContract.taskId}.csv`, modelData: incoming?.model ? `${incoming.model.modelName} ${incoming.model.version}` : 'digital_twin_v2',
     conditions: incoming?.plan?.length ?? 8, dataCount: (incoming?.plan?.length ?? 8) * 1500,
-  } : null;
-  const businessScope = incoming?.workspaceSession;
+  } : null, [routedTaskContract, incoming]);
+  const businessScope = session;
   const sourceRecord = physicalSource.record;
   const boundPhysical = Boolean(session.physicalObjectId);
   const physicalTask = useMemo(() => physicalSource.configuration ? {
-    id: sourceRecord?.id ?? physicalSource.experiment?.id ?? physicalSource.configuration.id, name: physicalSource.experiment?.name ?? physicalSource.configuration.name, source: '物理对象试验记录', status: sourceRecord ? '已完成' : '尚无记录',
-    experimentFile: sourceRecord?.rawFiles.map(file => file.name).join('、') || sourceRecord?.name || '尚无记录',
-    environmentFile: '记录中的实际条件', controlFile: '记录中的试验设置', modelData: '', conditions: sourceRecord ? 1 : 0, dataCount: sourceRecord?.measurements.length ?? 0,
-  } : null, [sourceRecord, physicalSource.experiment, physicalSource.configuration]);
-  const initialTask = physicalTask ?? routedTask ?? TASKS[0];
-  const availableTasks = boundPhysical ? [initialTask] : routedTask ? [routedTask, ...TASKS.filter(item => item.id !== routedTask.id)] : TASKS;
-  const defaultModel = (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
-    ?? (boundPhysical ? UNSELECTED_MODEL : undefined)
-    ?? globalModels.find((item) => item.modelId === 'engine-v2.1')
-    ?? globalModels[0]!;
-  const initialData = {
-    experimentFile: sourceRecord ? initialTask.experimentFile : incoming?.data?.dataName ?? initialTask.experimentFile,
-    environmentFile: sourceRecord ? '未单独关联' : initialTask.environmentFile,
-    controlFile: sourceRecord ? '未单独关联' : initialTask.controlFile,
-    modelData: (incoming?.model && globalModels.some((item) => item.modelId === incoming.model?.modelId) ? incoming.model.modelId : undefined)
-      ?? (globalModels.some((item) => item.modelId === initialTask.modelData) ? initialTask.modelData : defaultModel.modelId),
-  };
+    id: sourceRecord?.id ?? physicalSource.experiment?.id ?? physicalSource.configuration.id, name: physicalSource.trial?.name ?? physicalSource.experiment?.name ?? physicalSource.configuration.name, source: '物理对象试验记录', status: sourceRecord ? '已完成' : '尚无记录',
+    experimentFile: (sourceRecord?.rawFiles ?? physicalSource.trial?.records.flatMap(record => record.rawFiles) ?? []).map(file => file.name).join('、') || sourceRecord?.name || '尚无 CSV 文件',
+    environmentFile: '记录中的实际条件', controlFile: '记录中的试验设置', modelData: '', conditions: sourceRecord ? 1 : physicalSource.trial?.records.length ?? 0,
+    dataCount: (sourceRecord?.rawFiles ?? physicalSource.trial?.records.flatMap(record => record.rawFiles) ?? []).reduce((count, file) => count + file.rowCount, 0),
+  } : null, [sourceRecord, physicalSource.experiment, physicalSource.configuration, physicalSource.trial]);
+  const task = physicalTask ?? routedTask ?? TASKS[0];
+  const defaultModel = incoming?.model ?? UNSELECTED_MODEL;
+  const data = useMemo(() => ({
+    experimentFile: boundPhysical ? task.experimentFile : incoming?.data?.dataName ?? task.experimentFile,
+    environmentFile: boundPhysical ? '记录中的实际条件' : task.environmentFile,
+    controlFile: boundPhysical ? '记录中的试验设置' : task.controlFile,
+    modelData: defaultModel.modelId,
+  }), [boundPhysical, task, incoming?.data?.dataName, defaultModel.modelId]);
   const initialConfig = incoming?.validation ? {
     ...DEFAULT_CONFIG,
     metrics: incoming.validation.metrics,
     scope: incoming.validation.suggestedRange || DEFAULT_CONFIG.scope,
   } : DEFAULT_CONFIG;
 
-  const [storedTask, setTask] = useSessionState('task', initialTask);
-  const task = boundPhysical ? initialTask : storedTask;
-  const [storedData, setData] = useSessionState('data', initialData);
-  const data = useMemo(() => boundPhysical ? { ...storedData, experimentFile: physicalTask?.experimentFile ?? '未建立记录', environmentFile: '记录中的实际条件', controlFile: '记录中的试验设置' } : storedData, [boundPhysical, storedData, physicalTask]);
-  const activeModel = useMemo(() => globalModels.find((item) => item.modelId === data.modelData) ?? defaultModel,
-    [globalModels, data.modelData, defaultModel]);
+  const activeModel = useMemo(() => incoming?.model ?? UNSELECTED_MODEL, [incoming?.model]);
   const [config, setConfig] = useSessionState('config', initialConfig);
   const [draftConfig, setDraftConfig] = useSessionState('draftConfig', initialConfig);
-  const [draftTaskId, setDraftTaskId] = useSessionState('draftTaskId', initialTask.id);
-  const [draftData, setDraftData] = useSessionState('draftData', data);
-  const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [dataModalOpen, setDataModalOpen] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
   const [continueToReportAfterSave, setContinueToReportAfterSave] = useState(false);
@@ -158,16 +145,17 @@ const AnalysisProjects: React.FC = () => {
   const [savedProjectId, setSavedProjectId] = useSessionState<string | undefined>('savedProjectId', session.targetProjectId);
   const [savedAnalysisProjectId, setSavedAnalysisProjectId] = useSessionState<string | null>('savedAnalysisProjectId', null);
   const [savedRootCauseProjectId, setSavedRootCauseProjectId] = useSessionState<string | null>('savedRootCauseProjectId', null);
+  const [savedResultIds, setSavedResultIds] = useSessionState<Partial<Record<SaveKind, string>>>('savedResultIds', {});
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useSessionState('analyzed', false);
   const [activeTab, setActiveTab] = useSessionState('activeTab', 'trend');
   const [selectedAnomaly, setSelectedAnomaly] = useSessionState('selectedAnomaly', ANOMALIES[0]);
   const [selectedMeasurementPoint, setSelectedMeasurementPoint] = useSessionState('selectedMeasurementPoint', MEASUREMENT_POINTS[3]);
-  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { task: true, data: true, config: true } : boundPhysical ? { task: true, data: true, config: false } : EMPTY_CONFIRMATION);
+  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { config: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
   const autoStarted = useRef(false);
   const autoReturned = useRef(false);
-  const preparationReady = boundPhysical ? Boolean(sourceRecord) && confirmed.config : Object.values(confirmed).every(Boolean);
+  const preparationReady = confirmed.config;
 
   const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
   const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
@@ -178,6 +166,7 @@ const AnalysisProjects: React.FC = () => {
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
 
   const invalidateResult = () => {
+    setSavedResultIds({});
     setAnalyzed(false);
     setActiveTab('trend');
     setSelectedAnomaly(ANOMALIES[0]);
@@ -185,23 +174,10 @@ const AnalysisProjects: React.FC = () => {
     setSavedRootCauseProjectId(null);
   };
 
-  const selectTask = () => {
-    const next = availableTasks.find((item) => item.id === draftTaskId) ?? initialTask;
-    setTask(next);
-    setData({
-      experimentFile: next.experimentFile,
-      environmentFile: next.environmentFile,
-      controlFile: next.controlFile,
-      modelData: globalModels.some((item) => item.modelId === next.modelData) ? next.modelData : activeModel.modelId,
-    });
-    setConfirmed((prev) => ({ ...prev, task: true, data: false }));
-    setTaskModalOpen(false);
-    invalidateResult();
-  };
-
   const startAnalysis = () => {
     if (!preparationReady) return message.warning('请先确认全部分析准备项');
     if (timer.current !== null) window.clearTimeout(timer.current);
+    setSavedResultIds({});
     setAnalyzing(true);
     setAnalyzed(false);
     setSavedAnalysisProjectId(null);
@@ -220,13 +196,9 @@ const AnalysisProjects: React.FC = () => {
   const reset = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = null;
-    setTask(initialTask);
-    setData(initialData);
-    setDraftData(initialData);
-    setDraftTaskId(initialTask.id);
     setConfig(initialConfig);
     setDraftConfig(initialConfig);
-    setConfirmed(boundPhysical ? { task: true, data: true, config: false } : EMPTY_CONFIRMATION);
+    setConfirmed(EMPTY_CONFIRMATION);
     setSelectedMeasurementPoint(MEASUREMENT_POINTS[3]);
     setAnalyzing(false);
     invalidateResult();
@@ -235,6 +207,19 @@ const AnalysisProjects: React.FC = () => {
 
   const rootCauseRows = ROOT_CAUSES[selectedAnomaly.key] ?? ROOT_CAUSES.temperature;
   const primaryRootCause = rootCauseRows[0];
+
+  const trendOption = useMemo<EChartsOption>(() => ({
+    tooltip: { trigger: 'axis' }, legend: { data: ['实测值', '模型预测'] },
+    xAxis: { type: 'category', data: ['工况01', '工况02', '工况03', '工况04', '工况05', '工况06', '工况07', '工况08'] },
+    yAxis: { type: 'value', name: selectedAnomaly.event },
+    series: [
+      {
+        name: '实测值', type: 'line', smooth: true, data: [642, 648, 651, 657, 663, 671, 708, 701],
+        markPoint: { data: [{ name: selectedAnomaly.event, coord: [selectedAnomaly.condition, selectedAnomaly.key === 'vibration' ? 701 : 708], value: '异常', itemStyle: { color: '#ff4d4f' } }] },
+      },
+      { name: '模型预测', type: 'line', smooth: true, lineStyle: { type: 'dashed' }, data: [640, 646, 650, 655, 661, 668, 680, 686] },
+    ],
+  }), [selectedAnomaly]);
 
   const persistResult = useCallback((projectId: string, kind: SaveKind): string | null => {
     if (!analyzed) return null;
@@ -255,7 +240,12 @@ const AnalysisProjects: React.FC = () => {
             measurementPoint: selectedMeasurementPoint,
             abnormalRange: '7600～8000 rpm',
             conclusion: '高转速区域温度异常，当前模型在该区域预测偏差明显增大。',
-            charts: [{ id: 'analysis-trend', title: `${selectedAnomaly.event}趋势与模型对比` }],
+            results: [
+              { id: 'analysis-trend', name: `${selectedAnomaly.event}趋势与模型对比`, kind: 'chart', option: trendOption, basis: ['内置演示样例；当前记录的 CSV 未参与此演示计算。'] },
+              { id: 'anomalies', name: `${task.name} · 异常事件`, kind: 'table', columns: [{ key: 'event', label: '异常事件' }, { key: 'condition', label: '工况' }, { key: 'time', label: '时间' }, { key: 'level', label: '程度' }], rows: ANOMALIES },
+              { id: 'anomaly-count', name: '异常事件数', kind: 'metric', value: ANOMALIES.length, unit: '个' },
+              { id: 'model-deviation', name: `${selectedMeasurementPoint.label} · 模型偏差`, kind: 'metric', value: selectedMeasurementPoint.deviation },
+            ] satisfies AnalysisResult[],
           },
         })
       : createRootCauseArtifactInput({
@@ -267,19 +257,24 @@ const AnalysisProjects: React.FC = () => {
             candidates: rootCauseRows,
             evidence: EVIDENCE,
             affectedRange: '7600～8000 rpm',
+            results: [
+              { id: 'root-cause', name: `${selectedAnomaly.event} · 主要根因`, kind: 'metric', value: primaryRootCause.reason, basis: EVIDENCE },
+              { id: 'candidates', name: `${selectedAnomaly.event} · 根因候选`, kind: 'table', columns: [{ key: 'reason', label: '可能原因' }, { key: 'relevance', label: '关联程度' }], rows: rootCauseRows, basis: EVIDENCE },
+            ] satisfies AnalysisResult[],
           },
         });
 
-    const artifact = addArtifact(projectId, artifactInput);
+    const artifact = addArtifact(projectId, { ...artifactInput, id: savedResultIds[kind] });
     if (!artifact) return null;
+    setSavedResultIds(previous => ({ ...previous, [kind]: artifact.id }));
     recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
     setSavedProjectId(projectId);
     if (kind === 'analysis') setSavedAnalysisProjectId(projectId);
     else setSavedRootCauseProjectId(projectId);
     setSaveTargetOpen(false);
-    message.success(session.sessionId ? `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到当前会话` : `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
+    message.success(session.sessionId ? `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存${boundPhysical ? '到原试验的分析成果' : '到当前会话'}` : `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
     return artifact.id;
-  }, [analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId, businessScope?.experimentId, businessScope?.physicalObjectId, sourceRecord]);
+  }, [savedResultIds, setSavedResultIds, trendOption, analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId, boundPhysical, businessScope?.experimentId, businessScope?.physicalObjectId, sourceRecord]);
 
   const requestSave = (kind: SaveKind) => {
     if (!analyzed) return message.warning('请先完成试验数据分析');
@@ -352,27 +347,16 @@ const AnalysisProjects: React.FC = () => {
       pageName: '试验数据分析',
       projectName: boundProject?.name,
       taskName: task.name,
-      modelName: `${activeModel.modelName} ${activeModel.version}`,
+      modelName: activeModel.modelId === UNSELECTED_MODEL.modelId ? undefined : `${activeModel.modelName} ${activeModel.version}`,
       dataName: data.experimentFile,
       resultSummary: analyzed ? '发现 3 个异常事件' : '等待开始分析',
       resultReady: analyzed,
       onBusinessAction: handleBusinessAction,
     });
     return () => setContext(null);
-  }, [activeModel.modelName, activeModel.version, analyzed, boundProject?.name, data.experimentFile, handleBusinessAction, setContext, task.name]);
+  }, [activeModel.modelId, activeModel.modelName, activeModel.version, analyzed, boundProject?.name, data.experimentFile, handleBusinessAction, setContext, task.name]);
 
-  const trendOption = {
-    tooltip: { trigger: 'axis' }, legend: { data: ['实测值', '模型预测'] },
-    xAxis: { type: 'category', data: ['工况01', '工况02', '工况03', '工况04', '工况05', '工况06', '工况07', '工况08'] },
-    yAxis: { type: 'value', name: selectedAnomaly.event },
-    series: [
-      {
-        name: '实测值', type: 'line', smooth: true, data: [642, 648, 651, 657, 663, 671, 708, 701],
-        markPoint: { data: [{ name: selectedAnomaly.event, coord: [selectedAnomaly.condition, selectedAnomaly.key === 'vibration' ? 701 : 708], value: '异常', itemStyle: { color: '#ff4d4f' } }] },
-      },
-      { name: '模型预测', type: 'line', smooth: true, lineStyle: { type: 'dashed' }, data: [640, 646, 650, 655, 661, 668, 680, 686] },
-    ],
-  };
+
 
   const tabs = [
     {
@@ -417,8 +401,6 @@ const AnalysisProjects: React.FC = () => {
     },
   ];
 
-  const openTask = () => { setDraftTaskId(task.id); setTaskModalOpen(true); };
-  const openData = () => { setDraftData(data); setDataModalOpen(true); };
   const openConfig = () => { setDraftConfig(config); setConfigModalOpen(true); };
 
   return (
@@ -428,16 +410,13 @@ const AnalysisProjects: React.FC = () => {
         <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
       {incoming?.source && (incoming.task || incoming.data || incoming.model || incoming.result || incoming.validation) && (
-        <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.model && `模型：${incoming.model.modelName} ${incoming.model.version}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
+        <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
       )}
-      {sourceRecord ? <Alert showIcon type="warning" title={`来源记录：${businessScope?.physicalObjectName} · ${businessScope?.experimentName} · ${sourceRecord.name}`} description={<>{sourceRecord.measurements.map((field) => `${field.name}：${field.value}${field.unit ? ` ${field.unit}` : ''}`).join('；') || '记录没有结构化测量字段'}。趋势图、异常识别和根因结论仍为模拟结果。</>} style={{ marginBottom: 16 }} />
-        : <Alert showIcon type="info" title={boundPhysical ? "当前构型尚无记录，请选择已有记录或返回创建" : "当前使用演示数据"} description="趋势图、异常识别和根因结论来自内置样例，不代表某条物理对象试验记录。" style={{ marginBottom: 16 }} />}
+      <Alert showIcon type="info" title="当前使用演示计算" description="趋势图、异常识别和根因结论来自内置样例；当前试验上下文不会改变此演示计算。" style={{ marginBottom: 16 }} />
 
       <PreparationChecklist
         title="分析准备"
         items={[
-          { key: 'task', label: '试验任务', value: task.name, confirmed: boundPhysical || confirmed.task, onClick: boundPhysical ? undefined : openTask, preview: <Space size={[4, 4]} wrap><Tag color="blue">{task.status}</Tag><Tag>{task.conditions} 组工况</Tag><Tag>{task.dataCount.toLocaleString()} 条记录</Tag><span>{task.name}</span></Space> },
-          { key: 'data', label: '关联数据', value: data.experimentFile, confirmed: boundPhysical || confirmed.data, onClick: boundPhysical ? undefined : openData, preview: <Space size={[4, 4]} wrap><Tag color="blue">试验数据</Tag><span>{data.experimentFile}</span><span>环境：{data.environmentFile}</span><span>控制：{data.controlFile}</span></Space> },
           { key: 'config', label: '分析配置', value: `${config.scope} / ${config.sensitivity}敏感度`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">范围：{config.scope}</Tag><Tag>敏感度：{config.sensitivity}</Tag><Tag>对比：{config.comparison}</Tag><Tag>指标：{config.metrics.join('、')}</Tag><Tag>内容：{config.contents.join('、')}</Tag></Space> },
         ]}
         actions={<Space size={6}>
@@ -446,19 +425,9 @@ const AnalysisProjects: React.FC = () => {
         </Space>}
       />
 
-      <Card title="当前任务与数据" size="small" className="workspace-business-card">
-        <Descriptions size="small" column={3} items={[
-          { key: 'task', label: '当前任务', children: task.name }, { key: 'source', label: '来源方案', children: task.source },
-          { key: 'status', label: '执行状态', children: <Tag color="green">{task.status}</Tag> }, { key: 'file', label: '试验数据', children: data.experimentFile },
-          { key: 'model', label: '会话模型', children: `${activeModel.modelName} ${activeModel.version}${activeModel.calibrationData ? '（已引用校准数据）' : ''}` },
-          { key: 'conditions', label: '工况数量', children: `${task.conditions} 组` }, { key: 'count', label: '数据量', children: `${task.dataCount.toLocaleString()} 条` },
-          { key: 'metrics', label: '分析指标', span: 3, children: config.metrics.join('、') },
-        ]} />
-      </Card>
-
       <Card
-        title={<Space size={8}><span>设备交互模型 · 剖面测点</span><Tag color="blue">0–4 点位联动</Tag><Tag color="orange">模拟结果</Tag></Space>}
-        extra={<Text type="secondary">点击模型测点查看当前工况数据</Text>}
+        title={<Space size={8}><span>设备剖面与测点</span><Tag color="blue">0–4 点位联动</Tag><Tag color="orange">模拟结果</Tag></Space>}
+        extra={<Text type="secondary">点击测点查看当前工况数据</Text>}
         size="small"
         className="workspace-business-card analysis-model-card"
       >
@@ -527,17 +496,6 @@ const AnalysisProjects: React.FC = () => {
         )}
       </Card>
 
-      <Modal title="选择试验任务" open={taskModalOpen} onCancel={() => setTaskModalOpen(false)} onOk={selectTask}>
-        <Select style={{ width: '100%' }} value={draftTaskId} onChange={setDraftTaskId} options={availableTasks.map((item) => ({ value: item.id, label: `${item.name}（${item.status}）` }))} />
-      </Modal>
-      <Modal title="确认关联数据" open={dataModalOpen} onCancel={() => setDataModalOpen(false)} onOk={() => { setData(draftData); setConfirmed((prev) => ({ ...prev, data: true })); setDataModalOpen(false); invalidateResult(); }}>
-        <Form labelCol={{ span: 7 }} wrapperCol={{ span: 16 }}>
-          <Form.Item label="试验数据"><Select disabled={boundPhysical} value={draftData.experimentFile} onChange={(value) => setDraftData({ ...draftData, experimentFile: value })} options={[task.experimentFile, 'experiment_01.csv', 'experiment_backup.csv'].map((value) => ({ value }))} /></Form.Item>
-          <Form.Item label="环境数据"><Select disabled={boundPhysical} value={draftData.environmentFile} onChange={(value) => setDraftData({ ...draftData, environmentFile: value })} options={[task.environmentFile, 'environment_01.csv'].map((value) => ({ value }))} /></Form.Item>
-          <Form.Item label="控制数据"><Select disabled={boundPhysical} value={draftData.controlFile} onChange={(value) => setDraftData({ ...draftData, controlFile: value })} options={[task.controlFile, 'control_01.csv'].map((value) => ({ value }))} /></Form.Item>
-          <Form.Item label="会话模型"><Select value={draftData.modelData} onChange={(value) => setDraftData({ ...draftData, modelData: value })} options={globalModels.map((item) => ({ value: item.modelId, label: `${item.modelName} ${item.version} · ${item.status ?? '未校准'}` }))} /></Form.Item>
-        </Form>
-      </Modal>
       <Modal title="分析配置" open={configModalOpen} width={620} onCancel={() => setConfigModalOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigModalOpen(false); invalidateResult(); }}>
         <Form labelCol={{ span: 5 }} wrapperCol={{ span: 18 }}>
           <Form.Item label="分析指标"><Checkbox.Group value={draftConfig.metrics} options={['出口温度', '推力', '压力', '振动']} onChange={(value) => setDraftConfig({ ...draftConfig, metrics: value as string[] })} /></Form.Item>

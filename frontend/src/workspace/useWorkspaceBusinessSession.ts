@@ -9,6 +9,8 @@ import { recordTaskBusinessArtifact } from './taskArtifactAssociation';
 import { useSessionStore } from './sessionStore';
 import { usePhysicalObjectStore } from './physicalObjectStore';
 import { resolvePhysicalSource } from './physicalBusinessContext';
+import { captureResultContext } from './analysisResultModel';
+import { getProfessionalSources, professionalDataContext } from './professionalContext';
 
 export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null) => {
   const location = useLocation();
@@ -44,20 +46,38 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     : null;
   const capability = getCapabilityFromPath(location.pathname);
   const objects = usePhysicalObjectStore(state => state.objects);
+  const sourceSessions = useSessionStore(state => state.sessions);
   const physicalSource = useMemo(() => resolvePhysicalSource(objects, session), [objects, session]);
+  const sources = useMemo(() => getProfessionalSources(objects, projects, sourceSessions, session), [objects, projects, sourceSessions, session]);
+  const dataContext = useMemo(() => session.physicalObjectId && !physicalSource.missing ? professionalDataContext(sources) : undefined, [sources, session.physicalObjectId, physicalSource.missing]);
   const addArtifact = useCallback((projectId: string, input: Parameters<ReturnType<typeof useProjectStore.getState>['addArtifact']>[1]) => {
     if (physicalSource.missing) return null;
     const model = input.payload.model as { modelId?: string } | undefined;
     const draft = useSessionStore.getState().sessions.find(item => item.id === session.sessionId)?.drafts[capability];
-    return useProjectStore.getState().addArtifact(projectId, { ...input, payload: {
+    const inheritedContext = session.physicalObjectId ? captureResultContext(objects, session) : undefined;
+    const capturedFiles = (input.payload.sourceContext as { rawFiles?: NonNullable<typeof dataContext>['rawFiles'] } | undefined)?.rawFiles;
+    const sourceContext = inheritedContext ? { ...inheritedContext, rawFiles: capturedFiles ?? dataContext?.rawFiles ?? inheritedContext.rawFiles } : undefined;
+    const previousProjects = useProjectStore.getState().projects;
+    const upstream = dataContext?.results.filter(result => !(result.artifactRef?.projectId === projectId && result.artifactRef.artifactId === input.id)) ?? [];
+    const upstreamRefs = input.payload.upstreamArtifactRefs as Array<{ projectId: string; artifactId: string }> | undefined;
+    const artifact = useProjectStore.getState().addArtifact(projectId, { ...input, payload: {
       ...input.payload,
-      resultMode: input.type === 'design' && (input.payload.designSummary || input.payload.designMethod) ? 'configuration' : 'demo',
-      sourceScope: session.physicalObjectId ? { physicalObjectId: session.physicalObjectId, experimentId: session.experimentId, trialId: session.trialId, testRecordId: session.testRecordId } : undefined,
-      upstreamArtifactIds: incoming?.artifactIds ?? [],
-      upstreamArtifactRefs: projects.flatMap(project => project.artifacts.filter(artifact => incoming?.artifactIds?.includes(artifact.id)).map(artifact => ({ projectId: project.id, artifactId: artifact.id }))),
+      resultMode: input.payload.resultMode ?? (input.type === 'design' && (input.payload.designSummary || input.payload.designMethod) ? 'configuration' : 'demo'),
+      sourceScope: sourceContext?.scope,
+      sourceContext,
+      upstreamArtifactIds: upstreamRefs?.map(reference => reference.artifactId) ?? [...new Set([...(incoming?.artifactIds ?? []), ...upstream.flatMap(result => result.artifactRef ? [result.artifactRef.artifactId] : [])])],
+      upstreamArtifactRefs: upstreamRefs ?? [...new Map([...upstream.flatMap(result => result.artifactRef ? [result.artifactRef] : []), ...projects.flatMap(project => project.artifacts.filter(artifact => incoming?.artifactIds?.includes(artifact.id) && artifact.id !== input.id).map(artifact => ({ projectId: project.id, artifactId: artifact.id })))].map(reference => [`${reference.projectId}/${reference.artifactId}`, reference])).values()],
+      upstreamResultKeys: input.payload.upstreamResultKeys ?? upstream.map(result => result.key),
       modelInputs: model?.modelId ? draft?.[`modelInputs:${model.modelId}`] : undefined,
     } });
-  }, [capability, incoming?.artifactIds, physicalSource.missing, projects, session.sessionId, session.physicalObjectId, session.experimentId, session.trialId, session.testRecordId]);
+    const saveError = useSessionStore.getState().saveError;
+    if (saveError) {
+      useProjectStore.setState({ projects: previousProjects });
+      useSessionStore.setState({ saveError });
+      return null;
+    }
+    return artifact;
+  }, [capability, incoming?.artifactIds, physicalSource.missing, projects, objects, session, dataContext]);
   const selectedTaskItemId = useSessionStore(state => {
     const value = state.sessions.find(item => item.id === sessionId)?.drafts[capability]?.artifactTaskItemId;
     return typeof value === 'string' ? value : undefined;
@@ -71,5 +91,5 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     }
   }, [session, selectedTaskItemId]);
 
-  return { projects, tasks, session, targetProject, activeTask, activeTaskItem, physicalSource, addArtifact, recordArtifactForTaskItem };
+  return { projects, tasks, session, targetProject, activeTask, activeTaskItem, physicalSource, sources, dataContext, addArtifact, recordArtifactForTaskItem };
 };

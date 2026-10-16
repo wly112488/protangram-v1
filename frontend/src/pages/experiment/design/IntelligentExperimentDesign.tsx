@@ -13,13 +13,11 @@ import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import FunctionBar from '@/workbench/FunctionBar';
 import type { BusinessAction, BusinessRouteState, PlanCondition, TaskContract } from '@/types/businessContext';
 import PreparationChecklist from '@/workspace/PreparationChecklist';
-import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createDesignArtifactInput, createDoeArtifactInput } from '@/workspace/projectModel';
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import { createTaskContextSearch, createTaskReturnPath } from '@/workspace/businessSessionModel';
-import { useSessionModels } from '@/workspace/useSessionModels';
 import type { DoeTemplate } from '@/workspace/experimentTemplateModel';
 
 const { Title, Text, Paragraph } = Typography;
@@ -34,7 +32,7 @@ const DEFAULT_CONSTRAINTS = {
   speedMax: 8000, temperatureMax: 120, pressureMin: 1,
   safety: true, excludeAbnormal: true,
 };
-const EMPTY_CONFIRMATION = { model: false, data: false, config: false, constraints: false };
+const EMPTY_CONFIRMATION = { config: false, constraints: false };
 const DEFAULT_PLAN: PlanCondition[] = [
   { key: '01', order: 1, speed: 7200, temperature: 85, pressure: 1.8, recommendation: '高', risk: '低', reason: '历史覆盖不足，预计信息增益高' },
   { key: '02', order: 2, speed: 7600, temperature: 90, pressure: 1.9, recommendation: '高', risk: '中', reason: '接近性能最优区域，需关注安全边界' },
@@ -76,18 +74,13 @@ const IntelligentExperimentDesign: React.FC = () => {
   const navigate = useNavigate();
   const incoming = useSessionRouteState();
   const { setContext } = useTrialAIAssistant();
-  const { projects, session, targetProject, recordArtifactForTaskItem, physicalSource, addArtifact } = useWorkspaceBusinessSession(incoming);
-  const { models: globalModels } = useSessionModels();
+  const { projects, session, targetProject, recordArtifactForTaskItem, physicalSource, sources, addArtifact } = useWorkspaceBusinessSession(incoming);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
-  const initialModel = (incoming?.model && globalModels.find((item) => item.modelId === incoming.model?.modelId))
-    ?? (physicalSource.configuration ? UNSELECTED_MODEL : undefined)
-    ?? globalModels.find((item) => item.modelId === 'engine-v2.1')
-    ?? globalModels[0]
-    ?? { modelId: 'engine-v2.1', modelName: '发动机模型', version: 'V2.1', trustedRange: '2000～8000 rpm', status: '已确认' };
+  const model = incoming?.model ?? UNSELECTED_MODEL;
   const initialConfig = incoming?.validation ? {
     ...DEFAULT_CONFIG,
     target: incoming.validation.goal,
@@ -99,16 +92,11 @@ const IntelligentExperimentDesign: React.FC = () => {
     ? { ...DEFAULT_CONSTRAINTS, speedMax: incomingRange[1] }
     : DEFAULT_CONSTRAINTS;
 
-  const [selectedModel, setModel] = useSessionState('selectedModel', initialModel);
-  const model = globalModels.find((item) => item.modelId === selectedModel.modelId) ?? selectedModel;
-  const [storedDatasets, setDatasets] = useSessionState<string[]>('datasets', incoming?.datasets ?? [DATASETS[0]]);
-  const datasets = useMemo(() => physicalSource.configuration ? physicalSource.record?.rawFiles.map(file => file.name) ?? [] : storedDatasets, [physicalSource.configuration, physicalSource.record, storedDatasets]);
+  const datasets = useMemo(() => physicalSource.configuration ? sources.rawFiles.map(file => file.name) : incoming?.datasets ?? [DATASETS[0]], [physicalSource.configuration, sources.rawFiles, incoming?.datasets]);
   const [config, setConfig] = useSessionState('config', initialConfig);
   const [constraints, setConstraints] = useSessionState('constraints', initialConstraints);
   const [draftConfig, setDraftConfig] = useSessionState('draftConfig', initialConfig);
   const [draftConstraints, setDraftConstraints] = useSessionState('draftConstraints', initialConstraints);
-  const [draftDatasets, setDraftDatasets] = useSessionState<string[]>('draftDatasets', incoming?.datasets ?? [DATASETS[0]]);
-  const [dataOpen, setDataOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [constraintsOpen, setConstraintsOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
@@ -118,11 +106,11 @@ const IntelligentExperimentDesign: React.FC = () => {
   const [activeTab, setActiveTab] = useSessionState('activeTab', 'plan');
   const [plan, setPlan] = useSessionState<PlanRow[]>('plan', createPlan(initialConfig));
   const [startingTemplate, setStartingTemplate] = useSessionState<DoeTemplate | null>('startingTemplate', null);
-  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { model: true, data: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
+  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { config: true, constraints: true } : EMPTY_CONFIRMATION);
   const timer = useRef<number | null>(null);
   const autoStarted = useRef(false);
   const autoReturned = useRef(false);
-  const preparationReady = confirmed.model && (Boolean(physicalSource.configuration) || confirmed.data) && confirmed.config && confirmed.constraints;
+  const preparationReady = confirmed.config && confirmed.constraints;
 
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
 
@@ -132,7 +120,6 @@ const IntelligentExperimentDesign: React.FC = () => {
   };
 
   const generatePlan = () => {
-    if (model.definitionOnly) return message.info('该模型只有定义，推荐计算尚未接入；仍可使用 DOE 方法配置试验。');
     if (!preparationReady) return message.warning('请先确认全部方案生成准备项');
     if (timer.current !== null) window.clearTimeout(timer.current);
     setGenerating(true);
@@ -151,8 +138,6 @@ const IntelligentExperimentDesign: React.FC = () => {
   const reset = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = null;
-    setModel(initialModel);
-    setDatasets(incoming?.datasets ?? [DATASETS[0]]);
     setConfig(initialConfig);
     setConstraints(initialConstraints);
     setConfirmed(EMPTY_CONFIRMATION);
@@ -285,13 +270,13 @@ const IntelligentExperimentDesign: React.FC = () => {
       pageType: 'intelligentDesign',
       pageName: '智能实验设计',
       projectName: targetProject?.name,
-      modelName: `${model.modelName} ${model.version}`,
+      modelName: model.modelId === UNSELECTED_MODEL.modelId ? undefined : `${model.modelName} ${model.version}`,
       resultSummary: generated ? `推荐 ${plan.length} 个试验工况` : '等待生成推荐方案',
       resultReady: generated,
       onBusinessAction: handleBusinessAction,
     });
     return () => setContext(null);
-  }, [generated, handleBusinessAction, model.modelName, model.version, plan.length, setContext, targetProject?.name]);
+  }, [generated, handleBusinessAction, model.modelId, model.modelName, model.version, plan.length, setContext, targetProject?.name]);
 
   const updatePlan = (key: string, field: 'speed' | 'temperature' | 'pressure', value: number | null) => {
     setPlan((prev) => prev.map((row) => row.key === key ? { ...row, [field]: value ?? row[field] } : row));
@@ -313,11 +298,6 @@ const IntelligentExperimentDesign: React.FC = () => {
     { title: '推荐程度', dataIndex: 'recommendation', render: tagLevel },
     { title: '风险', dataIndex: 'risk', render: tagLevel },
   ];
-
-  const modelOptions = useMemo(
-    () => globalModels,
-    [globalModels],
-  );
 
   const tabs = [
     { key: 'plan', label: '推荐方案', children: <Table size="small" pagination={false} dataSource={plan} columns={planColumns} /> },
@@ -342,14 +322,6 @@ const IntelligentExperimentDesign: React.FC = () => {
     ]} /> },
   ];
 
-  const selectModel = (nextModel: typeof model) => {
-    if (nextModel.modelId !== model.modelId) {
-      setModel(nextModel);
-      invalidate();
-    }
-    setConfirmed((prev) => ({ ...prev, model: true }));
-  };
-  const openData = () => { setDraftDatasets(datasets); setDataOpen(true); };
   const openConfig = () => { setDraftConfig(config); setConfigOpen(true); };
   const openConstraints = () => { setDraftConstraints(constraints); setConstraintsOpen(true); };
 
@@ -357,7 +329,7 @@ const IntelligentExperimentDesign: React.FC = () => {
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
         <div className="workspace-top-choice-row">
-          <ModelChoiceStrip models={modelOptions} value={model.modelId} onChange={selectModel} ariaLabel="智能实验设计模型选择" />
+          <div><Title level={4} style={{ margin: 0 }}>智能实验设计</Title><Text type="secondary">确认试验目标与约束，形成试验方案</Text><Tag color="orange">演示计算</Tag></div>
           <FunctionBar
             displayMode="doe-design"
             researchObjects={[]}
@@ -381,14 +353,13 @@ const IntelligentExperimentDesign: React.FC = () => {
           type="success"
           showIcon
           title={`已从${incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`}
-          description={`来源：${incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}；可信范围：${model.trustedRange}${incoming.validation ? `；建议重点验证：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}` : ''}`}
+          description={incoming.validation ? `建议重点验证：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}` : '已继承来源数据与成果'}
         />
       )}
 
       <PreparationChecklist
         title="方案生成准备"
         items={[
-          { key: 'data', label: '历史数据', value: datasets.join('、'), confirmed: Boolean(physicalSource.configuration) || confirmed.data, onClick: physicalSource.configuration ? undefined : openData, preview: <Space size={[4, 4]} wrap><Tag color="blue">已关联 {datasets.length} 组数据</Tag>{datasets.map((dataset) => <Tag key={dataset}>{dataset}</Tag>)}</Space> },
           { key: 'config', label: '试验配置', value: `${config.target} / 最多 ${config.maxRuns} 次`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">目标：{config.target}</Tag><Tag>转速 {config.speedMin}～{config.speedMax} rpm</Tag><Tag>温度 {config.temperatureMin}～{config.temperatureMax} ℃</Tag><Tag>压力 {config.pressureMin}～{config.pressureMax} MPa</Tag><Tag>最多 {config.maxRuns} 次 · {config.strategy}</Tag></Space> },
           { key: 'constraints', label: '约束', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints, preview: <Space size={[4, 4]} wrap><Tag color="green">转速 ≤ {constraints.speedMax} rpm</Tag><Tag>温度 ≤ {constraints.temperatureMax} ℃</Tag><Tag>压力 ≥ {constraints.pressureMin} MPa</Tag><Tag>{constraints.safety ? '启用安全约束' : '未启用安全约束'}</Tag><Tag>{constraints.excludeAbnormal ? '排除异常工况' : '保留异常工况'}</Tag></Space> },
         ]}
@@ -397,16 +368,6 @@ const IntelligentExperimentDesign: React.FC = () => {
           <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
         </Space>}
       />
-
-      <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
-        { key: 'target', label: '当前目标', children: config.target },
-        { key: 'model', label: '可信模型', children: `${model.modelName} ${model.version}` },
-        { key: 'calibration', label: '会话校准数据', children: model.calibrationData ? `已更新 · ${model.calibratedAt ?? ''}` : '使用模型当前参数' },
-        { key: 'data', label: '历史数据', children: datasets.join('、') },
-        { key: 'factors', label: '因素', children: '转速、温度、压力' },
-        { key: 'constraints', label: '约束', children: `转速 ≤ ${constraints.speedMax} rpm、温度 ≤ ${constraints.temperatureMax}℃、最多 ${config.maxRuns} 次` },
-        { key: 'range', label: '模型可信范围', children: model.trustedRange },
-      ]} /></Card>
 
       <Card id="business-result" title="推荐结果" size="small" className="workspace-business-card">
         {generating ? (
@@ -426,13 +387,10 @@ const IntelligentExperimentDesign: React.FC = () => {
             </Space></div>
           </>
         ) : (
-          <Alert type="info" showIcon title="配置可信模型、历史数据和约束后，点击“生成推荐方案”" />
+          <Alert type="info" showIcon title="确认试验配置和约束后，点击“生成推荐方案”" />
         )}
       </Card>
 
-      <Modal title="选择历史数据" open={dataOpen} onCancel={() => setDataOpen(false)} onOk={() => { setDatasets(draftDatasets); setConfirmed((prev) => ({ ...prev, data: true })); setDataOpen(false); invalidate(); }}>
-        <Select disabled={Boolean(physicalSource.configuration)} mode="multiple" style={{ width: '100%' }} value={draftDatasets} onChange={setDraftDatasets} options={DATASETS.map((value) => ({ value }))} />
-      </Modal>
       <Modal title="试验配置" width={680} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 5 }} wrapperCol={{ span: 18 }}>
         <Form.Item label="试验目标"><Select value={draftConfig.target} onChange={(value) => setDraftConfig({ ...draftConfig, target: value })} options={[draftConfig.target, '最大化性能', '最小化能耗', '提高稳定性'].filter((value, index, rows) => rows.indexOf(value) === index).map((value) => ({ value }))} /></Form.Item>
         {[['转速', 'speedMin', 'speedMax'], ['温度', 'temperatureMin', 'temperatureMax'], ['压力', 'pressureMin', 'pressureMax']].map(([label, minKey, maxKey]) => <Form.Item label={label} key={label}><Space><InputNumber value={draftConfig[minKey as keyof typeof draftConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [minKey]: value ?? 0 })} /><Text>～</Text><InputNumber value={draftConfig[maxKey as keyof typeof draftConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [maxKey]: value ?? 0 })} /></Space></Form.Item>)}
@@ -515,7 +473,7 @@ export const ExperimentTaskResult: React.FC = () => {
       <Alert type={status === '已完成' ? 'success' : 'info'} showIcon title={status === '已完成' ? '试验任务执行完成' : '试验任务已创建'} description={`来源方案：${task.source}`} />
       <Card title={task.taskName} size="small" className="workspace-business-card"><Descriptions column={2} items={[
         { key: 'id', label: '任务编号', children: task.taskId }, { key: 'source', label: '创建来源', children: task.source },
-        { key: 'type', label: '任务类型', children: task.taskType }, { key: 'model', label: '来源模型', children: incoming?.model ? `${incoming.model.modelName} ${incoming.model.version}` : '发动机模型 V2.1' },
+        { key: 'type', label: '任务类型', children: task.taskType },
         { key: 'data', label: '历史数据', children: incoming?.datasets?.join('、') ?? DATASETS[0] }, { key: 'count', label: '试验工况', children: `${plan.length} 组` },
         { key: 'status', label: '执行状态', children: <Tag color={status === '已完成' ? 'green' : status === '执行中' ? 'blue' : 'default'}>{status}</Tag> },
       ]} /></Card>

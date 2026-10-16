@@ -123,9 +123,11 @@ export const migrateLegacyExperiments = (
   };
 });
 
-const hasCharts = (artifact: ProjectArtifact) => {
+const artifactChartCount = (artifact: ProjectArtifact) => {
+  const results = artifact.payload.results;
+  if (Array.isArray(results)) return results.filter(result => result?.kind === 'chart').length;
   const charts = artifact.payload.charts;
-  return Array.isArray(charts) && charts.length > 0;
+  return Array.isArray(charts) ? charts.length : 0;
 };
 
 export const buildProjectNavigation = (project: Project): ProjectNavigationItem[] => {
@@ -137,7 +139,7 @@ export const buildProjectNavigation = (project: Project): ProjectNavigationItem[
     items.push({ key: `${project.id}:worksheet`, title: '试验工作表', view: 'worksheet' });
   }
 
-  if (project.artifacts.some(hasCharts)) {
+  if (project.artifacts.some(artifact => artifactChartCount(artifact) > 0)) {
     items.push({ key: `${project.id}:charts`, title: '数据图表', view: 'charts' });
   }
 
@@ -170,10 +172,7 @@ export const getProjectStats = (project: Project): ProjectStats => {
     if (Number.isFinite(row)) worksheetRows.add(row);
   });
 
-  const chartCount = project.artifacts.reduce((count, artifact) => {
-    const charts = artifact.payload.charts;
-    return count + (Array.isArray(charts) ? charts.length : 0);
-  }, 0);
+  const chartCount = project.artifacts.reduce((count, artifact) => count + artifactChartCount(artifact), 0);
 
   return {
     datasetCount: project.datasets.length,

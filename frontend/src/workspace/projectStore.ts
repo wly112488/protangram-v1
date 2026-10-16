@@ -215,15 +215,16 @@ export const useProjectStore = create<ProjectWorkspaceState>()(
         const project = get().projects.find((item) => item.id === projectId);
         if (!project) return null;
         const now = new Date().toISOString();
+        const existing = project.artifacts.find(item => item.id === input.id);
         const artifact: ProjectArtifact = {
           ...input,
           id: input.id ?? newId(input.type),
           projectId,
-          createdAt: input.createdAt ?? now,
+          createdAt: existing?.createdAt ?? input.createdAt ?? now,
           updatedAt: input.updatedAt ?? now,
         };
         set((state) => ({
-          projects: state.projects.map((item) => item.id === projectId ? addArtifactToProject(item, artifact) : item),
+          projects: state.projects.map((item) => item.id === projectId ? addArtifactToProject({ ...item, artifacts: item.artifacts.filter(saved => saved.id !== artifact.id) }, artifact) : item),
         }));
         return artifact;
       },

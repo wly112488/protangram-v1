@@ -138,20 +138,12 @@ test('DOE methods share the intelligent experiment design capability and legacy 
   assert.equal(api.sessionCapabilities.filter(item => item.key === 'doe' || item.key === 'doeMethods').length, 1);
 });
 
-test('DOE places model choices in the heading and keeps them out of preparation checklists', () => {
+test('DOE keeps business design methods and preparation without a model choice or model confirmation gate', () => {
   const designSource = readFileSync(new URL('../src/pages/experiment/design/IntelligentExperimentDesign.tsx', import.meta.url), 'utf8');
-  const modelChoiceSource = readFileSync(new URL('../src/workspace/ModelChoiceStrip.tsx', import.meta.url), 'utf8');
-  const functionBarSource = readFileSync(new URL('../src/workbench/FunctionBar.tsx', import.meta.url), 'utf8');
-
-  for (const source of [designSource]) {
-    assert.match(source, /<ModelChoiceStrip/);
-    assert.doesNotMatch(source, /key: 'model', label: '(?:可信模型|模型)'[^\n]*onClick:/);
-  }
+  assert.doesNotMatch(designSource, /ModelChoiceStrip|confirmed\.model|选择适用模型/);
   assert.match(designSource, /displayMode="doe-design"/);
-  assert.match(designSource, /ariaLabel="智能实验设计模型选择"/);
-  assert.match(modelChoiceSource, /workspace-top-choice-group/);
-  assert.match(modelChoiceSource, /aria-pressed=\{selected\}/);
-  assert.match(functionBarSource, /if \(saved === false\) return;/);
+  assert.match(designSource, /label: '试验配置'/);
+  assert.match(designSource, /label: '约束'/);
 });
 
 test('session sidebar separates navigation sections and exposes collapsible section and tree controls', () => {

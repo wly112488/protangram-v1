@@ -63,6 +63,7 @@ export const artifactResultMode = (artifact: ProjectArtifact): string => {
   return 'unknown';
 };
 export const isDemoArtifact = (artifact: ProjectArtifact) => artifactResultMode(artifact) === 'demo';
-export const artifactResultLabel = (artifact: ProjectArtifact) => ({
+export const artifactResultLabel = (artifact: ProjectArtifact) => artifactResultMode(artifact) === 'computed' && artifact.payload.resultNature === 'digitalTwin' ? '数字孪生结果'
+  : artifactResultMode(artifact) === 'computed' && artifact.payload.resultNature === 'virtualPrediction' ? '虚拟预测结果' : ({
   demo: '演示成果', computed: '计算成果', configuration: '配置方案', composed: '编制报告',
 }[artifactResultMode(artifact)] ?? '旧成果（来源性质未标记）');

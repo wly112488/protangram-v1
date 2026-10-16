@@ -1,4 +1,5 @@
 import type { ValueField } from './physicalObjectStore';
+import type { ProfessionalDataContext } from './professionalContext';
 
 export type PredictionService = 'digitalTwin' | 'virtualCondition';
 export interface ConfigurationReference {
@@ -34,20 +35,21 @@ export interface ApplicableModel {
   message?: string;
   inputFields: PredictionInputField[];
 }
-export interface PredictionCatalog {
-  serviceReady: boolean;
-  persistenceReady: boolean;
-  message?: string;
-  models: ApplicableModel[];
+export interface PredictionPreparation {
+  inputFields: PredictionInputField[];
+  inheritedInputs: Record<string, PredictionValue>;
 }
 export interface PredictionRequest {
   requestId: string;
   service: PredictionService;
   targetConfiguration: PredictionTarget;
-  model: ApplicableModel;
+  model?: ApplicableModel;
+  context?: ProfessionalDataContext;
+  csvData?: Array<{ rawFileId: string; headers: string[]; rows: Record<string, string>[] }>;
   inputs: Record<string, PredictionValue>;
 }
-export interface PredictionTask extends PredictionRequest {
+export interface PredictionTask extends Omit<PredictionRequest, 'model'> {
+  model: ApplicableModel;
   taskId: string;
   status: 'completed';
   resultMode: 'computed';
@@ -59,14 +61,15 @@ export interface PredictionTask extends PredictionRequest {
     rows: Array<Record<string, PredictionValue | null>>;
   };
 }
+export interface PredictionPreviewTask extends Omit<PredictionTask, 'model' | 'resultMode' | 'csvData'> {
+  resultMode: 'demo';
+  model?: never;
+  inputFields: PredictionInputField[];
+}
+export type PredictionResultTask = PredictionTask | PredictionPreviewTask;
 export const modelKey = (model: ApplicableModel) => JSON.stringify([model.modelId, model.version, model.sourceConfiguration.physicalObjectId, model.sourceConfiguration.experimentId]);
 export const sameConfiguration = (left: ConfigurationReference, right: ConfigurationReference) => left.physicalObjectId === right.physicalObjectId && left.experimentId === right.experimentId;
 export const configurationLabel = (reference: ConfigurationReference) => `${reference.physicalObjectName} / ${reference.experimentName}`;
-export const preferredModel = (models: ApplicableModel[]) => {
-  const available = models.filter(model => model.availability === 'available');
-  const recommended = available.filter(model => model.recommended);
-  return available.length === 1 ? available[0] : recommended.length === 1 ? recommended[0] : undefined;
-};
 const object = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value));
 const nonempty = (value: unknown): value is string => typeof value === 'string' && Boolean(value.trim());
 const reference = (value: unknown): value is ConfigurationReference => object(value) && ['physicalObjectId', 'experimentId', 'physicalObjectName', 'experimentName'].every(key => nonempty(value[key]));
@@ -81,10 +84,12 @@ const validModel = (value: unknown): value is ApplicableModel => object(value) &
   && [value.applicability, value.message].every(item => item === undefined || typeof item === 'string')
   && reference(value.sourceConfiguration) && ['available', 'not_ready', 'unavailable'].includes(String(value.availability))
   && Array.isArray(value.inputFields) && value.inputFields.every(field) && new Set(value.inputFields.map(item => item.key)).size === value.inputFields.length;
-export function parsePredictionCatalog(value: unknown): PredictionCatalog {
-  if (!object(value) || typeof value.serviceReady !== 'boolean' || typeof value.persistenceReady !== 'boolean' || (value.message !== undefined && typeof value.message !== 'string') || !Array.isArray(value.models) || !value.models.every(validModel)
-    || new Set(value.models.map(modelKey)).size !== value.models.length) throw new Error('模型服务返回的数据不完整，无法确认模型来源或输入要求');
-  return value as unknown as PredictionCatalog;
+export const predictionUserFields = (preparation: PredictionPreparation) => preparation.inputFields.filter(field => !Object.hasOwn(preparation.inheritedInputs, field.key));
+export function predictionInputs(preparation: PredictionPreparation, draft: Record<string, PredictionValue> = {}) {
+  return { ...Object.fromEntries(predictionUserFields(preparation).flatMap(field => {
+    const value = draft[field.key] ?? field.defaultValue;
+    return value === undefined ? [] : [[field.key, value]];
+  })), ...preparation.inheritedInputs };
 }
 const targetSnapshot = (value: unknown): value is PredictionTarget => reference(value) && object(value) && [value.objectParameters, value.configurationParameters].every(items => Array.isArray(items) && items.every(item => object(item) && nonempty(item.id) && nonempty(item.name) && typeof item.value === 'string'))
   && (value.testType === undefined || typeof value.testType === 'string');
@@ -100,6 +105,7 @@ export function parsePredictionTask(value: unknown, expected: Pick<PredictionReq
     || !Array.isArray(value.result.rows) || !value.result.rows.length
     || !value.result.rows.every(row => object(row) && Object.values(row).every(item => item === null || typeof item === 'string' || typeof item === 'number' && Number.isFinite(item)))
     || expected.requestId && (value.requestId !== expected.requestId || canonical(value.targetConfiguration) !== canonical(expected.targetConfiguration)) || expected.model && modelKey(value.model as ApplicableModel) !== modelKey(expected.model)
-    || expected.inputs && canonical(value.inputs) !== canonical(expected.inputs)) throw new Error('预测结果来源、输入或计算状态不匹配，未保存为预测成果');
+    || expected.inputs && canonical(value.inputs) !== canonical(expected.inputs)
+    || expected.context && canonical(value.context) !== canonical(expected.context)) throw new Error('预测结果来源、输入或计算状态不匹配，未保存为预测成果');
   return value as unknown as PredictionTask;
 }

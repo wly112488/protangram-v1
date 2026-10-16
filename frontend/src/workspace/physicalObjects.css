@@ -120,9 +120,6 @@
   .physical-parameter-description { max-width: 100%; }
 }
 
-.physical-source-panel { margin: 0 0 16px; }
-.physical-source-panel .ant-alert, .physical-source-panel .ant-collapse, .physical-source-panel .ant-typography { margin-top: 10px; }
-.physical-source-panel .ant-card { margin-top: 12px; }
 .physical-model-input { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .physical-model-input .ant-input { max-width: 300px; }
 .physical-record-actions { margin: 12px 0; }
@@ -134,6 +131,12 @@
 .physical-record-heading, .physical-file-row, .physical-charts-heading { margin-bottom: 14px; }
 .physical-record-heading > div { min-width: 0; overflow-wrap: anywhere; }
 .physical-data-table { margin-top: 12px; }
+.physical-results-list { display: grid; gap: 12px; }
+.physical-result-object { min-width: 0; }
+.physical-result-object .ant-card-head { flex-wrap: wrap; }
+.physical-result-object .ant-card-head-title { white-space: normal; overflow-wrap: anywhere; }
+.physical-result-source { margin-top: 12px; overflow-wrap: anywhere; }
+.physical-result-source .ant-alert { margin-top: 8px; }
 .physical-chart-preview { margin-top: 12px; border-top: 1px solid #e8edf4; padding-top: 12px; }
 .physical-shared-charts, .physical-shared-chart-preview { min-width: 0; overflow-wrap: anywhere; }
 .physical-task-record { justify-content: space-between; align-items: flex-start; }

@@ -95,7 +95,7 @@ npm run test:browser
 
 ## 持续集成
 
-将 `.github/workflows/de.yml` 的 Hello World 示例替换为 main push、面向 main 的 PR 和手动触发流程，统一使用 Node 24 和 `npm ci`：
+将 `.github/workflows/deploy.yml` 的 Hello World 示例替换为 main push、面向 main 的 PR 和手动触发流程，统一使用 Node 24 和 `npm ci`：
 
 - `regression`：执行完整 `npm test`，通过后构建。现有 16 项失败会让该 job 为红，构建步骤不会执行；本次本地单独验证过构建。
 - `browser-results`：独立执行，安装 Chromium 及 Linux 系统库，启动 Vite、等待 HTTP 可访问，再运行 12 组场景。无论成功失败均尝试上传截图、结果及服务器日志；不会因为回归 job 失败而跳过。

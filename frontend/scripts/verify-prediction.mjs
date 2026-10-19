@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
+import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
-const require = createRequire(process.env.PROTANGRAM_PLAYWRIGHT_ROOT ?? '/tmp/protangram-browser-check/node_modules/playwright/package.json');
-const { chromium } = require('playwright');
 const baseURL = process.env.PROTANGRAM_TEST_URL ?? 'http://127.0.0.1:5173';
 const output = 'node_modules/.tmp/professional-interactions'; await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'], executablePath: process.env.PROTANGRAM_CHROMIUM_PATH ?? '/tmp/protangram-browser-check/browsers/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell', env: { ...process.env, LD_LIBRARY_PATH: '/tmp/protangram-browser-check/runtime/usr/lib/x86_64-linux-gnu' } });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PROTANGRAM_CHROMIUM_PATH ? { executablePath: process.env.PROTANGRAM_CHROMIUM_PATH } : {}),
+});
 const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
 const page = await context.newPage(); page.setDefaultTimeout(15000);
 const errors = [], passed = [], unexpectedWrites = [], requests = [];

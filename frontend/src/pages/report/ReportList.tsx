@@ -1,3 +1,4 @@
+import { getWorkspaceReports } from './workspaceReportModel';
 import { artifactResultLabel, getSourceArtifacts } from '@/workspace/physicalBusinessContext';
 import { useSessionStore } from '@/workspace/sessionStore';
 import { getSessionPath } from '@/workspace/sessionModel';
@@ -24,8 +25,9 @@ const { Title, Text, Paragraph } = Typography;
  */
 const ReportList: React.FC = () => {
   const navigate = useNavigate();
-  const { analysisReports, setAnalysisReports } = useAppStore();
+  const { analysisReports: legacyAnalysisReports, setAnalysisReports } = useAppStore();
   const { projects, activeProjectId } = useProjectStore();
+  const analysisReports = getWorkspaceReports(projects, legacyAnalysisReports);
   const sessions = useSessionStore(state => state.sessions);
   const sessionState = useSessionRouteState();
   const reportBase = sessionState?.workspaceSession?.sessionId ? getSessionPath(sessionState.workspaceSession.sessionId, 'report') : '/report';
@@ -36,7 +38,7 @@ const ReportList: React.FC = () => {
   const [businessResults] = useState<BusinessReportItem[]>(loadBusinessReportItems);
   const activeProject = projects.find((project) => project.id === currentProjectId);
   const reportableArtifacts = sessionState?.workspaceSession?.physicalObjectId ? getReportableArtifacts(getSourceArtifacts(projects, sessions, sessionState.workspaceSession)) : activeProject ? getReportableArtifacts(activeProject.artifacts) : [];
-  const projectReports = activeProject?.artifacts.filter((artifact) => artifact.type === 'report') ?? [];
+  const projectReports = activeProject?.artifacts.filter((artifact) => artifact.type === 'report' && !artifact.payload.reportDefinition && artifact.status === 'generated') ?? [];
 
   const createProjectReport = () => navigate(`${reportBase}/create`, {
     state: {

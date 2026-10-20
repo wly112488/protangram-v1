@@ -1,13 +1,5 @@
+import { flushWorkspacePersistence } from './workspacePersistence';
 import Papa from 'papaparse';
-
-const DB_NAME = 'protangram-trial-files';
-const STORE_NAME = 'files';
-const openDatabase = () => new Promise<IDBDatabase>((resolve, reject) => {
-  const request = indexedDB.open(DB_NAME, 1);
-  request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
-  request.onsuccess = () => resolve(request.result);
-  request.onerror = () => reject(request.error ?? new Error('无法打开本地文件存储'));
-});
 
 export interface ParsedRawFile { headers: string[]; rows: Record<string, string>[] }
 
@@ -24,29 +16,18 @@ export const buildChartPoints = (rows: Record<string, string>[], xField: string,
   .map(row => [Number(row[xField]), Number(row[yField]) * range.scale + range.offset])
   .filter(point => point.every(Number.isFinite));
 
-export const saveTrialFile = async (id: string, file: File) => {
-  const database = await openDatabase();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, 'readwrite');
-      transaction.objectStore(STORE_NAME).put({ id, name: file.name, mimeType: file.type, blob: file });
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error('文件保存失败'));
-      transaction.onabort = () => reject(transaction.error ?? new Error('文件保存已中止'));
-    });
-  } finally { database.close(); }
+export const saveTrialFile = async (id: string, file: File, scope?: { trialId: string; recordId: string }) => {
+  if (!scope) throw new Error('请选择本次执行记录后上传原始文件');
+  await flushWorkspacePersistence();
+  const form = new FormData();
+  form.set('file', file); form.set('trialId', scope.trialId); form.set('recordId', scope.recordId);
+  const response = await fetch(`/api/workspace/files/${encodeURIComponent(id)}`, { method: 'POST', body: form });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) throw new Error(result?.error || '原始文件未保存，请重试');
 };
 
 export const readTrialFile = async (id: string): Promise<ParsedRawFile> => {
-  const database = await openDatabase();
-  try {
-    const entry = await new Promise<{ blob: Blob }>((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, 'readonly');
-      const request = transaction.objectStore(STORE_NAME).get(id);
-      request.onsuccess = () => request.result ? resolve(request.result) : reject(new Error('找不到原始文件'));
-      request.onerror = () => reject(request.error ?? new Error('文件读取失败'));
-      transaction.onabort = () => reject(transaction.error ?? new Error('文件读取已中止'));
-    });
-    return parseTrialCsv(await entry.blob.text());
-  } finally { database.close(); }
+  const response = await fetch(`/api/workspace/files/${encodeURIComponent(id)}`);
+  if (!response.ok) throw new Error(response.status === 404 ? '数据库中找不到原始文件；历史本机附件需重新上传' : '原始文件读取失败');
+  return parseTrialCsv(await response.text());
 };

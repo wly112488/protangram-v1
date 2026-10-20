@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { workspaceStorage } from './workspacePersistence';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type {
   TaskArtifactReference,
@@ -389,6 +390,6 @@ export const useTaskStore = create<TaskState>()(persist((set) => ({
 }), {
   name: TASK_STORAGE_KEY,
   version: 1,
-  storage: createJSONStorage(() => localStorage),
+  storage: createJSONStorage(() => workspaceStorage),
   partialize: (state) => ({ tasks: state.tasks }),
 }));

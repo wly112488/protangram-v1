@@ -1,3 +1,5 @@
+import AnalysisResults from '@/workspace/AnalysisResults';
+import { commitWorkspaceChange } from '@/workspace/workspacePersistence';
 import { UNSELECTED_MODEL } from '@/types/businessContext';
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -94,9 +96,11 @@ const AnalysisProjects: React.FC = () => {
   const navigate = useNavigate();
   const { setContext } = useTrialAIAssistant();
   const incoming = useSessionRouteState();
-  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem, physicalSource, addArtifact } = useWorkspaceBusinessSession(incoming);
-  const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
-  const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem, physicalSource, sources, addArtifact } = useWorkspaceBusinessSession(incoming);
+  const addArtifactToReport = useCallback(async (taskId: string, reference: { projectId: string; artifactId: string }) => {
+    try { await commitWorkspaceChange(() => useTaskStore.getState().addArtifactToReport(taskId, reference)); return true; }
+    catch (error) { message.error(error instanceof Error ? error.message : '报告关联保存失败'); return false; }
+  }, []);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const routedTaskContract = useMemo(() => incoming?.task ?? (activeTask ? {
@@ -221,7 +225,7 @@ const AnalysisProjects: React.FC = () => {
     ],
   }), [selectedAnomaly]);
 
-  const persistResult = useCallback((projectId: string, kind: SaveKind): string | null => {
+  const persistResult = useCallback(async (projectId: string, kind: SaveKind): Promise<string | null> => {
     if (!analyzed) return null;
     const project = projects.find((item) => item.id === projectId);
     if (!project) return null;
@@ -264,16 +268,18 @@ const AnalysisProjects: React.FC = () => {
           },
         });
 
-    const artifact = addArtifact(projectId, { ...artifactInput, id: savedResultIds[kind] });
-    if (!artifact) return null;
-    setSavedResultIds(previous => ({ ...previous, [kind]: artifact.id }));
-    recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
-    setSavedProjectId(projectId);
-    if (kind === 'analysis') setSavedAnalysisProjectId(projectId);
-    else setSavedRootCauseProjectId(projectId);
-    setSaveTargetOpen(false);
-    message.success(session.sessionId ? `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存${boundPhysical ? '到原试验的分析成果' : '到当前会话'}` : `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
-    return artifact.id;
+    try {
+      const artifact = await addArtifact(projectId, { ...artifactInput, id: savedResultIds[kind] });
+      if (!artifact) return null;
+      setSavedResultIds(previous => ({ ...previous, [kind]: artifact.id }));
+      await recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
+      setSavedProjectId(projectId);
+      if (kind === 'analysis') setSavedAnalysisProjectId(projectId);
+      else setSavedRootCauseProjectId(projectId);
+      setSaveTargetOpen(false);
+      message.success(session.sessionId ? `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存${boundPhysical ? '到原试验的分析成果' : '到当前会话'}` : `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
+      return artifact.id;
+    } catch (error) { message.error(error instanceof Error ? error.message : '分析成果保存失败'); return null; }
   }, [savedResultIds, setSavedResultIds, trendOption, analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId, boundPhysical, businessScope?.experimentId, businessScope?.physicalObjectId, sourceRecord]);
 
   const requestSave = (kind: SaveKind) => {
@@ -286,7 +292,7 @@ const AnalysisProjects: React.FC = () => {
     setSaveTargetOpen(true);
   };
 
-  const handleBusinessAction = useCallback((action: BusinessAction) => {
+  const handleBusinessAction = useCallback(async (action: BusinessAction) => {
     if (!analyzed) return message.warning('请先完成试验数据分析');
     const taskContract: TaskContract = { taskId: task.id, taskName: task.name, taskType: '已执行试验', source: task.source, status: '已完成' };
     const dataContract: DataContract = { dataId: sourceRecord?.id ?? `data-${task.id}`, dataName: data.experimentFile, dataType: sourceRecord ? '物理对象试验执行记录' : '演示试验数据', source: '试验数据分析', taskId: incoming?.task?.taskId ?? incoming?.workspaceSession?.taskBookId ?? task.id };
@@ -297,10 +303,10 @@ const AnalysisProjects: React.FC = () => {
     if (action === '生成补充试验') navigate(`/experiment/design/intelligent${createTaskContextSearch(effectiveSession)}`, { state: { ...base, validation: { goal: `验证${selectedAnomaly.event}及主要根因`, suggestedRange: '7600～8200 rpm', metrics: [selectedAnomaly.event, '推力'], recommendedRuns: 5 } } satisfies BusinessRouteState });
     if (action === '加入报告') {
       if (boundProject) {
-        const artifactId = persistResult(boundProject.id, 'analysis');
+        const artifactId = await persistResult(boundProject.id, 'analysis');
         if (!artifactId) return;
         if (effectiveSession.mode === 'task') {
-          addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId });
+          if (!await addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId })) return;
           navigate(createTaskReturnPath(effectiveSession));
           return;
         }
@@ -329,17 +335,16 @@ const AnalysisProjects: React.FC = () => {
 
   useEffect(() => {
     if (!autoExecute || !analyzed || autoReturned.current || effectiveSession.mode !== 'task' || !effectiveSession.taskItemId || !boundProject) return;
-    const publish = window.setTimeout(() => {
+    const publish = window.setTimeout(async () => {
     autoReturned.current = true;
-    const artifactId = persistResult(boundProject.id, 'analysis');
+    const artifactId = await persistResult(boundProject.id, 'analysis');
     if (!artifactId) return;
-    addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId });
-    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId!, '待确认');
+    if (!await addArtifactToReport(effectiveSession.taskId, { projectId: boundProject.id, artifactId })) return;
     message.success('已按复核后的任务规划完成模拟分析，成果已回到原任务');
     navigate(createTaskReturnPath(effectiveSession));
     }, 0);
     return () => window.clearTimeout(publish);
-  }, [addArtifactToReport, analyzed, autoExecute, boundProject, effectiveSession, navigate, persistResult, setRequirementStatus]);
+  }, [addArtifactToReport, analyzed, autoExecute, boundProject, effectiveSession, navigate, persistResult]);
 
   useEffect(() => {
     setContext({
@@ -505,12 +510,13 @@ const AnalysisProjects: React.FC = () => {
           <Form.Item label="异常敏感度"><Select value={draftConfig.sensitivity} onChange={(value) => setDraftConfig({ ...draftConfig, sensitivity: value })} options={['低', '中', '高'].map((value) => ({ value }))} /></Form.Item>
         </Form>
       </Modal>
-      <ProjectSaveTargetModal open={saveTargetOpen} title={pendingSaveKind === 'analysis' ? '保存分析结果到项目' : '确认根因并保存到项目'} defaultProjectId={boundProject?.id} onCancel={() => { setSaveTargetOpen(false); setContinueToReportAfterSave(false); }} onConfirm={(projectId) => {
-        const artifactId = persistResult(projectId, pendingSaveKind);
+      {physicalSource.trial && <AnalysisResults entries={sources.results} shared trial={physicalSource.trial} />}
+      <ProjectSaveTargetModal open={saveTargetOpen} title={pendingSaveKind === 'analysis' ? '保存分析结果到项目' : '确认根因并保存到项目'} defaultProjectId={boundProject?.id} onCancel={() => { setSaveTargetOpen(false); setContinueToReportAfterSave(false); }} onConfirm={async (projectId) => {
+        const artifactId = await persistResult(projectId, pendingSaveKind);
         if (artifactId && continueToReportAfterSave) {
           setContinueToReportAfterSave(false);
           if (effectiveSession.mode === 'task') {
-            addArtifactToReport(effectiveSession.taskId, { projectId, artifactId });
+            if (!await addArtifactToReport(effectiveSession.taskId, { projectId, artifactId })) return;
             navigate(createTaskReturnPath(effectiveSession));
             return;
           }

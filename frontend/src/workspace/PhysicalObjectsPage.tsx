@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Breadcrumb, Button, Card, Empty, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs, Tag, Tooltip, Typography, Upload, message } from 'antd';
+import { Alert, Breadcrumb, Button, Card, Empty, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Tooltip, Typography, Upload, message } from 'antd';
 import { FileAddOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload/interface';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
@@ -18,7 +18,10 @@ import { parseTrialCsv, readTrialFile, saveTrialFile } from './trialDataFiles';
 import { downloadTrialChart, loadTrialChartOption } from './trialChartOutput';
 import { taskBookPath } from './taskTrialModel';
 import { resolvePhysicalNavigation, trialListQueryKeys } from './physicalNavigation';
+import { commitWorkspaceChange, useWorkspacePersistence } from './workspacePersistence';
+import { trialCreatePath } from './trialNavigationModel';
 import './physicalObjects.css';
+import './trialWorkspace.css';
 
 const { Text, Title } = Typography;
 type Dialog = 'family' | 'configuration' | 'parameter' | 'experiment' | 'trial' | 'record' | 'chart' | 'table' | null;
@@ -58,6 +61,8 @@ const PhysicalObjectsPage: React.FC = () => {
   const projects = useProjectStore(state => state.projects);
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const admin = useWorkspacePersistence(state => state.role === 'admin');
+  const [editingMetadata, setEditingMetadata] = useState(false);
   const addRoot = usePhysicalObjectStore(state => state.addRoot);
   const addConfiguration = usePhysicalObjectStore(state => state.addConfiguration);
   const addField = usePhysicalObjectStore(state => state.addField);
@@ -89,11 +94,17 @@ const PhysicalObjectsPage: React.FC = () => {
   const { family, configuration, experiment, trial, record, requestedRecordUnavailable, missing: sourceUnavailable } = resolvePhysicalNavigation(objects, params);
   const editingExperiment = configuration?.experiments.find(item => item.id === editingExperimentId);
   const setupLocked = Boolean(editingExperiment && isExperimentSetupLocked(editingExperiment));
-  const activeTab = params.get('view') === 'tools' ? 'tools' : params.get('view') === 'taskbooks' || params.has('taskId') ? 'taskbooks' : 'objects';
-  const startDialog = (next: Exclude<Dialog, null>, initial: Record<string, unknown> = {}) => { setDialog(next); setPendingFiles([]); setChartPreview(undefined); setEditingParameterId(undefined); setEditingTrialId(undefined); setEditingExperimentId(undefined); setEditingRecordId(undefined); setEditingChartId(undefined); setEditingTableId(undefined); form.resetFields(); if (Object.keys(initial).length) form.setFieldsValue(initial); };
+  const activeTab = params.get('view') === 'taskbooks' || params.has('taskId') ? 'taskbooks' : 'objects';
+  useEffect(() => {
+    if (params.get('view') !== 'tools') return;
+    const next = new URLSearchParams(params); next.delete('view'); setParams(next, { replace: true });
+  }, [params, setParams]);
+  const startDialog = (next: Exclude<Dialog, null>, initial: Record<string, unknown> = {}) => { setEditingMetadata(false); setDialog(next); setPendingFiles([]); setChartPreview(undefined); setEditingParameterId(undefined); setEditingTrialId(undefined); setEditingExperimentId(undefined); setEditingRecordId(undefined); setEditingChartId(undefined); setEditingTableId(undefined); form.resetFields(); if (Object.keys(initial).length) form.setFieldsValue(initial); };
   useEffect(() => {
     const intent = params.get('create');
+    if (intent === 'trial') { navigate(trialCreatePath(Object.fromEntries(params)), { replace: true }); return; }
     if (!intent || !['family', 'configuration', 'experiment', 'trial'].includes(intent)) return;
+    if (!admin && !['family', 'configuration', 'experiment'].includes(intent)) return;
     if ((intent === 'configuration' && !family) || (intent === 'experiment' && !configuration) || (intent === 'trial' && !experiment)) return;
     startDialog(intent as 'family' | 'configuration' | 'experiment' | 'trial', intent === 'trial' ? { taskBookId: params.get('taskBookId') || undefined } : {});
     const next = new URLSearchParams(params); next.delete('create'); setParams(next, { replace: true });
@@ -102,14 +113,15 @@ const PhysicalObjectsPage: React.FC = () => {
   }, [createIntent]);
   const capabilityNames: Record<string, string> = { doe: '智能试验设计', analysis: '数据分析', digitalTwin: '数字孪生', virtualCondition: '虚拟工况', report: '报告' };
   const capabilityPaths: Record<string, SessionCapability> = { doe: 'doe', analysis: 'analysis', digitalTwin: 'digitalTwin', virtualCondition: 'virtualCondition', report: 'report' };
-  const launchCapability = (key: string) => {
+  const launchCapability = async (key: string) => {
     if (sourceUnavailable) return message.error('业务来源已失效，请选择已有来源');
-    const prediction = key === 'digitalTwin' || key === 'virtualCondition';
-    if (prediction && !experiment) return message.info('请先打开目标试验构型');
+    if (!trial || !experiment || !configuration) return message.info('请先打开具体试验');
     const capability = capabilityPaths[key];
     const scope: PhysicalBusinessScope = { physicalObjectId: configuration?.id, physicalObjectName: configuration?.name, experimentId: experiment?.id, experimentName: experiment?.name, trialId: trial?.id, trialName: trial?.name, testRecordId: record?.id, testRecordName: record?.name, taskBookId: trial?.taskBookId, taskBookName: tasks.find(task => task.id === trial?.taskBookId)?.title };
-    const id = useSessionStore.getState().ensurePhysicalSession(scope, `${configuration?.name ?? '工作'} · 专业工作`);
-    useSessionStore.getState().openSession(id, capability); navigate(getSessionPath(id, capability));
+    try {
+      const id = await commitWorkspaceChange(() => { const sessionId = useSessionStore.getState().ensurePhysicalSession(scope, `${trial.name} · 专业工作`); useSessionStore.getState().openSession(sessionId, capability); return sessionId; });
+      navigate(getSessionPath(id, capability));
+    } catch (error) { message.error(error instanceof Error ? error.message : '工作台打开失败'); }
   };
   const designArtifacts = projects.flatMap(project => project.artifacts.filter(artifact => {
     if (artifact.type !== 'design' || !configuration) return false;
@@ -127,44 +139,59 @@ const PhysicalObjectsPage: React.FC = () => {
   const submit = async (values: FormSubmission, exportPng = false) => {
     if (sourceUnavailable && dialog !== 'family') return message.error('业务来源已失效，请选择已有来源');
     if (saving) return;
+    if (!admin && (editingMetadata || dialog === 'parameter')) return message.error('仅管理员可编辑物理对象定义和参数');
     setSaving(true);
     try {
       if (dialog === 'family') {
-        const id = addRoot({ name: values.name || '', type: values.name || '', description: values.description || '' });
+        const id = await commitWorkspaceChange(() => {
+          if (!editingMetadata) return addRoot({ name: values.name || '', type: values.name || '', description: values.description || '' });
+          if (!family) throw new Error('对象类别已失效');
+          usePhysicalObjectStore.setState(state => ({ objects: state.objects.map(item => item.id === family.id ? { ...item, name: values.name || '', description: values.description || '' } : item) })); return family.id;
+        });
         setParams({ objectId: id }); message.success('对象类别已保存');
       } else if (dialog === 'configuration' && family) {
-        const id = addConfiguration(family.id, { name: values.name || '', description: values.description || '' });
+        const id = await commitWorkspaceChange(() => {
+          if (!editingMetadata) return addConfiguration(family.id, { name: values.name || '', description: values.description || '' });
+          if (!configuration) throw new Error('物理对象已失效');
+          usePhysicalObjectStore.setState(state => ({ objects: state.objects.map(item => ({ ...item, configurations: item.configurations.map(object => object.id === configuration.id ? { ...object, name: values.name || '', description: values.description || '' } : object) })) })); return configuration.id;
+        });
         if (id) setParams({ objectId: family.id, configurationId: id }); message.success('具体物理对象已创建');
       } else if (dialog === 'parameter' && configuration) {
         const items = (values.parameters ?? []).filter(item => item.name?.trim()).map(item => ({ id: item.id, name: item.name!.trim(), description: item.description || '', unit: item.unit || '', form: item.id && editingParameterId ? configuration.parameters.find(field => field.id === item.id)?.form ?? '单值' : '单值', value: item.value || '' }));
-        for (const item of items) {
+        await commitWorkspaceChange(() => { for (const item of items) {
           if (item.id && editingParameterId) updateField(configuration.id, 'parameters', editingParameterId, item);
           else addField(configuration.id, 'parameters', item);
-        }
+        } });
         message.success(items.length === 1 ? '参数已保存' : `已保存 ${items.length} 项参数`);
       } else if (dialog === 'experiment' && configuration) {
         if (editingExperimentId && !editingExperiment) throw new Error('试验构型来源已变化，请重新打开编辑。');
         const metadata = { name: values.name || '', description: values.description || '', testType: values.testType };
         const input = setupLocked ? metadata : { ...metadata, parameters: normalizeFields(values.parameters, editingExperiment?.parameters) };
-        const id = editingExperimentId ?? addExperiment(configuration.id, { ...metadata, parameters: normalizeFields(values.parameters) });
-        if (editingExperimentId) updateExperiment(editingExperimentId, input);
+        const id = await commitWorkspaceChange(() => {
+          if (editingExperimentId) { updateExperiment(editingExperimentId, input); return editingExperimentId; }
+          return addExperiment(configuration.id, { ...metadata, parameters: normalizeFields(values.parameters) });
+        });
         setRoute({ objectId: family!.id, configurationId: configuration.id, experimentId: id }); message.success(editingExperimentId ? '试验构型已更新' : '试验构型已创建');
       } else if (dialog === 'trial' && experiment) {
         const design = designArtifacts.find(artifact => artifact.id === values.designArtifactId);
         const input = { designArtifactRef: design ? { projectId: design.projectId, artifactId: design.id } : editingTrialId && (values.designArtifactId === trial?.designArtifactRef?.artifactId || !designArtifacts.length) ? trial?.designArtifactRef : undefined, name: values.name || '', description: values.description || '', taskBookId: values.taskBookId || undefined, loadSpectrum: values.loadSpectrum?.trim() || '', loadSpectrumDescription: values.loadSpectrumDescription || '' };
-        const id = editingTrialId ?? addConcreteTrial(experiment.id, input);
-        if (editingTrialId) updateConcreteTrial(editingTrialId, input);
+        const id = await commitWorkspaceChange(() => {
+          if (editingTrialId) { updateConcreteTrial(editingTrialId, input); return editingTrialId; }
+          return addConcreteTrial(experiment.id, input);
+        });
         setRoute({ objectId: family!.id, configurationId: configuration!.id, experimentId: experiment.id, trialId: id, ...(editingTrialId && record ? { recordId: record.id } : {}) }); message.success(editingTrialId ? '具体试验已更新' : '具体试验已创建');
       } else if (dialog === 'record' && trial) {
         const input = { name: values.name, description: values.description || '' };
-        const id = editingRecordId ?? addRecord(trial.id, input);
-        if (editingRecordId) updateRecord(trial.id, id, input);
+        const id = await commitWorkspaceChange(() => {
+          if (editingRecordId) { updateRecord(trial.id, editingRecordId, input); return editingRecordId; }
+          return addRecord(trial.id, input);
+        });
         setEditingRecordId(id);
-        setRoute({ objectId: family!.id, configurationId: configuration!.id, experimentId: experiment!.id, trialId: trial.id, recordId: id });
-        await uploadRawFiles(trial.id, id, pendingFiles); message.success('试验记录已保存');
+        await uploadRawFiles(trial.id, id, pendingFiles);
+        setRoute({ objectId: family!.id, configurationId: configuration!.id, experimentId: experiment!.id, trialId: trial.id, recordId: id }); message.success('试验记录已保存');
       } else if (dialog === 'chart' && trial) {
         const input = await chartInput(values);
-        const chartId = saveChart(trial.id, record!.id, input, editingChartId);
+        const chartId = await commitWorkspaceChange(() => saveChart(trial.id, record!.id, input, editingChartId));
         setEditingChartId(chartId);
         if (exportPng) {
           try { await downloadTrialChart({ ...input, id: chartId, createdAt: '', updatedAt: '' }, record!.rawFiles.find(file => file.id === input.rawFileId)!, `${trial.name} / ${recordLabel(record!)}`); }
@@ -176,7 +203,7 @@ const PhysicalObjectsPage: React.FC = () => {
         if (input.endRow > 0 && input.endRow <= input.startRow) throw new Error('结束行必须大于或等于起始行');
         const parsed = await readTrialFile(input.rawFileId);
         if (!parsed.rows.slice(input.startRow, input.endRow > 0 ? input.endRow : undefined).length) throw new Error('所选范围没有数据');
-        saveTable(trial.id, record.id, input, editingTableId); message.success('数据表已保存');
+        await commitWorkspaceChange(() => saveTable(trial.id, record.id, input, editingTableId)); message.success('数据表已保存');
       }
       setDialog(null);
     } catch (error) { message.error(error instanceof Error ? error.message : '保存失败'); }
@@ -187,7 +214,7 @@ const PhysicalObjectsPage: React.FC = () => {
       const fileId = `raw-${uuid()}`;
       let metadata: RawDataFile = { id: fileId, name: file.name, mimeType: file.type || 'application/octet-stream', size: file.size, addedAt: new Date().toISOString(), headers: [], rowCount: 0 };
       if (file.name.toLowerCase().endsWith('.csv')) { const parsed = parseTrialCsv(await file.text()); metadata = { ...metadata, headers: parsed.headers, rowCount: parsed.rows.length }; }
-      await saveTrialFile(fileId, file); addRawFile(trialKey, recordKey, metadata); setPendingFiles(items => items.filter(item => item.uid !== file.uid));
+      await saveTrialFile(fileId, file, { trialId: trialKey, recordId: recordKey }); await commitWorkspaceChange(() => addRawFile(trialKey, recordKey, metadata)); setPendingFiles(items => items.filter(item => item.uid !== file.uid));
     }
   };
   const editRecord = () => { if (!record) return; startDialog('record', { name: record.name, description: record.description }); setEditingRecordId(record.id); };
@@ -224,14 +251,14 @@ const PhysicalObjectsPage: React.FC = () => {
     setEditingTableId(table?.id); setChartHeaders(file?.headers ?? []);
   };
   const loadChartHeaders = (fileId: string) => { const headers = record?.rawFiles.find(item => item.id === fileId)?.headers ?? []; setChartHeaders(headers); setChartDataError(headers.length ? '' : '此文件没有可绘制的 CSV 字段'); form.setFieldsValue({ xField: headers[0], yField: headers.find(header => header !== headers[0]) ?? headers[0], fields: headers }); };
-  const dialogTitles: Record<Exclude<Dialog, null>, string> = { family: '新建对象类别', configuration: `在${family?.name ?? ''}下新建具体物理对象`, parameter: editingParameterId ? '编辑技术参数' : '新增技术参数', experiment: editingExperimentId ? '编辑试验构型' : `在${configuration?.name ?? ''}下新建试验构型`, trial: editingTrialId ? '编辑具体试验' : `在${experiment?.name ?? ''}下新建具体试验`, record: editingRecordId ? '编辑试验记录 / 添加文件' : '新增一次试验记录', chart: editingChartId ? '编辑图表配置' : '新建图表', table: editingTableId ? '编辑数据表配置' : '新建数据表' };
+  const dialogTitles: Record<Exclude<Dialog, null>, string> = { family: editingMetadata ? '编辑对象类别' : '新建对象类别', configuration: editingMetadata ? '编辑具体物理对象' : `在${family?.name ?? ''}下新建具体物理对象`, parameter: editingParameterId ? '编辑技术参数' : '新增技术参数', experiment: editingExperimentId ? '编辑试验构型' : `在${configuration?.name ?? ''}下新建试验构型`, trial: editingTrialId ? '编辑具体试验' : `在${experiment?.name ?? ''}下新建具体试验`, record: editingRecordId ? '编辑试验记录 / 添加文件' : '新增一次试验记录', chart: editingChartId ? '编辑图表配置' : '新建图表', table: editingTableId ? '编辑数据表配置' : '新建数据表' };
   const dialogContent = () => <Form form={form} layout="vertical" disabled={saving} onFinish={values => submit(values)} onValuesChange={() => { if (dialog === 'chart') setChartPreview(undefined); }}>
     {['family', 'configuration', 'experiment', 'trial'].includes(dialog || '') && <Form.Item name="name" label="名称" rules={[{ required: true, whitespace: true, message: '请输入名称' }]}><Input autoFocus /></Form.Item>}
     {dialog === 'family' && <Form.Item name="description" label="说明（可选）"><Input /></Form.Item>}
     {dialog === 'configuration' && <Form.Item name="description" label="说明"><Input /></Form.Item>}
     {dialog === 'parameter' && <ParameterList />}
-    {dialog === 'experiment' && <><Form.Item name="testType" label="适用试验类型" extra="构型维护时设置，用于专业服务匹配模型" rules={[{ required: true, message: '请选择适用试验类型' }]}><Select options={TEST_TYPES} /></Form.Item><Form.Item name="description" label="说明"><Input /></Form.Item>{setupLocked && <Alert type="info" showIcon message="已有执行记录，试验构型参数已锁定。名称和说明可修改；变更装置或参数请新建试验构型。" />}<Text strong>试验构型参数</Text><ParameterList disabled={setupLocked} allowEmpty /></>}
-    {dialog === 'trial' && <><Form.Item name="description" label="说明"><Input /></Form.Item>{editingTrialId && trial?.records.length ? <Alert type="info" showIcon message="已有执行记录；不同载荷谱应新建具体试验。旧数据未登记载荷谱时，可补充标识。" /> : null}<Form.Item name="loadSpectrum" label="载荷谱名称或编号" rules={[{ required: true, whitespace: true, message: '填写载荷谱标识即可，无须录入曲线' }]}><Input placeholder="例如：载荷谱 01" disabled={Boolean(editingTrialId && trial?.records.length && trial.loadSpectrum)} /></Form.Item><Form.Item name="loadSpectrumDescription" label="载荷谱说明（可选）"><Input /></Form.Item><Form.Item name="taskBookId" label="任务书（可选，仅关联 ID）"><Select allowClear placeholder="自主试验，无需任务书" options={tasks.map(task => ({ value: task.id, label: task.title }))} /></Form.Item>{designArtifacts.length > 0 && <Form.Item name="designArtifactId" label="引用已有设计成果（可选）"><Select allowClear options={designArtifacts.map(artifact => ({ value: artifact.id, label: `${artifact.title} · ${artifactResultLabel(artifact)}` }))} /></Form.Item>}</>}
+    {dialog === 'experiment' && <><Form.Item name="testType" label="适用试验类型（可选）" extra="确定后可用于专业服务匹配模型"><Select options={TEST_TYPES} /></Form.Item><Form.Item name="description" label="说明"><Input /></Form.Item>{setupLocked && <Alert type="info" showIcon message="已有执行记录，试验构型参数已锁定。名称和说明可修改；变更装置或参数请新建试验构型。" />}<Text strong>试验构型参数</Text><ParameterList disabled={setupLocked} allowEmpty /></>}
+    {dialog === 'trial' && <><Form.Item name="description" label="说明"><Input /></Form.Item>{editingTrialId && trial?.records.length ? <Alert type="info" showIcon message="已有执行记录；不同载荷谱应新建具体试验。旧数据未登记载荷谱时，可补充标识。" /> : null}<Form.Item name="loadSpectrum" label="载荷谱名称或编号" rules={[{ required: true, whitespace: true, message: '请填写载荷谱名称或编号' }]}><Input placeholder="例如：载荷谱 01" disabled={Boolean(editingTrialId && trial?.records.length && trial.loadSpectrum)} /></Form.Item><Form.Item name="loadSpectrumDescription" label="载荷谱说明（可选）"><Input /></Form.Item><Form.Item name="taskBookId" label="任务书（可选，仅关联 ID）"><Select allowClear placeholder="自主试验，无需任务书" options={tasks.map(task => ({ value: task.id, label: task.title }))} /></Form.Item>{designArtifacts.length > 0 && <Form.Item name="designArtifactId" label="引用已有设计成果（可选）"><Select allowClear options={designArtifacts.map(artifact => ({ value: artifact.id, label: `${artifact.title} · ${artifactResultLabel(artifact)}` }))} /></Form.Item>}</>}
     {dialog === 'record' && <><Form.Item name="name" label="记录名称（可选）"><Input placeholder={`第 ${(trial?.records.length ?? 0) + 1} 次试验记录`} autoFocus /></Form.Item><Form.Item name="description" label="本次执行说明（可选）"><Input /></Form.Item><div className="physical-upload-section"><Text strong>CSV 原始数据文件（可多选，字段由文件提供）</Text><Upload accept=".csv,text/csv" multiple disabled={saving} fileList={pendingFiles.map(file => ({ uid: file.uid, name: file.name, originFileObj: file }))} beforeUpload={file => { if (!file.name.toLowerCase().endsWith('.csv')) { message.error('请选择 CSV 文件'); return Upload.LIST_IGNORE; } setPendingFiles(items => [...items, file]); return false; }} onRemove={file => setPendingFiles(items => items.filter(item => item.uid !== file.uid))}><Button icon={<FileAddOutlined />}>选择 CSV 文件</Button></Upload>{editingRecordId && record?.rawFiles.map(file => <div className="physical-file-row" key={file.id}><span>{file.name}</span><Text type="secondary">{file.rowCount} 行 · {file.headers.join('、')}</Text></div>)}</div></>}
     {(dialog === 'chart' || dialog === 'table') && <><Form.Item name="name" label={dialog === 'chart' ? '图表名称' : '数据表名称'} rules={[{ required: true, whitespace: true }, { validator: (_, value: string) => dialog === 'chart' && trial && value?.trim() && hasTrialChartNameConflict(trial, value, editingChartId && record ? { id: editingChartId, sourceRecordId: record.id } : undefined) ? Promise.reject(new Error('本具体试验已有同名图表，请使用其他名称。')) : Promise.resolve() }]}><Input autoFocus /></Form.Item><Form.Item name="rawFileId" label="本次记录的 CSV 文件" rules={[{ required: true, message: '选择原始文件' }]}><Select onChange={loadChartHeaders} options={record?.rawFiles.filter(file => file.headers.length).map(file => ({ value: file.id, label: `${file.name}（${file.rowCount} 行）` })) ?? []} /></Form.Item>{chartDataError && dialog === 'chart' && <Alert type="error" message={chartDataError} />}{chartHeaders.length > 0 && <>
       {dialog === 'chart' ? <><Space align="start" wrap><Form.Item name="xField" label="X 轴字段" rules={[{ required: true }]}><Select options={chartHeaders.map(value => ({ value }))} /></Form.Item><Form.Item name="yField" label="Y 轴字段" rules={[{ required: true }]}><Select options={chartHeaders.map(value => ({ value }))} /></Form.Item><Form.Item name="chartType" label="图形"><Select options={[{ value: 'line', label: '折线' }, { value: 'scatter', label: '散点' }, { value: 'bar', label: '柱状' }]} /></Form.Item></Space><Space align="start" wrap><Form.Item name="scale" label="Y 缩放"><InputNumber step={0.1} /></Form.Item><Form.Item name="offset" label="Y 偏移"><InputNumber step={0.1} /></Form.Item><Form.Item name="color" label="颜色"><Input type="color" /></Form.Item><Form.Item name="smooth" label="曲线平滑"><Select options={[{ value: true, label: '平滑' }, { value: false, label: '直线' }]} /></Form.Item></Space></> : <Form.Item name="fields" label="显示字段" rules={[{ required: true, type: 'array', min: 1 }]}><Select mode="multiple" options={chartHeaders.map(value => ({ value }))} /></Form.Item>}
@@ -254,24 +281,24 @@ const PhysicalObjectsPage: React.FC = () => {
     : trial ? { label: '返回试验构型', route: experimentRoute }
       : experiment ? { label: '返回具体物理对象', route: objectRoute } : undefined;
   const crumbs = [
-    ...(family ? [{ title: family.name }] : []),
+    ...(family ? [{ title: <Button type="link" onClick={() => setRoute({ objectId: family.id })}>{family.name}</Button> }] : []),
     ...(configuration ? [{ title: experiment ? <Button type="link" onClick={() => setRoute(objectRoute)}>{configuration.name}</Button> : configuration.name }] : []),
     ...(experiment ? [{ title: trial ? <Button type="link" onClick={() => setRoute(experimentRoute)}>{experiment.name}</Button> : experiment.name }] : []),
     ...(trial ? [{ title: record ? <Button type="link" onClick={() => setRoute(trialRoute)}>{trial.name}</Button> : trial.name }] : []),
     ...(record ? [{ title: recordLabel(record) }] : []),
   ];
   const configPage = (config: PhysicalConfiguration) => <>
-    <div className="physical-config-title"><div><Text type="secondary">具体物理对象</Text><Title level={4}>{config.name}</Title>{config.description && <Text>{config.description}</Text>}<div><Text type="secondary">{config.experiments.length} 个试验构型 · {config.experiments.reduce((count, item) => count + item.trials.length, 0)} 项具体试验</Text></div></div><Button type="primary" onClick={() => startDialog('experiment', { parameters: [{ name: '', value: '', unit: '', description: '' }] })}>新建试验构型</Button></div>
-    <Card size="small" title="技术参数" extra={<Button size="small" onClick={() => startDialog('parameter', { parameters: [{ name: '', value: '', unit: '', description: '' }] })}>新增参数</Button>}>{config.parameters.length ? <div className="physical-field-list">{config.parameters.map(item => <div className="physical-field-row" key={item.id}><Tooltip title={item.description || undefined}><span className={item.description ? 'physical-field-name has-description' : ''}>{item.name}</span></Tooltip><strong>{item.value || '—'} {item.unit}</strong><Button className="physical-parameter-edit" type="link" size="small" onClick={() => { startDialog('parameter', { parameters: [{ ...item }] }); setEditingParameterId(item.id); }}>编辑</Button></div>)}</div> : <Text type="secondary">暂无参数</Text>}</Card>
+    <div className="physical-config-title"><div><Text type="secondary">具体物理对象</Text><Title level={4}>{config.name}</Title>{config.description && <Text>{config.description}</Text>}<div><Text type="secondary">{config.experiments.length} 个试验构型 · {config.experiments.reduce((count, item) => count + item.trials.length, 0)} 项具体试验</Text></div></div><Space wrap>{admin && <Button onClick={() => { startDialog('configuration', { name: config.name, description: config.description }); setEditingMetadata(true); }}>编辑物理对象</Button>}<Button onClick={() => startDialog('experiment', { parameters: [] })}>新建试验构型</Button><Button type="primary" onClick={() => navigate(trialCreatePath({ objectId: family!.id, configurationId: config.id }))}>新建具体试验</Button></Space></div>
+    <Card size="small" title="技术参数" extra={admin && <Button size="small" onClick={() => startDialog('parameter', { parameters: [{ name: '', value: '', unit: '', description: '' }] })}>新增参数</Button>}>{config.parameters.length ? <div className="physical-field-list">{config.parameters.map(item => <div className="physical-field-row" key={item.id}><Tooltip title={item.description || undefined}><span className={item.description ? 'physical-field-name has-description' : ''}>{item.name}</span></Tooltip><strong>{item.value || '—'} {item.unit}</strong>{admin && <Button className="physical-parameter-edit" type="link" size="small" onClick={() => { startDialog('parameter', { parameters: [{ ...item }] }); setEditingParameterId(item.id); }}>编辑</Button>}</div>)}</div> : <Text type="secondary">暂无参数</Text>}</Card>
     {config.designs.length > 0 && <Card size="small" title="对象通用要求">{config.designs.map(design => <div key={design.id} className="physical-design-case"><strong>{design.name}</strong>{design.fields.map(field => <div className="physical-field-row" key={field.id}><Tag>{field.usage}</Tag><span>{field.name}</span><strong>{field.comparison ? `${field.comparison} ` : ''}{field.value} {field.unit}</strong></div>)}</div>)}</Card>}
   </>;
   const experimentPage = (item: ExperimentDefinition, config: PhysicalConfiguration) => {
     const results = collectAnalysisResults(undefined, getSourceArtifacts(projects, sessions, { physicalObjectId: config.id, experimentId: item.id }));
     return <>
-    <div className="physical-config-title"><div><Text type="secondary">试验构型</Text><Title level={4}>{item.name}</Title>{item.description && <Text>{item.description}</Text>}</div><Button onClick={() => { startDialog('experiment', { name: item.name, description: item.description, testType: item.testType, parameters: item.parameters }); setEditingExperimentId(item.id); }}>编辑试验构型</Button></div>
+    <div className="physical-config-title"><div><Text type="secondary">试验构型</Text><Title level={4}>{item.name}</Title>{item.description && <Text>{item.description}</Text>}</div>{admin && <Button onClick={() => { startDialog('experiment', { name: item.name, description: item.description, testType: item.testType, parameters: item.parameters }); setEditingExperimentId(item.id); }}>编辑试验构型</Button>}</div>
     {item.designArtifactRef && <ReferencedDesign artifact={projects.find(project => project.id === item.designArtifactRef?.projectId)?.artifacts.find(artifact => artifact.id === item.designArtifactRef?.artifactId)} />}
     <Card size="small" title="试验构型参数">{renderFields(item.parameters)}</Card>
-    <Card size="small" title={`具体试验 · ${item.trials.length}`} extra={<Button type="primary" size="small" onClick={() => startDialog('trial', { taskBookId: params.get('taskBookId') || undefined })}>新建具体试验</Button>}>
+    <Card size="small" title={`具体试验 · ${item.trials.length}`} extra={<Button type="primary" size="small" onClick={() => navigate(trialCreatePath({ objectId: family!.id, configurationId: config.id, experimentId: item.id, taskBookId: params.get('taskBookId') || undefined }))}>新建具体试验</Button>}>
       <PhysicalTrialsTable trials={item.trials} tasks={tasks} params={params} onQueryChange={patch => {
         const next = new URLSearchParams(params);
         for (const [key, value] of Object.entries(patch)) { if (value) next.set(key, value); else next.delete(key); }
@@ -306,16 +333,15 @@ const PhysicalObjectsPage: React.FC = () => {
       <AnalysisResults trial={entry} activeKind={params.get('result') ?? 'chart'} onKindChange={kind => { const next = new URLSearchParams(params); next.set('result', kind); setParams(next, { replace: true }); }} entries={results} shared={!record} extra={record && <Space wrap><Button size="small" disabled={!record.rawFiles.some(file => file.headers.length)} onClick={() => openTable()}>新建数据表</Button><Button type="primary" size="small" disabled={!record.rawFiles.some(file => file.headers.length)} onClick={() => openChart()}>新建图表</Button></Space>} actions={result => record ? <Space>{result.chart && <><Button type="link" onClick={() => openChart(result.chart)}>配置</Button><Button type="link" disabled={exporting} onClick={() => exportSavedChart(result.chart!)}>导出 PNG</Button></>}{result.table && <Button type="link" onClick={() => openTable(result.table)}>配置</Button>}</Space> : result.record && <Button type="link" onClick={() => setRoute({ ...trialRoute, recordId: result.record!.id })}>前往来源记录</Button>} />
     </>;
   };
-  const objectPage = () => <Empty description={objects.length ? '从左侧选择具体物理对象或试验构型' : '请先创建对象类别'} />;
+  const objectPage = () => family ? <Card title={family.name} extra={<Space>{admin && <Button onClick={() => { startDialog('family', { name: family.name, description: family.description }); setEditingMetadata(true); }}>编辑类别</Button>}<Button onClick={() => startDialog('configuration')}>新建具体物理对象</Button></Space>}><Text>{family.description}</Text>{family.configurations.map(object => <div className="physical-list-row" key={object.id}><Button type="link" onClick={() => setRoute({ objectId: family.id, configurationId: object.id })}>{object.name}</Button></div>)}</Card> : <Empty description={objects.length ? '从左侧选择对象类别、具体物理对象或试验构型' : '暂无对象类别'} />;
+  if (createIntent === 'trial') return <Navigate to={trialCreatePath(Object.fromEntries(params))} replace />;
   if (activeTab === 'taskbooks') return <Navigate to={params.get('taskId') ? taskBookPath(params.get('taskId')!) : '/task-center'} replace />;
   return <div className="physical-page">
-    <div className="physical-heading"><div><div className="workspace-kicker">试验工作表</div><Title level={3}>物理对象与试验数据</Title></div></div>
+    <div className="physical-heading"><div><div className="workspace-kicker">试验工作台</div><Title level={3}>{trial ? trial.name : '物理对象与试验数据'}</Title></div></div>
     {crumbs.length > 0 && <nav className="physical-breadcrumb" aria-label="业务路径"><Breadcrumb items={crumbs} /></nav>}
     {sourceUnavailable && <Alert type="error" showIcon message={requestedRecordUnavailable ? '指定的试验记录不存在或已失效，未切换到其他记录。' : '业务来源已失效；请选择已有对象、构型或记录，不会自动改用其他数据。'} action={<Button onClick={() => setRoute(trialRoute)}>{trial ? '返回所属具体试验' : experiment ? '返回试验构型' : configuration ? '返回具体物理对象' : '重新选择来源'}</Button>} />}
-    <Card className="physical-workspace-card" bordered={false}><Tabs activeKey={activeTab} onChange={key => { const next = new URLSearchParams(params); if (key === 'objects') next.delete('view'); else next.set('view', key); if (key !== 'taskbooks') next.delete('taskId'); setParams(next); }} items={[
-      { key: 'objects', label: '对象与试验', children: <main className="physical-flow-main">{!sourceUnavailable && <>{backTarget && <div className="physical-level-back"><Button type="link" onClick={() => setRoute(backTarget.route)}>{backTarget.label}</Button></div>}{trial && experiment && configuration ? trialPage(trial, experiment, configuration) : experiment && configuration ? experimentPage(experiment, configuration) : configuration ? configPage(configuration) : objectPage()}</>}</main> },
-      { key: 'tools', label: '专业功能', children: <div className="physical-tool-grid">{Object.entries(capabilityNames).map(([key, label]) => <Card key={key} size="small" title={label}><Text type="secondary">{configuration ? `${trial ? `当前试验：${trial.name}` : `当前对象：${configuration.name}`}` : '独立使用'}</Text><Button type="primary" block onClick={() => launchCapability(key)}>打开</Button></Card>)}</div> },
-    ]} /></Card>
+    {trial && !sourceUnavailable && <nav className="trial-capability-navigation" aria-label="具体试验专业功能">{Object.entries(capabilityNames).map(([key, label]) => <Button key={key} onClick={() => launchCapability(key)}>{label}</Button>)}</nav>}
+    <Card className="physical-workspace-card" bordered={false}><main className="physical-flow-main">{!sourceUnavailable && <>{backTarget && <div className="physical-level-back"><Button type="link" onClick={() => setRoute(backTarget.route)}>{backTarget.label}</Button></div>}{trial && experiment && configuration ? trialPage(trial, experiment, configuration) : experiment && configuration ? experimentPage(experiment, configuration) : configuration ? configPage(configuration) : objectPage()}</>}</main></Card>
     <Modal title={dialog ? dialogTitles[dialog] : ''} open={Boolean(dialog)} onCancel={() => { if (!saving) setDialog(null); }} onOk={() => form.submit()} confirmLoading={saving} cancelButtonProps={{ disabled: saving }} okText="保存" cancelText="取消" destroyOnHidden width={dialog === 'chart' || dialog === 'table' ? 820 : 640} okButtonProps={{ icon: <SaveOutlined /> }} footer={dialog === 'chart' ? <Space wrap><Button disabled={saving} onClick={() => setDialog(null)}>取消</Button><Button disabled={saving} onClick={generatePreview}>生成预览</Button><Button loading={saving} onClick={() => { form.validateFields().then(values => submit(values, true)).catch(() => {}); }}>保存并导出 PNG</Button><Button type="primary" loading={saving} onClick={() => form.submit()}>保存成果</Button></Space> : undefined}>{dialogContent()}</Modal>
   </div>;
 };

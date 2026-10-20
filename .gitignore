@@ -35,3 +35,6 @@ pnpm-debug.log*
 .cursor/
 .windsurf/
 .agents/
+
+# Workspace database and write coordination are deployment data.
+data/workspace.sqlite*

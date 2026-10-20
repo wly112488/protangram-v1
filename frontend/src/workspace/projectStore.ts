@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { workspaceStorage, databasePersistenceEnabled } from './workspacePersistence';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   addArtifactToProject,
@@ -71,7 +72,7 @@ const newId = (prefix: string) => {
 };
 
 const getLegacyProjects = (): Project[] => {
-  if (typeof window === 'undefined') return [];
+  if (databasePersistenceEnabled || typeof window === 'undefined') return [];
   try {
     if (window.localStorage.getItem(WORKSPACE_STORAGE_KEY)) return [];
     const raw = window.localStorage.getItem(LEGACY_EXPERIMENT_STORAGE_KEY);
@@ -239,9 +240,11 @@ export const useProjectStore = create<ProjectWorkspaceState>()(
       name: WORKSPACE_STORAGE_KEY,
       version: 1,
       storage: createJSONStorage(() => ({
-        getItem: (key) => localStorage.getItem(key),
-        setItem: (key, value) => { try { localStorage.setItem(key, value); } catch { /* Session save status reports this failure and allows retry. */ } },
-        removeItem: (key) => localStorage.removeItem(key),
+        ...workspaceStorage,
+        setItem: (name, value) => {
+          if (databasePersistenceEnabled) return workspaceStorage.setItem(name, value);
+          try { workspaceStorage.setItem(name, value); } catch { /* Legacy sessions expose local save failures. */ }
+        },
       })),
       partialize: (state) => ({
         projects: state.projects,

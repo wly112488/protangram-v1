@@ -11,10 +11,12 @@ export const createTaskNavigationState = (taskId: string, projectId: string, tas
   workspaceSession: { mode: 'task' as const, taskId, targetProjectId: projectId, taskItemId, professionalProjectId },
 });
 
-export const createTopLevelNavigationSession = (session: WorkspaceSessionState): WorkspaceSessionState =>
-  session.mode === 'task'
-    ? { ...session, taskItemId: undefined }
-    : session;
+export const createTopLevelNavigationSession = (session: WorkspaceSessionState): WorkspaceSessionState => {
+  if (session.mode !== 'task') return session;
+  const { taskItemId, ...context } = session;
+  void taskItemId;
+  return context;
+};
 
 export const createTaskContextSearch = (session: BusinessSession) => session.mode === 'task'
   ? `?taskId=${encodeURIComponent(session.taskId)}${session.taskItemId ? `&taskItemId=${encodeURIComponent(session.taskItemId)}` : ''}${session.professionalProjectId ? `&professionalProjectId=${encodeURIComponent(session.professionalProjectId)}` : ''}${session.sessionId ? `&sessionId=${encodeURIComponent(session.sessionId)}` : ''}`

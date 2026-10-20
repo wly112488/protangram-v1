@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 
 const memory = new Map();
 globalThis.localStorage = { getItem: key => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value), removeItem: key => memory.delete(key) };
-const bundle = await build({ stdin: { contents: "export * from './src/workspace/analysisResultModel'; export * from './src/workspace/professionalContext'; export * from './src/services/predictionPreview'; export * from './src/workspace/physicalObjectStore'; export * from './src/workspace/projectStore'; export * from './src/workspace/sessionStore';", resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent' });
+const bundle = await build({ stdin: { contents: "export * from './src/pages/report/workspaceReportModel'; export * from './src/workspace/resultNaming'; export * from './src/workspace/analysisResultModel'; export * from './src/workspace/professionalContext'; export * from './src/services/predictionPreview'; export * from './src/workspace/physicalObjectStore'; export * from './src/workspace/projectStore'; export * from './src/workspace/sessionStore';", resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent' });
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const physical = api.usePhysicalObjectStore, projects = api.useProjectStore, sessions = api.useSessionStore;
 beforeEach(() => { memory.clear(); physical.setState({ objects: [] }); projects.setState({ projects: [], activeProjectId: null }); sessions.setState({ sessions: [], activeSessionId: null, saveError: null }); });
@@ -144,4 +144,69 @@ test('frontend preview persists in the existing shared structure with demo prove
   assert.equal(results.length, 1); assert.equal(results[0].id, artifact.id);
   assert.equal(results[0].payload.results[0].rows[0].thrust, 18.2);
   assert.equal(api.collectAnalysisResults(f.trial(), results)[0].kind, 'table');
+});
+
+
+test('result names are unique across every execution and professional function of one trial', () => {
+  const f = fixture();
+  f.store.saveChart(f.scope.trialId, f.first, { name: '转速曲线', rawFileId: `csv-${f.first}`, xField: 'time', yField: 'speed', chartType: 'line', startRow: 0, endRow: 0, scale: 1, offset: 0, color: '#1677ff', smooth: false });
+  const artifact = f.save(f.second, 'analysis', [{ id: 'metric', name: '峰值', kind: 'metric', value: 20 }]);
+  const existing = api.collectAnalysisResults(f.trial(), [artifact]);
+  assert.throws(() => api.assertUniqueResultNames([{ name: ' 转速曲线 ' }], existing), /重名/);
+  assert.throws(() => api.assertUniqueResultNames([{ name: '峰值' }], existing), /重名/);
+  assert.doesNotThrow(() => api.assertUniqueResultNames([{ name: '峰值' }], existing, { projectId: artifact.projectId, artifactId: artifact.id }));
+  assert.throws(() => api.assertUniqueResultNames([{ name: '新成果' }, { name: ' 新成果 ' }], existing), /重名/);
+  assert.throws(() => api.assertUniqueResultNames([{ name: '   ' }], existing), /名称/);
+  assert.throws(() => api.assertUniqueResultNames([{ name: ' speed curve ' }], [{ key: 'legacy', kind: 'metric', name: 'Speed Curve' }]), /重名/);
+});
+
+test('cross-record upstream results carry the original CSV references into professional context', () => {
+  const f = fixture();
+  const artifact = f.save(f.second, 'analysis', [{ id: 'metric', name: '峰值', kind: 'metric', value: 20 }]);
+  const sources = api.getProfessionalSources(physical.getState().objects, projects.getState().projects, sessions.getState().sessions, { ...f.scope, testRecordId: f.first });
+  const context = api.professionalDataContext(sources);
+  assert.deepEqual(context.rawFiles.map(file => file.sourceRecordId), [f.first, f.second]);
+  assert.equal(context.rawFiles[1].id, artifact.payload.sourceContext.rawFiles[0].id);
+  assert.equal(context.results[0].data, artifact.payload.results[0]);
+  assert.equal(context.results[0].sourceScope.testRecordId, f.second);
+});
+
+
+test('database report definitions override legacy metadata and retain references to original evidence after reload', async () => {
+  const f = fixture();
+  const evidence = f.save(f.first, 'analysis', [{ id: 'metric', name: '峰值', kind: 'metric', value: 20 }]);
+  const definition = { id: 'report-1', name: '试验报告', workspaceProjectId: evidence.projectId, artifactRefs: [{ projectId: evidence.projectId, artifactId: evidence.id }], chartRefs: [], status: 'draft', tagBindings: {} };
+  projects.getState().addArtifact(evidence.projectId, { id: definition.id, type: 'report', title: definition.name, source: '报告生成', summary: '草稿', payload: { reportDefinition: definition } });
+  const reports = api.getWorkspaceReports(projects.getState().projects, [{ ...definition, name: '浏览器旧名称' }]);
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0], definition);
+  assert.equal(reports[0].artifactRefs, definition.artifactRefs);
+  await projects.persist.rehydrate();
+  const restored = api.getWorkspaceReports(projects.getState().projects);
+  assert.equal(restored[0].name, '试验报告');
+  const reference = restored[0].artifactRefs[0];
+  const original = projects.getState().projects.find(project => project.id === reference.projectId).artifacts.find(artifact => artifact.id === reference.artifactId);
+  assert.equal(original.payload.results[0].value, 20);
+  assert.equal(restored[0].results, undefined);
+  assert.equal(restored[0].artifactCopies, undefined);
+});
+
+test('report artifact selection distinguishes identical artifact IDs across projects', () => {
+  const firstArtifact = { projectId: 'project-a', id: 'legacy-result', payload: { value: 10 } };
+  const secondArtifact = { projectId: 'project-b', id: 'legacy-result', payload: { value: 20 } };
+  const artifacts = [firstArtifact, secondArtifact];
+  assert.deepEqual(api.selectReportArtifacts(artifacts, [api.reportArtifactSelectionKey(firstArtifact)]), [firstArtifact]);
+  assert.equal(api.selectReportArtifacts(artifacts, [api.reportArtifactSelectionKey(secondArtifact)])[0], secondArtifact);
+  assert.equal(firstArtifact.id, secondArtifact.id);
+});
+
+test('report chart selection distinguishes identical chart IDs across execution records', () => {
+  const reference = { physicalObjectId: 'object', experimentId: 'setup', trialId: 'trial', chartId: 'legacy-chart' };
+  const firstChart = { reference: { ...reference, testRecordId: 'record-a' }, chart: { id: 'legacy-chart', data: [1] } };
+  const secondChart = { reference: { ...reference, testRecordId: 'record-b' }, chart: { id: 'legacy-chart', data: [2] } };
+  const charts = [firstChart, secondChart];
+  assert.deepEqual(api.selectReportCharts(charts, [api.reportChartSelectionKey(firstChart.reference)]), [firstChart]);
+  assert.equal(api.selectReportCharts(charts, [api.reportChartSelectionKey(secondChart.reference)])[0], secondChart);
+  assert.deepEqual(api.selectReportCharts(charts, charts.map(chart => api.reportChartSelectionKey(chart.reference))), charts);
+  assert.equal(firstChart.reference.chartId, secondChart.reference.chartId);
 });

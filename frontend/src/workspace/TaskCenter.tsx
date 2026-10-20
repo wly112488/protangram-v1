@@ -8,6 +8,7 @@ import { saveTaskBookFile } from './taskBookStorage';
 import { flattenObjects, usePhysicalObjectStore } from './physicalObjectStore';
 import { useSessionStore } from './sessionStore';
 import { getTaskTrials, getTaskTrialSources, taskBookPath } from './taskTrialModel';
+import { commitWorkspaceChange } from './workspacePersistence';
 import './taskWorkspace.css';
 
 const { Text } = Typography;
@@ -41,17 +42,24 @@ const TaskCenter: React.FC<{ openCreateOnMount?: boolean }> = ({ openCreateOnMou
     if (!title.trim()) return message.warning('请填写任务名称');
     setCreatingTask(true);
     try {
-      const projectId = createProject({ name: title.trim(), description: '任务书关联信息（不解析或执行任务）', status: '进行中' });
-      const taskId = createTask({ title, projectId, sourceName: taskBookFile?.name, requirementTexts: [] });
+      const taskId = await commitWorkspaceChange(() => {
+        const projectId = createProject({ name: title.trim(), description: '任务书关联信息', status: '进行中' });
+        return createTask({ title, projectId, requirementTexts: [] });
+      });
       try {
-        if (taskBookFile) await saveTaskBookFile(taskId, taskBookFile);
+        if (taskBookFile) {
+          await saveTaskBookFile(taskId, taskBookFile);
+          await commitWorkspaceChange(() => useTaskStore.getState().updateTask(taskId, { sourceName: taskBookFile.name }));
+        }
         message.success('任务书已创建');
       } catch {
-        message.warning('任务已创建，但任务书未能保存在本机；稍后可在原文查看器中重新选择 PDF');
+        message.warning('任务书已创建，但 PDF 附件上传失败，可在任务书原文中重新上传');
       }
       setCreateOpen(false);
       resetForm();
       navigate(taskBookPath(taskId));
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '任务书未保存，请重试');
     } finally {
       setCreatingTask(false);
     }

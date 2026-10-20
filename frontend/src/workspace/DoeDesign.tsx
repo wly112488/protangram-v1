@@ -2,32 +2,32 @@ import React, { useCallback } from 'react';
 import { message } from 'antd';
 import FunctionBar from '@/workbench/FunctionBar';
 import { createDoeArtifactInput } from './projectModel';
-import { useProjectStore } from './projectStore';
 import { useSessionRouteState } from './useSessionState';
 import { useWorkspaceBusinessSession } from './useWorkspaceBusinessSession';
 
 const DoeDesign: React.FC = () => {
   const incoming = useSessionRouteState();
-  const { targetProject, recordArtifactForTaskItem } = useWorkspaceBusinessSession(incoming);
-  const addArtifact = useProjectStore(state => state.addArtifact);
+  const { targetProject, recordArtifactForTaskItem, addArtifact } = useWorkspaceBusinessSession(incoming);
 
-  const saveDesign = useCallback((design: { method: string; response: string; factors: Array<{ name: string; type: string; lowLevel: string; highLevel: string; levels: string[]; changeType: string }> }) => {
+  const saveDesign = useCallback(async (design: { method: string; response: string; factors: Array<{ name: string; type: string; lowLevel: string; highLevel: string; levels: string[]; changeType: string }> }) => {
     if (!targetProject) {
       message.error('当前会话没有可保存成果的项目空间');
       return false;
     }
-    const artifact = addArtifact(targetProject.id, createDoeArtifactInput({
-      title: design.method,
-      summary: `${design.method} · ${design.factors.length} 个因子 · 响应：${design.response}`,
-      payload: { designMethod: design.method, response: design.response, factors: design.factors },
-    }));
-    if (!artifact) {
-      message.error('DOE 设计保存失败');
-      return false;
-    }
-    recordArtifactForTaskItem({ projectId: targetProject.id, artifactId: artifact.id });
-    message.success('DOE 设计方案已保存到当前会话');
-    return true;
+    try {
+      const artifact = await addArtifact(targetProject.id, createDoeArtifactInput({
+        title: design.method,
+        summary: `${design.method} · ${design.factors.length} 个因子 · 响应：${design.response}`,
+        payload: { designMethod: design.method, response: design.response, factors: design.factors },
+      }));
+      if (!artifact) {
+        message.error('DOE 设计保存失败');
+        return false;
+      }
+      await recordArtifactForTaskItem({ projectId: targetProject.id, artifactId: artifact.id });
+      message.success('DOE 设计方案已保存到当前会话');
+      return true;
+    } catch (error) { message.error(error instanceof Error ? error.message : 'DOE 设计保存失败'); return false; }
   }, [addArtifact, recordArtifactForTaskItem, targetProject]);
 
   return <FunctionBar

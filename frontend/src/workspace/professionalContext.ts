@@ -42,7 +42,10 @@ export function professionalDataContext(sources: ReturnType<typeof getProfession
   const { source } = sources;
   if (!source.configuration || source.missing) throw new Error('当前试验来源不可用，请返回原试验检查');
   const results = sources.results;
-  const requiredFiles = new Set(results.flatMap(entry => entry.rawFile ? [entry.rawFile.id] : []));
+  const requiredFiles = new Set(results.flatMap(entry => [
+    ...(entry.rawFile ? [entry.rawFile.id] : []),
+    ...((entry.artifact?.payload.sourceContext as { rawFiles?: Array<{ id: string }> } | undefined)?.rawFiles?.map(file => file.id) ?? []),
+  ]));
   const rawFiles = sources.files.filter(file => sources.rawFiles.some(current => current.id === file.id) || requiredFiles.has(file.id));
   const trials = source.trial ? [source.trial] : source.experiment?.trials ?? [];
   return {

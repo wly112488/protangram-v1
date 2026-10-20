@@ -38,6 +38,8 @@ import ProjectResourcesPage from '@/workspace/ProjectResourcesPage';
 import SessionHome from '@/workspace/SessionHome';
 import SessionWorkbench, { SessionEntryRedirect } from '@/workspace/SessionWorkbench';
 import PhysicalObjectsPage from '@/workspace/PhysicalObjectsPage';
+import TrialListPage from '@/workspace/TrialListPage';
+import TrialCreatePage from '@/workspace/TrialCreatePage';
 
 /**
  * 应用路由配置
@@ -48,7 +50,9 @@ const router = createBrowserRouter([
     path: '/',
     element: <MainLayout />,
     children: [
-      { index: true, element: <PhysicalObjectsPage /> },
+      { index: true, element: <TrialListPage /> },
+      { path: 'trials', element: <TrialListPage /> },
+      { path: 'trials/new', element: <TrialCreatePage /> },
       { path: 'physical-objects', element: <PhysicalObjectsPage /> },
       { path: 'task-center', element: <SessionHome /> },
       { path: 'sessions/:sessionId', element: <SessionWorkbench />, children: [
@@ -81,7 +85,7 @@ const router = createBrowserRouter([
       { path: 'experiment/info/sampling', element: <SamplingRequirements /> },
       // 1.2 试验设计
       { path: 'experiment/design', element: <Navigate to="/experiment/design/intelligent" replace /> },
-      { path: 'experiment/design/create', element: <ExperimentCreate /> },
+      { path: 'experiment/design/create', element: <Navigate to="/trials/new" replace /> },
       { path: 'experiment/design/edit/:id', element: <ExperimentCreate /> },
       { path: 'experiment/design/outline/:id', element: <OutlineDesign /> },
       { path: 'experiment/design/intelligent', element: <IntelligentExperimentDesign /> },

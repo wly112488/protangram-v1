@@ -5,7 +5,7 @@ import zhCN from 'antd/locale/zh_CN';
 import ThemeProvider from './components/ThemeProvider';
 import router from './router';
 import useAppStore from '@/stores/useAppStore';
-import { syncAllFromBackend } from '@/utils/storage';
+import { fetchExperiments, fetchTemplates, fetchProjects, fetchReports } from '@/services/api';
 
 /**
  * 应用根组件
@@ -15,13 +15,13 @@ function App() {
   const { setExperiments, setAnalysisTemplates, setAnalysisProjects, setAnalysisReports } = useAppStore();
 
   useEffect(() => {
-    syncAllFromBackend().then(({ experiments, templates, projects, reports }) => {
+    Promise.all([fetchExperiments(), fetchTemplates(), fetchProjects(), fetchReports()]).then(([experiments, templates, projects, reports]) => {
       if (experiments.length > 0) setExperiments(experiments);
       if (templates.length > 0) setAnalysisTemplates(templates);
       if (projects.length > 0) setAnalysisProjects(projects);
       if (reports.length > 0) setAnalysisReports(reports);
     }).catch((err) => {
-      console.warn('后端数据同步失败，使用本地缓存:', err);
+      console.warn('历史资料读取失败:', err);
     });
   }, [setExperiments, setAnalysisTemplates, setAnalysisProjects, setAnalysisReports]);
 

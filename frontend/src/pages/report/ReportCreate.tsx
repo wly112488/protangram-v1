@@ -1,3 +1,7 @@
+import { reportArtifactSelectionKey, reportChartSelectionKey, selectReportArtifacts, selectReportCharts } from './workspaceReportModel';
+import { recordLabel } from '../../workspace/physicalBusinessContext';
+import { commitWorkspaceChange } from '@/workspace/workspacePersistence';
+import { getProfessionalSources } from '@/workspace/professionalContext';
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import { useSessionStore } from '@/workspace/sessionStore';
 import { getSessionDraftKey, getSessionPath } from '@/workspace/sessionModel';
@@ -12,16 +16,16 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
 import useAppStore from '@/stores/useAppStore';
-import { loadAnalysisProjects, loadExperiments, loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
+import { loadAnalysisProjects, loadExperiments, loadAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
 import ProjectSidebar from '@/workspace/ProjectSidebar';
 import { useTaskStore } from '@/workspace/taskStore';
-import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js';
+import { createReportArtifactInput, getReportableArtifacts, resolveReportProjectId } from './reportModel.js';
 import { resolveTaskReportProjectId } from './taskReportModel';
 import type { AnalysisProject, AnalysisReport } from '@/types';
 import type { ProjectArtifact } from '@/workspace/types';
 import { getRecordCharts, usePhysicalObjectStore } from '@/workspace/physicalObjectStore';
-import { artifactResultLabel, getSourceArtifacts, recordChartKey, resolvePhysicalSource, type ArtifactReference, type RecordChartReference } from '@/workspace/physicalBusinessContext';
+import { artifactResultLabel, getSourceArtifacts, resolvePhysicalSource, type ArtifactReference, type RecordChartReference } from '@/workspace/physicalBusinessContext';
 
 import { getTaskTrials, getTaskTrialSources, getTaskReportArtifacts, taskBookPath } from '@/workspace/taskTrialModel';
 
@@ -80,10 +84,10 @@ const ReportCreate: React.FC = () => {
   const taskEntries = getTaskTrials(objects, projects, sessions, task?.id ?? '');
   const taskSources = getTaskTrialSources(taskEntries);
   const taskArtifacts = task ? getReportableArtifacts(getTaskReportArtifacts(task, taskEntries, projects)) : [];
-  const artifactKey = (artifact: ProjectArtifact) => taskBoundMode ? JSON.stringify([artifact.projectId, artifact.id]) : artifact.id;
-  const chartChoices = taskBoundMode ? taskSources.charts : source.record ? getRecordCharts(source.trial, source.record.id).map(chart => ({ chart, label: `${chart.name} · ${chart.xField} / ${chart.yField}`, reference: { physicalObjectId: source.configuration!.id, experimentId: source.experiment!.id, trialId: source.trial!.id, testRecordId: source.record!.id, chartId: chart.id } })) : [];
-  const chartKey = (item: typeof chartChoices[number]) => taskBoundMode ? recordChartKey(item.reference) : item.chart.id;
-  const sourceArtifacts = getReportableArtifacts(getSourceArtifacts(projects, sessions, scope));
+  const artifactKey = reportArtifactSelectionKey;
+  const chartChoices = taskBoundMode ? taskSources.charts : source.trial ? source.trial.records.flatMap(record => getRecordCharts(source.trial, record.id).map(chart => ({ chart, label: `${recordLabel(record)} · ${chart.name} · ${chart.xField} / ${chart.yField}`, reference: { physicalObjectId: source.configuration!.id, experimentId: source.experiment!.id, trialId: source.trial!.id, testRecordId: chart.sourceRecordId, chartId: chart.id } }))) : [];
+  const chartKey = (item: typeof chartChoices[number]) => reportChartSelectionKey(item.reference);
+  const sourceArtifacts = getReportableArtifacts(scope?.physicalObjectId && source.trial ? [...new Map(getProfessionalSources(objects, projects, sessions, scope).results.flatMap(entry => entry.artifact ? [[`${entry.artifact.projectId}/${entry.artifact.id}`, entry.artifact] as const] : [])).values()] : getSourceArtifacts(projects, sessions, scope));
   const [selectedChartIds, setSelectedChartIds] = useSessionState<string[]>('selectedChartIds', []);
   const [legacyProjects, setLegacyProjects] = useState<AnalysisProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useSessionState('selectedProjectId', routeProjectId ?? '');
@@ -123,13 +127,13 @@ const ReportCreate: React.FC = () => {
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
   const selectedLegacyProject = legacyProjects.find((project) => project.id === selectedProjectId);
   const reportableArtifacts = taskBoundMode ? taskArtifacts : scope?.physicalObjectId ? sourceArtifacts : selectedProject ? getReportableArtifacts(selectedProject.artifacts) : [];
-  const selectedArtifacts = reportableArtifacts.filter(artifact => selectedArtifactIds.includes(artifactKey(artifact)) || selectedArtifactIds.includes(artifact.id));
+  const selectedArtifacts = selectReportArtifacts(reportableArtifacts, selectedArtifactIds);
 
   const handleProjectChange = (id: string) => {
     setSelectedProjectId(id);
     const nextProject = projects.find((project) => project.id === id);
     setSelectedArtifactIds(nextProject
-      ? getReportableArtifacts(nextProject.artifacts).map((artifact) => artifact.id)
+      ? getReportableArtifacts(nextProject.artifacts).map(artifactKey)
       : []);
   };
 
@@ -142,6 +146,7 @@ const ReportCreate: React.FC = () => {
       }
       const project = projects.find((item) => item.id === values.analysisProjectId);
       const legacyProject = legacyProjects.find((item) => item.id === values.analysisProjectId);
+      if (!project) throw new Error('请先关联可用的工作台项目，再创建报告');
       const report: ReportRecord = {
         id: uuidv4(),
         name: task ? `${task.title}_任务报告` : `${project?.name || legacyProject?.experimentName || '未命名'}_分析报告`,
@@ -158,28 +163,26 @@ const ReportCreate: React.FC = () => {
         workspaceProjectId: project?.id,
         artifactIds: selectedArtifacts.map(artifact => artifact.id),
         artifactRefs: selectedArtifacts.map(artifact => ({ projectId: artifact.projectId, artifactId: artifact.id })),
-        chartRefs: chartChoices.filter(item => selectedChartIds.includes(chartKey(item))).map(item => item.reference),
+        chartRefs: selectReportCharts(chartChoices, selectedChartIds).map(item => item.reference),
         taskId: task?.id,
         taskItemId,
-        reportContent: task ? task.reportDraft.sections.map((section) => {
-          const linkedArtifacts = section.artifactRefs
-            .map((reference) => projects.find((candidate) => candidate.id === reference.projectId)?.artifacts.find((artifact) => artifact.id === reference.artifactId))
-            .filter((artifact): artifact is ProjectArtifact => artifact !== undefined)
-            .map((artifact) => `成果：${artifact.title}\n${artifact.summary}`);
-          return `## ${section.title}\n${section.body}${linkedArtifacts.length > 0 ? `\n\n${linkedArtifacts.join('\n\n')}` : ''}`;
-        }).join('\n\n') : undefined,
+        reportContent: task ? task.reportDraft.sections.map(section => `## ${section.title}\n${section.body}`).join('\n\n') : undefined,
       };
 
+      await commitWorkspaceChange(() => {
+        if (project) {
+          const input = createReportArtifactInput({ reportId: report.id, title: report.name, summary: '报告配置草稿', reportTemplateId: report.reportTemplateId, artifactIds: report.artifactIds ?? [], tagBindings: {} });
+          const saved = useProjectStore.getState().addArtifact(project.id, { ...input, status: 'draft', payload: { ...input.payload, reportDefinition: report, artifactRefs: report.artifactRefs, chartRefs: report.chartRefs, sourceScope: scope, resultMode: 'composed' } });
+          if (!saved) throw new Error('当前试验的报告空间不可用');
+        }
+        if (task?.id && taskItemId) setTaskRequirementStatus(task.id, taskItemId, '进行中');
+      });
       addAnalysisReport(report);
-      if (task?.id && taskItemId) setTaskRequirementStatus(task.id, taskItemId, '进行中');
-      const all = loadAnalysisReports().filter((item) => item.id !== report.id);
-      all.push(report);
-      saveAnalysisReports(all);
 
       message.success(taskBoundMode ? '报告配置已保存，可继续编制正式报告' : '报告已创建');
       navigate(`${scope?.sessionId ? getSessionPath(scope.sessionId, 'report') : '/report'}/generate/${report.id}${task ? `?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}` : ''}`);
-    } catch {
-      message.error(taskBoundMode ? '报告配置保存失败，请检查任务资料后重试' : '请选择项目和报告模板');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : taskBoundMode ? '报告配置保存失败，请检查任务资料后重试' : '请选择项目和报告模板');
     }
   };
 

@@ -1,3 +1,5 @@
+import AnalysisResults from '@/workspace/AnalysisResults';
+import { commitWorkspaceChange } from '@/workspace/workspacePersistence';
 import { UNSELECTED_MODEL } from '@/types/businessContext';
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -75,8 +77,10 @@ const IntelligentExperimentDesign: React.FC = () => {
   const incoming = useSessionRouteState();
   const { setContext } = useTrialAIAssistant();
   const { projects, session, targetProject, recordArtifactForTaskItem, physicalSource, sources, addArtifact } = useWorkspaceBusinessSession(incoming);
-  const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
-  const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const addArtifactToReport = useCallback(async (taskId: string, reference: { projectId: string; artifactId: string }) => {
+    try { await commitWorkspaceChange(() => useTaskStore.getState().addArtifactToReport(taskId, reference)); return true; }
+    catch (error) { message.error(error instanceof Error ? error.message : '报告关联保存失败'); return false; }
+  }, []);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
 
   const incomingRange = parseRange(incoming?.validation?.suggestedRange);
@@ -147,29 +151,31 @@ const IntelligentExperimentDesign: React.FC = () => {
     message.success('已恢复默认智能设计配置');
   };
 
-  const persistDesign = useCallback((projectId: string) => {
+  const persistDesign = useCallback(async (projectId: string) => {
     const project = projects.find((item) => item.id === projectId);
     if (!project) return null;
-    const artifact = addArtifact(projectId, createDesignArtifactInput({
-      title: `${config.target} · 智能推荐方案`,
-      summary: `推荐 ${plan.length} 个试验工况，预计覆盖率 86%，高风险工况 ${plan.filter((row) => row.risk === '高').length} 个`,
-      payload: {
-        model,
-        datasets,
-        config,
-        constraints,
-        plan,
-        coverage: 86,
-        highRiskCount: plan.filter((row) => row.risk === '高').length,
-      },
-    }));
-    if (!artifact) return null;
-    recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
-    message.success(session.sessionId ? '推荐方案已保存到当前会话' : `推荐方案已保存到项目“${project.name}”`);
-    return artifact;
+    try {
+      const artifact = await addArtifact(projectId, createDesignArtifactInput({
+        title: `${config.target} · 智能推荐方案`,
+        summary: `推荐 ${plan.length} 个试验工况，预计覆盖率 86%，高风险工况 ${plan.filter((row) => row.risk === '高').length} 个`,
+        payload: {
+          model,
+          datasets,
+          config,
+          constraints,
+          plan,
+          coverage: 86,
+          highRiskCount: plan.filter((row) => row.risk === '高').length,
+        },
+      }));
+      if (!artifact) return null;
+      await recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
+      message.success(session.sessionId ? '推荐方案已保存到当前会话' : `推荐方案已保存到项目“${project.name}”`);
+      return artifact;
+    } catch (error) { message.error(error instanceof Error ? error.message : '方案保存失败'); return null; }
   }, [projects, addArtifact, config, plan, model, datasets, constraints, recordArtifactForTaskItem, session.sessionId]);
 
-  const persistDoeDesign = useCallback((design: {
+  const persistDoeDesign = useCallback(async (design: {
     method: string;
     response: string;
     factors: Array<{ name: string; type: string; lowLevel: string; highLevel: string; levels: string[]; changeType: string }>;
@@ -179,18 +185,20 @@ const IntelligentExperimentDesign: React.FC = () => {
       message.error('当前会话没有可保存成果的项目空间');
       return false;
     }
-    const artifact = addArtifact(targetProject.id, createDoeArtifactInput({
-      title: design.method,
-      summary: `${design.method} · ${design.factors.length} 个因子 · 响应：${design.response}`,
-      payload: { designMethod: design.method, response: design.response, factors: design.factors, replicates: design.replicates },
-    }));
-    if (!artifact) {
-      message.error('DOE 设计保存失败');
-      return false;
-    }
-    recordArtifactForTaskItem({ projectId: targetProject.id, artifactId: artifact.id });
-    message.success('DOE 设计方案已保存到当前会话');
-    return true;
+    try {
+      const artifact = await addArtifact(targetProject.id, createDoeArtifactInput({
+        title: design.method,
+        summary: `${design.method} · ${design.factors.length} 个因子 · 响应：${design.response}`,
+        payload: { designMethod: design.method, response: design.response, factors: design.factors, replicates: design.replicates },
+      }));
+      if (!artifact) {
+        message.error('DOE 设计保存失败');
+        return false;
+      }
+      await recordArtifactForTaskItem({ projectId: targetProject.id, artifactId: artifact.id });
+      message.success('DOE 设计方案已保存到当前会话');
+      return true;
+    } catch (error) { message.error(error instanceof Error ? error.message : 'DOE 设计保存失败'); return false; }
   }, [addArtifact, recordArtifactForTaskItem, targetProject]);
 
   const createTask = (workspaceSession: NonNullable<BusinessRouteState['workspaceSession']>) => {
@@ -211,18 +219,17 @@ const IntelligentExperimentDesign: React.FC = () => {
     });
   };
 
-  const confirmPlan = () => {
+  const confirmPlan = async () => {
     if (!generated) return message.warning('请先生成推荐方案');
     if (session.mode === 'task' && session.taskItemId && targetProject) {
-      const artifact = persistDesign(targetProject.id);
+      const artifact = await persistDesign(targetProject.id);
       if (!artifact) return;
-      addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id });
-      setRequirementStatus(session.taskId, session.taskItemId, '待确认');
+      if (!await addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id })) return;
       navigate(createTaskReturnPath(session));
       return;
     }
     if (targetProject) {
-      if (persistDesign(targetProject.id)) createTask(session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: targetProject.id });
+      if (await persistDesign(targetProject.id)) createTask(session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: targetProject.id });
       return;
     }
     setSaveTargetOpen(true);
@@ -244,17 +251,16 @@ const IntelligentExperimentDesign: React.FC = () => {
 
   useEffect(() => {
     if (!autoExecute || !generated || autoReturned.current || !targetProject || session.mode !== 'task' || !session.taskItemId) return;
-    const publish = window.setTimeout(() => {
+    const publish = window.setTimeout(async () => {
     autoReturned.current = true;
-    const artifact = persistDesign(targetProject.id);
+    const artifact = await persistDesign(targetProject.id);
     if (!artifact) return;
-    addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id });
-    setRequirementStatus(session.taskId, session.taskItemId!, '待确认');
+    if (!await addArtifactToReport(session.taskId, { projectId: targetProject.id, artifactId: artifact.id })) return;
     message.success('已按复核后的任务规划完成模拟设计，成果已回到原任务');
     navigate(createTaskReturnPath(session));
     }, 0);
     return () => window.clearTimeout(publish);
-  }, [addArtifactToReport, autoExecute, generated, navigate, persistDesign, session, setRequirementStatus, targetProject]);
+  }, [addArtifactToReport, autoExecute, generated, navigate, persistDesign, session, targetProject]);
 
   const handleBusinessAction = useCallback((action: BusinessAction) => {
     if (action === '调整方案') {
@@ -412,13 +418,14 @@ const IntelligentExperimentDesign: React.FC = () => {
           { title: '操作', render: (_value: unknown, row: PlanRow, index: number) => <Space><Button size="small" icon={<ArrowUpOutlined />} disabled={index === 0} onClick={() => movePlan(index, -1)} /><Button size="small" icon={<ArrowDownOutlined />} disabled={index === plan.length - 1} onClick={() => movePlan(index, 1)} /><Button size="small" danger icon={<DeleteOutlined />} onClick={() => setPlan((prev) => prev.filter((item) => item.key !== row.key).map((item, rowIndex) => ({ ...item, order: rowIndex + 1 })))} /></Space> },
         ]} />
       </Modal>
+      {physicalSource.trial && <AnalysisResults entries={sources.results} shared trial={physicalSource.trial} />}
       <ProjectSaveTargetModal
         open={saveTargetOpen}
         title="确认方案并保存到项目"
         skipText="仅创建试验任务，不保存到项目"
         onCancel={() => setSaveTargetOpen(false)}
-        onConfirm={(projectId) => {
-          if (!persistDesign(projectId)) return;
+        onConfirm={async (projectId) => {
+          if (!await persistDesign(projectId)) return;
           setSaveTargetOpen(false);
           createTask(session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: projectId });
         }}

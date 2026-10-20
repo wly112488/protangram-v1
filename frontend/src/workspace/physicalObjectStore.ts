@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { workspaceStorage } from './workspacePersistence';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type DataForm = '单值' | '分组' | '表格' | '序列' | '文件';
@@ -49,7 +50,12 @@ const blankConfig = (name: string, description = ''): PhysicalConfiguration => (
 const blankFamily = (name: string, type = '自定义对象', description = ''): PhysicalObject => ({ id: id('object'), name, type, description, configurations: [], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
 export const findObjectCategory = (items: PhysicalObject[], categoryOrObjectId: string) => items.find(category => category.id === categoryOrObjectId || category.legacyCategories?.some(item => item.id === categoryOrObjectId) || category.configurations.some(object => object.id === categoryOrObjectId));
 function defaultCategories(): PhysicalObject[] {
-  return [['category-fan', '涵道风扇'], ['category-motor', '电机'], ['category-propulsion', '电推进']].map(([categoryId, name]) => ({ ...blankFamily(name, name), id: categoryId, legacyCategories: [] }));
+  const fans = [1, 2].map(index => ({
+    ...blankConfig(`涵道风扇 ${String(index).padStart(2, '0')}`, '系统预置对象；技术定义待按实际设备补充。'),
+    id: `ducted-fan-${String(index).padStart(2, '0')}`,
+    experiments: [1, 2].map(setup => ({ id: `fan-${index}-setup-${setup}`, name: `试验构型 ${String.fromCharCode(64 + setup)}`, parameters: [], trials: [] })),
+  }));
+  return [['category-fan', '涵道风扇'], ['category-motor', '电机'], ['category-propulsion', '电推进']].map(([categoryId, name]) => ({ ...blankFamily(name, name), id: categoryId, configurations: categoryId === 'category-fan' ? fans : [], legacyCategories: [] }));
 }
 const mapConfig = (items: PhysicalObject[], configId: string, update: (item: PhysicalConfiguration) => PhysicalConfiguration) => items.map(family => ({ ...family, configurations: family.configurations.map(config => config.id === configId ? update(config) : config) }));
 const mapExperiment = (items: PhysicalObject[], experimentId: string, update: (item: ExperimentDefinition) => ExperimentDefinition) => items.map(family => ({ ...family, configurations: family.configurations.map(config => ({ ...config, experiments: config.experiments.map(item => item.id === experimentId ? update(item) : item) })) }));
@@ -148,7 +154,7 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
     const now = new Date().toISOString(), idToSave = tableId ?? id('table');
     set(state => ({ objects: mapRecord(state.objects, trialId, recordId, item => ({ ...item, tables: tableId ? item.tables.map(old => old.id === tableId ? { ...old, ...table, updatedAt: now } : old) : [...item.tables, { ...table, id: idToSave, createdAt: now, updatedAt: now }] })) }));return idToSave;
   },
-}), { name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage), version: 6, migrate: migratePhysicalState }));
+}), { name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => workspaceStorage), version: 6, migrate: migratePhysicalState }));
 
 // Migration-only input shape. Old fields never remain as a parallel live record system.
 type LegacyRecord = Partial<TestRecord> & { id: string; charts?: DerivedChart[]; data?: ValueField[] };

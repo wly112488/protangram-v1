@@ -21,7 +21,7 @@ export interface WorkSession {
 }
 
 export const sessionCapabilities = [
-  { key: 'doe', path: 'doe', label: '智能实验设计', description: '确认试验目标与约束，生成试验方案' },
+  { key: 'doe', path: 'doe', label: '智能试验设计', description: '确认试验目标与约束，生成试验方案' },
   { key: 'analysis', path: 'analysis', label: '数据分析', description: '分析趋势、异常与根因' },
   { key: 'digitalTwin', path: 'digital-twin', label: '数字孪生', description: '继承试验数据，形成数字孪生成果' },
   { key: 'virtualCondition', path: 'virtual-condition', label: '虚拟工况', description: '扩展工况范围，查看预测与风险' },

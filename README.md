@@ -3,6 +3,40 @@
 ## 项目概述
 一款工业试验数据数智化分析软件，包含试验管理、数据分析、报告生成、系统管理四大模块。
 
+## 具体试验工作台（2026-10-19）
+
+首页 `/trials` 列出具体试验，`/trials/new` 是统一创建入口。选择物理对象与试验构型，填写名称和载荷谱；任务书可选。所有实验人员都能在当前表单即时新建类别、对象和构型。左侧保留可搜索的对象、构型、具体试验树。五项专业功能共享当前试验与执行记录来源，任务书通过关联关系汇总原数据和成果。
+
+业务数据通过 `/api/workspace` 保存到 SQL.js/SQLite 数据库 `data/workspace.sqlite`，CSV 和任务书 PDF 也保存到数据库。服务器确认写入后才显示已保存，版本冲突要求重新加载。业务正文不再依赖浏览器 localStorage 配额。原 JSON 目录作为历史资料保留。
+
+```bash
+# 终端 1，WSL 后端
+cd backend
+PORT=3001 npm start
+
+# 终端 2，前端（选择未被 Windows 占用的端口）
+cd frontend
+npm run dev -- --host 0.0.0.0 --port 5175 --strictPort
+```
+
+`PROTANGRAM_WORKSPACE_DB` 可指定后端数据库文件，`PROTANGRAM_API_URL` 可指定前端开发代理的后端地址。默认数据库与锁文件已忽略，不进入 Git。
+
+**权限接入边界：** 当前项目没有登录和身份接口。所有实验人员都可以通过对象树入口或创建试验流程新增类别、物理对象和试验构型；后端拒绝普通角色改写或删除已有定义。管理员仍可编辑已有对象和维护专业参数。`PROTANGRAM_WORKSPACE_ROLE=admin` 是部署级维护角色，不是用户账号；企业身份认证和同一部署的多用户角色仍需接入。
+
+**计算接入边界：** 数字孪生和虚拟工况缺少真实后台模型匹配、输入协议和计算接口。页面保留来源与共享成果，明确不生成预测结果，不展示模型选择、服务状态或预先固化的专业输入。现有智能设计/数据分析的演示算法保留并标明性质，实际计算仍需接入。报告配置、引用和正文可持久化，外部 Word/PDF 渲染沿用原接入边界。
+
+旧浏览器数据可由管理员在数据库为空时显式导入，保留 ID 和成果引用，历史重名提示用户处理。原 IndexedDB 中的 CSV/PDF 附件需在对应执行记录或任务书重新上传，原浏览器数据不会自动清空。
+
+```bash
+cd backend
+node --test tests/*.test.cjs
+cd ../frontend
+node --test tests/*.test.mjs
+npm run build
+```
+
+端到端脚本 `frontend/scripts/verify-trial-first.mjs` 使用已安装的 Puppeteer 与浏览器，需设置 `PROTANGRAM_PUPPETEER_MODULE`、`PROTANGRAM_BROWSER_PATH`、`PROTANGRAM_TEST_URL`，可用 `PROTANGRAM_EXPERIMENTER_URL` 验证普通角色。请对临时数据库执行，脚本会创建真实测试数据。复用已有 sql.js、multer，未增加生产依赖。
+
 ## 技术栈
 | 层级 | 技术 |
 |------|------|

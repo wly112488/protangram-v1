@@ -72,12 +72,15 @@ test('top-level module navigation keeps the task but does not inherit a focused 
   assert.deepEqual(session, { mode: 'task', taskId: 'task-1', targetProjectId: 'project-1' });
 });
 
-test('task-linked project overview identifies project analysis as separate from task-item execution', () => {
-  const source = readFileSync(path.join(frontendRoot, 'src/workspace/ProjectOverview.tsx'), 'utf8');
-
-  assert.match(source, /独立于任务事项/);
-  assert.match(source, /结果仅保存到项目/);
-  assert.match(source, /关联到任务事项/);
+test('top-level navigation preserves trial and execution provenance without a task-item binding', async () => {
+  const { createTopLevelNavigationSession } = await loadTypeScriptModule('src/workspace/businessSessionModel.ts');
+  const original = { mode: 'task', taskId: 'task-1', targetProjectId: 'project-1', taskItemId: 'item-a', physicalObjectId: 'object-1', experimentId: 'config-1', trialId: 'trial-1', testRecordId: 'record-1' };
+  const result = createTopLevelNavigationSession(original);
+  assert.equal(result.trialId, 'trial-1');
+  assert.equal(result.testRecordId, 'record-1');
+  assert.equal(result.taskId, 'task-1');
+  assert.equal(Object.hasOwn(result, 'taskItemId'), false);
+  assert.equal(original.taskItemId, 'item-a');
 });
 
 test('task plan exposes add, edit, and remove controls for human review', () => {

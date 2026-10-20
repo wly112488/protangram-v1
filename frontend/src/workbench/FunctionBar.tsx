@@ -110,7 +110,7 @@ interface FunctionBarProps {
     response: string;
     factors: MethodFactorRow[];
     replicates?: { count?: number; hardToChange?: number; easyToChange?: string };
-  }) => boolean | void;
+  }) => boolean | void | Promise<boolean | void>;
   experiments: Array<{ id: string; name: string; associationObjectId?: string }>;
   activeProjectId?: string | null;
   workspaceSession?: WorkspaceSessionState;
@@ -236,9 +236,9 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       ? 700
       : 610;
 
-  const handleMethodConfirm = () => {
+  const handleMethodConfirm = async () => {
     if (!selectedMethod) return;
-    const saved = onDoeDesignConfirmed?.({
+    const saved = await onDoeDesignConfirmed?.({
       method: selectedMethod.description,
       response: methodResponseName.trim() || '响应变量',
       factors: methodFactorRows.map(row => ({ ...row, name: row.name.trim() || '未命名因子' })),
@@ -361,9 +361,9 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
     );
   };
 
-  const confirmTemplateDesign = () => {
+  const confirmTemplateDesign = async () => {
     if (!selectedTemplate) return;
-    const saved = onDoeDesignConfirmed?.({
+    const saved = await onDoeDesignConfirmed?.({
       method: selectedTemplate.designMethod,
       response: templateResponseName.trim() || selectedTemplate.responses[0] || '响应变量',
       factors: templateLevelRows.map((row, index) => ({

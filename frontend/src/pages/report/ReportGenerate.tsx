@@ -1,3 +1,5 @@
+import { getWorkspaceReports } from './workspaceReportModel';
+import { commitWorkspaceChange } from '@/workspace/workspacePersistence';
 import { useSessionRouteState, useSessionState } from '@/workspace/useSessionState';
 import { useSessionStore } from '@/workspace/sessionStore';
 import { getSessionDraftKey, getSessionPath } from '@/workspace/sessionModel';
@@ -11,7 +13,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
-import { loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
+import { loadAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTaskStore } from '@/workspace/taskStore';
 import { createReportArtifactInput, getReportableArtifacts, resolveReportOutputVariables, hasUnavailableReportBindings, hasReportNarrative } from './reportModel.js';
@@ -61,7 +63,7 @@ const ReportGenerate: React.FC = () => {
   const navigate = useNavigate();
   const { reportId } = useParams<{ reportId: string }>();
   const { analysisReports, updateAnalysisReport, setAnalysisReports } = useAppStore();
-  const { projects, addArtifact, removeArtifact } = useProjectStore();
+  const { projects, addArtifact } = useProjectStore();
   const objects = usePhysicalObjectStore(state => state.objects);
   const setFormalTaskReportArtifact = useTaskStore((state) => state.setFormalReportArtifact);
   const setTaskRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
@@ -76,7 +78,8 @@ const ReportGenerate: React.FC = () => {
   const [reportGenerated, setReportGenerated] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const report = analysisReports.find((r) => r.id === reportId) as ReportRecord | undefined;
+  const savedReport = getWorkspaceReports(projects).find(report => report.id === reportId) as ReportRecord | undefined;
+  const report = savedReport ?? analysisReports.find((r) => r.id === reportId) as ReportRecord | undefined;
   const task = tasks.find((item) => item.id === report?.taskId);
   const workspaceProjectId = report?.workspaceProjectId
     || projects.find((project) => project.id === report?.analysisProjectId)?.id;
@@ -113,7 +116,7 @@ const ReportGenerate: React.FC = () => {
       reports = loadAnalysisReports();
       if (reports.length > 0) setAnalysisReports(reports);
     }
-    const r = reports.find((r) => r.id === reportId);
+    const r = savedReport ?? reports.find((r) => r.id === reportId);
     if (r?.tagBindings && restoredBindings.current === undefined) {
       setTagBindings(r.tagBindings);
       restoredBindings.current = r.tagBindings;
@@ -121,7 +124,7 @@ const ReportGenerate: React.FC = () => {
     if (r?.status === 'generated') {
       setReportGenerated(true);
     }
-  }, [reportId, analysisReports, setAnalysisReports, setTagBindings]);
+  }, [reportId, savedReport, analysisReports, setAnalysisReports, setTagBindings]);
 
   /**
    * 开始拖拽输出变量
@@ -156,50 +159,39 @@ const ReportGenerate: React.FC = () => {
   /**
    * 保存绑定关系
    */
-  const handleSave = () => {
-    // Saving configuration does not regenerate a report or change its generated provenance.
-    updateAnalysisReport(reportId!, { tagBindings, status: 'draft' });
-    const current = report ? { ...report, tagBindings, status: 'draft' as const } : undefined;
-    const all = loadAnalysisReports().filter((r) => r.id !== reportId);
-    if (current) all.push(current);
-    saveAnalysisReports(all);
-    setReportGenerated(false);
-    message.success('绑定关系已保存');
-  };
-
-  /**
-   * 生成报告
-   */
-  const handleGenerateReport = () => {
-    updateAnalysisReport(reportId!, { tagBindings, dataSource, status: 'generated' });
-    const current = report ? { ...report, tagBindings, dataSource, status: 'generated' as const } : undefined;
-    const all = loadAnalysisReports().filter((r) => r.id !== reportId);
-    if (current) all.push(current);
-    saveAnalysisReports(all);
-    if (workspaceProject && report && !usingDemo) {
-      const existingArtifact = workspaceProject.artifacts.find((artifact) => artifact.id === report.id);
-      if (existingArtifact) removeArtifact(workspaceProject.id, existingArtifact.id);
-      const reportInput = createReportArtifactInput({
-        reportId: report.id,
-        title: report.name,
-        summary: `${report.name} · 已绑定 ${Object.keys(tagBindings).length} 项内容`,
-        reportTemplateId: report.reportTemplateId,
-        artifactIds: selectedArtifactIds || projectOutputVariables.map((item) => item.id),
-        tagBindings,
-      });
-      const reportArtifact = addArtifact(workspaceProject.id, { ...reportInput, payload: { ...reportInput.payload, artifactRefs: report.artifactRefs, chartRefs: report.chartRefs, resultMode: 'composed', sourceScope: routeState?.workspaceSession } });
-      if (reportArtifact && report?.taskId) {
-        setFormalTaskReportArtifact(report.taskId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
-        const reportRequirementId = report.taskItemId ?? task?.requirements.find((requirement) => requirement.capability === 'report')?.id;
-        if (reportRequirementId) {
-          addArtifactToTaskItem(report.taskId, reportRequirementId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
-          setTaskRequirementStatus(report.taskId, reportRequirementId, '已满足');
+  const persistReport = async (generate: boolean) => {
+    if (!report) return;
+    const current = { ...report, tagBindings, ...(generate ? { dataSource } : {}), status: generate ? 'generated' as const : 'draft' as const };
+    try {
+      if (!workspaceProject && !usingDemo) throw new Error('报告关联的试验空间不可用，请修复来源后重试');
+      await commitWorkspaceChange(() => {
+        if (workspaceProject && !usingDemo) {
+          const reportInput = createReportArtifactInput({
+            reportId: report.id, title: report.name,
+            summary: `${report.name} · 已绑定 ${Object.keys(tagBindings).length} 项内容`,
+            reportTemplateId: report.reportTemplateId,
+            artifactIds: selectedArtifactIds || projectOutputVariables.map(item => item.id), tagBindings,
+          });
+          const existing = useProjectStore.getState().projects.find(project => project.id === workspaceProject.id)?.artifacts.find(artifact => artifact.id === report.id);
+          const reportArtifact = addArtifact(workspaceProject.id, { ...reportInput, status: current.status, payload: { ...existing?.payload, ...reportInput.payload, reportDefinition: current, artifactRefs: report.artifactRefs, chartRefs: report.chartRefs, resultMode: 'composed', sourceScope: routeState?.workspaceSession ?? existing?.payload.sourceScope } });
+          if (!reportArtifact) throw new Error('报告保存失败，请返回当前试验重试');
+          if (generate && report.taskId) {
+            setFormalTaskReportArtifact(report.taskId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
+            const requirementId = report.taskItemId ?? task?.requirements.find(requirement => requirement.capability === 'report')?.id;
+            if (requirementId) {
+              addArtifactToTaskItem(report.taskId, requirementId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
+              setTaskRequirementStatus(report.taskId, requirementId, '已满足');
+            }
+          }
         }
-      }
-    }
-    setReportGenerated(true);
-    message.success(task ? '任务报告编制成果已保存在本机' : usingDemo ? '演示报告已生成（模拟成果）' : '报告生成成功！');
+      });
+      updateAnalysisReport(report.id, current);
+      setReportGenerated(generate);
+      message.success(generate ? usingDemo ? '演示报告已生成（模拟成果）' : '报告编制成果已保存到数据库' : '绑定关系已保存');
+    } catch (error) { message.error(error instanceof Error ? error.message : '报告保存失败，请重试'); }
   };
+  const handleSave = () => persistReport(false);
+  const handleGenerateReport = () => persistReport(true);
 
   /**
    * 获取变量名称

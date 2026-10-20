@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { workspaceStorage } from './workspacePersistence';
 import type { BusinessRouteState, ModelContract, WorkspaceSessionState } from '../types/businessContext';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
@@ -13,7 +14,7 @@ const createSessionId = () => `session-${typeof crypto !== 'undefined' && 'rando
 
 const load = (): { sessions: WorkSession[]; activeSessionId: string | null; saveError: string | null } => {
   try {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = workspaceStorage.getItem(SESSION_STORAGE_KEY) as string | null;
     const data = raw ? JSON.parse(raw) : null;
     if (!data) return { sessions: [], activeSessionId: null, saveError: null };
     if (data.version !== 1 || !Array.isArray(data.sessions)) throw new Error('invalid session data');
@@ -52,10 +53,10 @@ export const useSessionStore = create<SessionStore>((set, get) => {
       // Artifact writes happen in the original project store. Confirm those writes
       // too before claiming that this work context is saved locally.
       const projects = useProjectStore.getState();
-      localStorage.setItem('protangram-project-workspace-v1', JSON.stringify({ version: 1, state: {
+      workspaceStorage.setItem('protangram-project-workspace-v1', JSON.stringify({ version: 1, state: {
         projects: projects.projects, activeProjectId: projects.activeProjectId, activeView: projects.activeView,
       } }));
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ version: 1, sessions, activeSessionId }));
+      workspaceStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ version: 1, sessions, activeSessionId }));
     } catch { saveError = '保存失败：本机存储不可用或空间不足，当前更改尚未保存'; }
     set({ sessions, activeSessionId, saveError });
   };

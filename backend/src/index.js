@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { createWorkspaceApi } = require('./workspaceApi');
 
 const app = express();
 const PORT = process.env.PORT || 9016;
@@ -596,9 +597,22 @@ app.post('/api/ai/generate', (req, res) => {
   });
 });
 
-// 启动服务器
-app.listen(PORT, () => {
-  console.log(`ProTangram 后端服务已启动: http://localhost:${PORT}`);
-  console.log(`项目根目录: ${PROJECT_ROOT}`);
-  console.log(`数据存储目录: ${DATA_DIR}`);
-});
+// Initialize SQLite before accepting requests, so failed initialization cannot
+// leave the browser believing the workspace has been saved.
+async function start() {
+  const workspace = await createWorkspaceApi();
+  app.use('/api/workspace', workspace.router);
+  return app.listen(PORT, () => {
+    console.log(`ProTangram 后端服务已启动: http://localhost:${PORT}`);
+    console.log(`项目根目录: ${PROJECT_ROOT}`);
+    console.log(`数据存储目录: ${DATA_DIR}`);
+  });
+}
+
+if (require.main === module) {
+  start().catch(error => {
+    console.error('工作台数据库初始化失败:', error.message);
+    process.exitCode = 1;
+  });
+}
+module.exports = { app, start };

@@ -347,7 +347,7 @@ Then run this test body against the bundled store:
 
 The test must use only the in-memory storage above and must not depend on the user's browser storage.
 
-Run:
+Run from `frontend/`:
 
     node --test tests/projectTrialReferences.test.mjs tests/projectTrialReferenceStore.test.mjs
 
@@ -596,9 +596,9 @@ Modify `frontend/src/workspace/ProjectResourcesPage.tsx` as follows. Add `messag
 
     const activeProject = projects.find(item => item.id === projectId && !item.sessionOwnerId);
 
-Replace the existing project-only action block with:
+Keep the existing “在此项目中新建具体试验” button unchanged. Add the new action beside it:
 
-    {!isSessionResources && activeProject && <Button type="primary" onClick={() => setAddTrialOpen(true)}>添加已有具体试验</Button>}
+    {!isSessionResources && activeProject && <Button onClick={() => setAddTrialOpen(true)}>添加已有具体试验</Button>}
 
 Mount the picker after ProjectContent:
 
@@ -653,7 +653,7 @@ Keep all existing ProjectArtifact, session resource and worksheet behavior uncha
 
 - [ ] **Step 6: Run the focused tests and inspect the UI diff**
 
-Run:
+Run from `frontend/`:
 
     node --test tests/projectTrialReferences.test.mjs
     npm run build
@@ -873,7 +873,7 @@ For the available-source row, add `<Button key="open" type="primary" onClick={()
 
 - [ ] **Step 5: Run model and session tests**
 
-Run:
+Run from `frontend/`:
 
     node --test tests/projectTrialReferences.test.mjs tests/projectTrialReferenceSessions.test.mjs
 

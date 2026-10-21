@@ -133,6 +133,7 @@ const artifactChartCount = (artifact: ProjectArtifact) => {
 export const buildProjectNavigation = (project: Project): ProjectNavigationItem[] => {
   const items: ProjectNavigationItem[] = [
     { key: `${project.id}:overview`, title: '项目概览', view: 'overview' },
+    { key: `${project.id}:trials`, title: '工作内容与试验', view: 'trials' },
   ];
 
   if (project.worksheet && Object.keys(project.worksheet.data).length > 0) {

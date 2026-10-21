@@ -70,6 +70,11 @@ test('a project artifact source can expose its real trial without copying it', (
   assert.deepEqual(api.getProjectTrialEntries('project-a', objects, artifactProjects, []).map(entry => entry.trial.id), ['trial-1']);
 });
 
+test('project navigation exposes the work-and-trials view even when empty', () => {
+  const items = api.buildProjectNavigation({ id: 'project-a', name: '项目 A', artifacts: [] });
+  assert.equal(items.filter(item => item.view === 'trials').length, 1);
+});
+
 test('invalid source IDs do not fall back to a different trial', () => {
   const invalid = [{ id: 'bad', projectId: 'project-a', storageProjectId: 'project-a',
     businessScope: { physicalObjectId: 'object-1', experimentId: 'missing-setup', trialId: 'trial-2' } }];

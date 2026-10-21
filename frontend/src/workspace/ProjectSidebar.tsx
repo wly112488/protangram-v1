@@ -74,7 +74,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
           )}
         </span>
       ),
-      children: buildProjectNavigation(project).map((item) => ({
+      children: buildProjectNavigation(project).filter(item => !sessionId || item.view !== 'trials').map((item) => ({
         key: item.key,
         title: item.title,
         isLeaf: true,

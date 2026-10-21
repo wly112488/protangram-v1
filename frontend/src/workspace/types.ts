@@ -12,6 +12,7 @@ export type ProjectView =
   | 'overview'
   | 'worksheet'
   | 'charts'
+  | 'trials'
   | ProjectArtifactType;
 
 export interface ProjectBasicInfo {

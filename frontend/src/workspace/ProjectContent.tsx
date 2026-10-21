@@ -10,11 +10,13 @@ import { artifactResultLabel, resolvePhysicalSource } from './physicalBusinessCo
 import { usePhysicalObjectStore } from './physicalObjectStore';
 import AnalysisResults from './AnalysisResults';
 import { collectAnalysisResults, getTrialArtifacts } from './analysisResultModel';
+import ProjectTrialsView from './ProjectTrialsView';
 
 const { Text, Title } = Typography;
 
 const viewLabels: Record<ProjectView, string> = {
   overview: '项目概览',
+  trials: '工作内容与试验',
   worksheet: '试验工作表',
   charts: '数据图表',
   design: '智能试验设计',
@@ -263,6 +265,10 @@ const ProjectContent: React.FC = () => {
   }
   if (activeView === 'worksheet') return <WorksheetView projectId={activeProjectId} />;
   if (activeView === 'charts') return <ChartsView projectId={activeProjectId} />;
+  if (activeView === 'trials') {
+    if (sessionId) return <ProjectOverview project={project} isSessionWorkspace sessionTitle={sessionTitle} />;
+    return <ProjectTrialsView projectId={activeProjectId} />;
+  }
 
   const artifacts = project.artifacts.filter((artifact) => artifact.type === activeView);
   return <ArtifactHistory artifacts={artifacts} projectId={activeProjectId} view={activeView} isSessionWorkspace={Boolean(sessionId)} />;

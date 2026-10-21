@@ -11,13 +11,13 @@ globalThis.localStorage = {
 };
 globalThis.window = { localStorage: globalThis.localStorage };
 const bundle = await build({
-  stdin: { contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionModel'; export * from './src/workspace/businessSessionModel'; export * from './src/workspace/taskArtifactAssociation'; export * from './src/workspace/sessionSidebarModel'; export * from './src/workspace/experimentTemplateModel';", resolveDir: process.cwd() },
+  stdin: { contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionModel'; export * from './src/workspace/businessSessionModel'; export * from './src/workspace/taskArtifactAssociation'; export * from './src/workspace/sessionSidebarModel'; export * from './src/workspace/experimentTemplateModel'; export * from './src/workspace/projectTrialModel';", resolveDir: process.cwd() },
   bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',
 });
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const { useSessionStore: sessions, useProjectStore: projects } = api;
 
-test('sidebar keeps formal-task projects and their task sessions under the task entry', () => {
+test('a task association keeps the organizational project visible without duplicating its task sessions', () => {
   const task = { id: 'task-1', title: '正式验证', projectId: 'task-project', status: '进行中' };
   const taskProject = { id: 'task-project' };
   const ordinaryProject = { id: 'ordinary-project' };
@@ -25,7 +25,7 @@ test('sidebar keeps formal-task projects and their task sessions under the task 
   const capabilitySession = { ...taskSession, id: 'task-capability-session', capability: 'analysis', title: '数据分析会话' };
   const content = api.getSessionSidebarContent([taskProject, ordinaryProject], [taskSession, capabilitySession], [task], '', false);
 
-  assert.deepEqual(content.visibleProjects.map(project => project.id), ['ordinary-project']);
+  assert.deepEqual(content.visibleProjects.map(project => project.id), ['task-project', 'ordinary-project']);
   assert.deepEqual(content.independentSessions, []);
   assert.equal(api.getTaskNavigationSession([taskSession, capabilitySession], task.id).id, capabilitySession.id);
 });
@@ -61,7 +61,7 @@ test('session navigation follows creation source rather than a later project ass
 });
 
 test('session entry skips the redundant overview and opens the proper workbench', () => {
-  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session/resources');
+  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session');
   assert.equal(api.getSessionEntryPath({ id: 'trial-session', businessScope: { trialId: 'trial-1' } }), '/sessions/trial-session/doe');
   assert.equal(api.getSessionEntryPath({ id: 'task-session', taskId: 'task / 1' }), '/sessions/task-session/tasks/task%20%2F%201');
 });
@@ -70,12 +70,13 @@ test('a legacy session without a concrete trial retains access to its saved reso
   const id = sessions.getState().createSession({ title: '全新实验' });
   const created = sessions.getState().sessions.find(session => session.id === id);
 
-  assert.equal(api.getSessionEntryPath(created), `/sessions/${created.id}/resources`);
+  assert.equal(api.getSessionEntryPath(created), `/sessions/${created.id}`);
   assert.equal(created.drafts.doe, undefined);
   assert.notEqual(created.storageProjectId, created.projectId);
 });
 
 test('project and task sessions carry the concrete trial source created in context', () => {
+  projects.getState().createProject({ id: 'task-project', name: '任务项目' });
   const task = { id: 'task-context', title: '任务上下文试验', projectId: 'task-project' };
   const scope = { physicalObjectId: 'fan-1', experimentId: 'setup-1', trialId: 'trial-1', taskBookId: task.id };
   const taskSessionId = sessions.getState().ensureTaskSession(task, scope);
@@ -311,6 +312,24 @@ test('deleting a session removes its persisted conversation but preserves refere
   assert.equal(sessions.getState().sessions.some(session => session.id === id), false);
   assert.equal(sessions.getState().activeSessionId, null);
   assert.ok(projects.getState().projects.some(project => project.id === backing));
+});
+
+test('deleting the last project session preserves trial membership without copying trial data', () => {
+  const projectId = projects.getState().createProject({ name: '删除会话后保留试验' });
+  const scope = { physicalObjectId: 'fan-delete', experimentId: 'setup-delete', trialId: 'trial-delete' };
+  const id = sessions.getState().ensureProjectSession(projectId, scope);
+  sessions.getState().updateDraft(id, 'doe', 'notes', '待删除的草稿');
+  const trial = { id: scope.trialId, name: '保留试验', records: [], charts: [] };
+  const objects = [{ id: 'category-delete', configurations: [{ id: scope.physicalObjectId, name: '风扇', experiments: [{ id: scope.experimentId, name: '构型', trials: [trial] }] }] }];
+  sessions.getState().deleteSession(id);
+  sessions.getState().reloadFromStorage();
+  assert.equal(sessions.getState().sessions.some(item => item.id === id), false);
+  const entries = api.getProjectTrialEntries(projectId, objects, projects.getState().projects, sessions.getState().sessions);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].trial, trial);
+  const recreated = sessions.getState().ensureProjectSession(projectId, scope);
+  assert.notEqual(recreated, id);
+  assert.equal(sessions.getState().sessions.find(item => item.id === recreated).drafts.doe, undefined);
 });
 
 test('project rename and archive preserve nested sessions and restore original project status', () => {

@@ -1,0 +1,198 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { mkdir } from 'node:fs/promises';
+
+const require = createRequire(process.env.PROTANGRAM_PLAYWRIGHT_ROOT ?? new URL('../package.json', import.meta.url));
+const { chromium } = require('playwright-core');
+const base = process.env.PROTANGRAM_TEST_URL ?? 'http://127.0.0.1:5175';
+const browser = await chromium.launch({ headless: true, ...(process.env.PROTANGRAM_CHROMIUM_PATH ? { executablePath: process.env.PROTANGRAM_CHROMIUM_PATH } : {}), args: ['--no-sandbox'] });
+const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
+const page = await context.newPage();
+page.setDefaultTimeout(12000);
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+const counts = () => page.evaluate(async () => {
+  const { useSessionStore } = await import('/src/workspace/sessionStore.ts');
+  const { usePhysicalObjectStore } = await import('/src/workspace/physicalObjectStore.ts');
+  return { sessions: useSessionStore.getState().sessions.length, trials: usePhysicalObjectStore.getState().objects.flatMap(item => item.configurations.flatMap(object => object.experiments.flatMap(config => config.trials))).length };
+});
+const choose = async (label, text) => {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: text }).first().click();
+};
+try {
+  await page.goto(base, { waitUntil: 'networkidle' });
+  const fixture = await page.evaluate(async () => {
+    const { useProjectStore: projects } = await import('/src/workspace/projectStore.ts');
+    const { usePhysicalObjectStore: physical } = await import('/src/workspace/physicalObjectStore.ts');
+    const { useSessionStore: sessions } = await import('/src/workspace/sessionStore.ts');
+    const { useTaskStore: tasks } = await import('/src/workspace/taskStore.ts');
+    physical.setState({ objects: [] }); projects.setState({ projects: [], activeProjectId: null }); sessions.setState({ sessions: [], activeSessionId: null }); tasks.setState({ tasks: [] });
+    const project = projects.getState().createProject({ name: '验证项目 A' });
+    const secondProject = projects.getState().createProject({ name: '验证项目 B' });
+    const category = physical.getState().addRoot({ name: '验证对象类别', type: '风扇' });
+    const object = physical.getState().addConfiguration(category, { name: '验证风扇' });
+    const task = tasks.getState().createTask({ title: '验证任务书', projectId: project, requirementTexts: [] });
+    return { project, secondProject, category, object, task };
+  });
+  await page.getByRole('button', { name: '新建会话', exact: true }).click();
+  await page.getByRole('heading', { name: '创建具体试验' }).waitFor();
+  assert.deepEqual(await counts(), { sessions: 0, trials: 0 });
+  assert.equal(await page.getByLabel('工作内容', { exact: true }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: '创建并进入试验工作台', exact: true }).isDisabled(), true);
+  await page.locator('.trial-create-page > button').first().click();
+  assert.deepEqual(await counts(), { sessions: 0, trials: 0 });
+  console.log('PASS opening and cancelling independent trial creation never persist an empty session');
+
+  await page.goto(`${base}/trials/new`);
+  await page.getByRole('heading', { name: '创建具体试验' }).waitFor();
+  assert.equal(await page.getByRole('combobox', { name: '选择所属项目', exact: true }).count(), 0);
+  assert.deepEqual(await counts(), { sessions: 0, trials: 0 });
+  await page.goto(`${base}/trials/new?projectId=deleted`);
+  await page.getByText('创建入口已失效', { exact: true }).waitFor();
+  console.log('PASS independent creation needs no project while stale explicit project links remain errors');
+
+  await page.goto(`${base}/projects?projectId=${fixture.project}`);
+  await page.getByRole('button', { name: '创建具体试验', exact: true }).click();
+  await choose('选择对象类别', '验证对象类别');
+  await choose('选择具体物理对象', '验证风扇');
+  await page.getByRole('button', { name: '新建试验构型', exact: true }).click();
+  await page.getByRole('textbox', { name: '新建试验构型名称', exact: true }).fill('即时新建构型');
+  await page.getByRole('button', { name: '保存并选择', exact: true }).click();
+  await page.getByRole('button', { name: '创建并进入试验工作台', exact: true }).click();
+  await page.getByText('请填写具体试验名称', { exact: true }).waitFor();
+  assert.deepEqual(await counts(), { sessions: 0, trials: 0 });
+  await page.locator('.trial-create-page > button').first().click();
+  assert.deepEqual(await counts(), { sessions: 0, trials: 0 });
+  await page.getByRole('button', { name: '创建具体试验', exact: true }).click();
+  await choose('选择对象类别', '验证对象类别');
+  await choose('选择具体物理对象', '验证风扇');
+  await choose('选择试验构型', '即时新建构型');
+  await page.getByLabel('具体试验名称', { exact: true }).fill('项目内静推力试验');
+  await page.getByLabel('载荷谱名称或编号', { exact: true }).fill('LS-01');
+  await page.getByRole('button', { name: '创建并进入试验工作台', exact: true }).click();
+  await page.locator('.session-capability-tabs').waitFor();
+  assert.deepEqual(await counts(), { sessions: 1, trials: 1 });
+  const created = await page.evaluate(async () => {
+    const { useSessionStore } = await import('/src/workspace/sessionStore.ts');
+    return useSessionStore.getState().sessions[0];
+  });
+  assert.equal(created.projectId, fixture.project);
+  assert.ok(created.businessScope.experimentId);
+  assert.equal(created.taskId, undefined);
+  console.log('PASS inline configuration creation, validation and one successful trial create one bound project session');
+  for (const [label, suffix] of [['数据分析', 'analysis'], ['数字孪生', 'digital-twin'], ['虚拟工况', 'virtual-condition'], ['报告', 'report'], ['智能实验设计', 'doe']]) {
+    await page.locator('.session-capability-tabs button').filter({ hasText: label }).click();
+    await page.waitForURL(`${base}/sessions/${created.id}/${suffix}`);
+    assert.deepEqual(await counts(), { sessions: 1, trials: 1 });
+  }
+  console.log('PASS all five professional tabs inherit the same concrete trial and work session');
+
+  await page.evaluate(async ({ created }) => {
+    const { usePhysicalObjectStore: physical } = await import('/src/workspace/physicalObjectStore.ts');
+    const { useProjectStore: projects } = await import('/src/workspace/projectStore.ts');
+    const { saveTrialFile } = await import('/src/workspace/trialDataFiles.ts');
+    const trial = created.businessScope.trialId;
+    const record = physical.getState().addTrialRecord(trial, {});
+    const csv = 'time,thrust,temperature\n' + Array.from({ length: 30 }, (_, i) => `${i},${i * 2},${20 + i}`).join('\n');
+    await saveTrialFile('entry-csv', new File([csv], '试验数据.csv', { type: 'text/csv' }));
+    physical.getState().addRawFile(trial, record, { id: 'entry-csv', name: '试验数据.csv', headers: ['time', 'thrust', 'temperature'], rowCount: 30, size: csv.length, mimeType: 'text/csv', addedAt: '' });
+    projects.getState().addArtifact(created.storageProjectId, { id: 'entry-result-1', type: 'analysis', title: '分析结论第一版', source: '数据分析', summary: '第一版说明', payload: { sourceScope: created.businessScope, results: [{ id: 'conclusion', name: '分析结论第一版', kind: 'metric', value: '结论一' }] } });
+    projects.getState().addArtifact(created.storageProjectId, { id: 'entry-result-2', type: 'analysis', title: '分析结论第二版', source: '数据分析', summary: '第二版说明', payload: { sourceScope: created.businessScope, results: [{ id: 'conclusion', name: '分析结论第二版', kind: 'metric', value: '结论二' }] } });
+  }, { created });
+  const workURL = page.url();
+  await page.getByRole('button', { name: '数据与成果', exact: true }).click();
+  await page.getByRole('tree').getByText('分析结论第一版', { exact: true }).waitFor();
+  await page.getByRole('tree').getByText('分析结论第二版', { exact: true }).waitFor();
+  assert.match(page.url(), /view=resources/);
+  assert.equal(await page.getByRole('button', { name: '创建具体试验', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: '项目资源目录', exact: true }).count(), 0);
+  assert.equal(await page.getByText('项目基础信息', { exact: true }).count(), 0);
+  assert.equal(await page.getByLabel('选中内容预览').getByText('结论一', { exact: true }).count(), 0);
+  await page.getByRole('tree').getByText('试验数据.csv', { exact: true }).click();
+  await page.locator('.result-catalog-preview table').waitFor();
+  assert.equal(await page.locator('.result-catalog-preview th').count(), 3);
+  await page.getByRole('tree').getByText('分析结论第一版', { exact: true }).click();
+  await page.getByLabel('选中内容预览').getByText('结论一', { exact: true }).waitFor();
+  await mkdir('node_modules/.tmp/project-entry', { recursive: true });
+  await page.screenshot({ path: 'node_modules/.tmp/project-entry/shared-results.png', fullPage: true });
+  await page.getByRole('button', { name: '返回原工作界面', exact: true }).click();
+  assert.equal(page.url(), workURL);
+  console.log('PASS one shared catalog preserves both result versions, previews CSV on click, and returns to the originating function');
+
+  await page.goto(`${base}/sessions/${created.id}/resources`);
+  await page.getByRole('tree').getByText('分析结论第一版', { exact: true }).waitFor();
+  assert.match(page.url(), /\/projects\?/);
+  await page.goto(`${base}/projects?projectId=${fixture.project}&view=trials`);
+  await page.getByRole('button', { name: '打开试验', exact: true }).click();
+  assert.match(page.url(), /\/sessions\/.*\/doe$/);
+  assert.deepEqual(await counts(), { sessions: 1, trials: 1 });
+  console.log('PASS legacy result links use the same catalog and reopening a trial reuses its work session');
+
+  await page.goto(`${base}/trials/new?taskBookId=${fixture.task}`);
+  await page.getByText('将自动关联正式任务：验证任务书', { exact: true }).waitFor();
+  await choose('选择对象类别', '验证对象类别');
+  await choose('选择具体物理对象', '验证风扇');
+  await choose('选择试验构型', '即时新建构型');
+  await page.getByLabel('具体试验名称', { exact: true }).fill('任务关联试验');
+  await page.getByLabel('载荷谱名称或编号', { exact: true }).fill('LS-02');
+  await page.getByRole('button', { name: '创建并进入试验工作台', exact: true }).click();
+  await page.locator('.session-capability-tabs').waitFor();
+  const taskSession = await page.evaluate(async () => {
+    const { useSessionStore } = await import('/src/workspace/sessionStore.ts');
+    return useSessionStore.getState().sessions.at(-1);
+  });
+  assert.equal(taskSession.projectId, fixture.project);
+  assert.equal(taskSession.businessScope.taskBookId, fixture.task);
+  assert.notEqual(taskSession.id, created.id);
+  console.log('PASS task-created trial belongs to the selected project and keeps the task as an association');
+  await page.goto(`${base}/projects?projectId=${fixture.project}&view=trials`);
+  await page.getByRole('button', { name: '在项目验证项目 A中新建具体试验', exact: true }).waitFor();
+  assert.equal(await page.locator('table').getByText('任务关联试验', { exact: true }).count(), 1);
+  assert.equal(await page.locator('table').getByText('项目内静推力试验', { exact: true }).count(), 1);
+  console.log('PASS task-associated and unassociated trials coexist in a visible project');
+
+  await page.goto(`${base}/sessions/new`);
+  await page.getByRole('heading', { name: '创建具体试验' }).waitFor();
+  await choose('选择对象类别', '验证对象类别');
+  await choose('选择具体物理对象', '验证风扇');
+  await choose('选择试验构型', '即时新建构型');
+  await page.getByLabel('具体试验名称', { exact: true }).fill('独立单个试验');
+  await page.getByLabel('载荷谱名称或编号', { exact: true }).fill('LS-03');
+  await page.getByRole('button', { name: '创建并进入试验工作台', exact: true }).click();
+  await page.locator('.session-capability-tabs').waitFor();
+  await page.reload();
+  await page.locator('.session-capability-tabs').waitFor();
+  const independent = await page.evaluate(async () => {
+    const { useSessionStore } = await import('/src/workspace/sessionStore.ts');
+    return useSessionStore.getState().sessions.at(-1);
+  });
+  assert.equal(independent.projectId, undefined);
+  assert.equal(independent.creationSource, 'standalone');
+  assert.ok(independent.businessScope.trialId);
+  assert.deepEqual(await counts(), { sessions: 3, trials: 3 });
+  console.log('PASS independent entry creates one concrete trial without project membership and survives refresh');
+  await page.locator('.session-sidebar').getByRole('button', { name: '独立单个试验', exact: true }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: /删除会话/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /^取\s*消$/ }).click();
+  assert.deepEqual(await counts(), { sessions: 3, trials: 3 });
+  await page.locator('.session-sidebar').getByRole('button', { name: '独立单个试验', exact: true }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: /删除会话/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '删除会话', exact: true }).click();
+  await page.getByRole('heading', { name: '工作台', exact: true }).waitFor();
+  assert.deepEqual(await counts(), { sessions: 2, trials: 3 });
+  console.log('PASS right-click session deletion supports cancellation and returns safely when deleting the active session');
+  await page.locator('.session-sidebar').getByRole('button', { name: '项目内静推力试验', exact: true }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: /删除会话/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '删除会话', exact: true }).click();
+  assert.deepEqual(await counts(), { sessions: 1, trials: 3 });
+  await page.goto(`${base}/projects?projectId=${fixture.project}&view=trials`);
+  await page.locator('table').getByText('项目内静推力试验', { exact: true }).waitFor();
+  await page.goto(`${base}/projects?projectId=${fixture.project}&view=resources&trialId=${created.businessScope.trialId}`);
+  await page.getByRole('tree').getByText('试验数据.csv', { exact: true }).waitFor();
+  await page.getByRole('tree').getByText('分析结论第一版', { exact: true }).waitFor();
+  await page.getByRole('tree').getByText('分析结论第二版', { exact: true }).waitFor();
+  console.log('PASS deleting a project session preserves project trial membership, CSV and every saved result');
+  assert.deepEqual(errors, []);
+  console.log('PASS no browser runtime errors');
+} finally { await browser.close(); }

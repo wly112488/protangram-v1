@@ -27,9 +27,9 @@ const SessionShell: React.FC = () => {
   const taskId = taskRouteId ? decodeURIComponent(taskRouteId) : incoming?.workspaceSession?.mode === 'task' ? incoming.workspaceSession.taskId : new URLSearchParams(location.search).get('taskId');
   const task = tasks.find(item => item.id === taskId);
   const bridgeId = task ? sessions.find(item => item.taskId === task.id)?.id : requestedId;
-  const legacyCapability = Boolean(getLegacySessionPath(location.pathname, 'placeholder'));
+  const legacyCapability = location.pathname !== '/projects' && Boolean(getLegacySessionPath(location.pathname, 'placeholder'));
   const needBridge = Boolean(!taskRouteId && !location.pathname.startsWith('/sessions/') && legacyCapability);
-  const projectLanding = location.pathname === '/projects' && !requestedId;
+  const projectLanding = location.pathname === '/projects';
   useEffect(() => {
     setMobileOpen(false);
     if (location.pathname === '/' || location.pathname === '/task-center' || location.pathname === '/trials/new') { useSessionStore.getState().openSession(null); return; }
@@ -38,11 +38,19 @@ const SessionShell: React.FC = () => {
       if (bridgedLocation.current === location.key) return;
       bridgedLocation.current = location.key;
       const explicitProjectId = incoming?.workspaceSession?.targetProjectId ?? location.pathname.match(/^\/report\/create\/([^/]+)$/)?.[1];
+      const requestedScope = incoming?.workspaceSession;
+      const trialScope = requestedScope?.trialId ? { physicalObjectId: requestedScope.physicalObjectId,
+        experimentId: requestedScope.experimentId, trialId: requestedScope.trialId,
+        testRecordId: requestedScope.testRecordId } : undefined;
       const current = sessions.find(item => item.id === bridgeId);
+      if (!task && !explicitProjectId && !current) {
+        navigate('/sessions/new', { replace: true });
+        return;
+      }
       const id = task ? useSessionStore.getState().ensureTaskSession(task)
         : explicitProjectId && !incoming?.workspaceSession?.sessionId && current?.storageProjectId !== explicitProjectId
-          ? useSessionStore.getState().ensureProjectSession(explicitProjectId)
-          : current ? current.id : useSessionStore.getState().createSession();
+          ? useSessionStore.getState().ensureProjectSession(explicitProjectId, trialScope)
+          : current!.id;
       const destination = taskRouteId ? `${getSessionPath(id)}/tasks/${encodeURIComponent(task!.id)}` : getLegacySessionPath(location.pathname, id);
       if (!destination) return;
       const capability = getCapabilityFromPath(destination);

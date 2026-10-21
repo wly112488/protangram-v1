@@ -19,7 +19,8 @@ test('session shared results render trial data in place instead of redirecting i
   const content = source('../src/workspace/ProjectContent.tsx');
   const session = source('../src/workspace/SessionWorkbench.tsx');
 
-  assert.match(content, /collectAnalysisResults\(physicalSource\.trial/);
+  assert.match(content, /collectSharedResources/);
+  assert.match(content, /sessionResourcesPath\(legacySession, projects\)/);
   assert.doesNotMatch(content, /Navigate to=\{physicalPath\}/);
   assert.doesNotMatch(session, /navigate\(sourcePath/);
 });

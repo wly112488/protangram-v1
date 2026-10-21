@@ -59,6 +59,8 @@ export interface Project {
   worksheet?: ProjectWorksheet;
   datasets: ProjectDataset[];
   artifacts: ProjectArtifact[];
+  // Stable source references keep trials discoverable after a work session is deleted.
+  trialSources?: Array<{ physicalObjectId: string; experimentId: string; trialId: string }>;
   legacyItems?: string[];
 }
 

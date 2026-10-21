@@ -75,12 +75,10 @@ test('top-level module navigation keeps the task but does not inherit a focused 
   assert.equal(session.taskItemId, undefined);
 });
 
-test('task-linked project overview identifies project analysis as separate from task-item execution', () => {
-  const source = readFileSync(path.join(frontendRoot, 'src/workspace/ProjectOverview.tsx'), 'utf8');
-
-  assert.match(source, /项目概览对所有入口保持一致/);
-  assert.match(source, /查看数据、工作表和已保存成果/);
-  assert.match(source, /返回任务工作台/);
+test('shared resources never fall back to a second project or session overview', () => {
+  const source = readFileSync(path.join(frontendRoot, 'src/workspace/ProjectContent.tsx'), 'utf8');
+  assert.match(source, /collectSharedResources/);
+  assert.doesNotMatch(source, /ProjectOverview/);
 });
 
 test('task plan exposes add, edit, and remove controls for human review', () => {

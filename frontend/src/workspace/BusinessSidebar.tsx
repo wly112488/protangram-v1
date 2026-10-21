@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Input, Modal, Tree, Typography } from 'antd';
-import { BookOutlined, FolderOpenOutlined, HomeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Input, Modal, Tree, Typography, message } from 'antd';
+import { BookOutlined, DeleteOutlined, FileSearchOutlined, FolderOpenOutlined, HomeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
 import { useSessionStore } from './sessionStore';
 import { useTaskStore } from './taskStore';
-import { getSessionEntryPath, getSessionPath } from './sessionModel';
-import { getRecentSessionsForHome, getSessionCreationSource, getSessionSidebarContent } from './sessionSidebarModel';
+import { getSessionEntryPath, type WorkSession } from './sessionModel';
+import { getRecentSessionsForHome, getSessionCreationSource, getSessionSidebarContent, isSessionVisibleInSidebar } from './sessionSidebarModel';
 import { taskBookPath } from './taskTrialModel';
+import { projectWorkspacePath } from './sharedResourcesModel';
 import comacLogo from '@/assets/comac_logo.png';
 import { usePhysicalObjectStore } from './physicalObjectStore';
 import { buildPhysicalTreeModel, resolvePhysicalNavigation } from './physicalNavigation';
@@ -23,7 +24,7 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
   const tasks = useTaskStore(state => state.tasks);
   const objects = usePhysicalObjectStore(state => state.objects);
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState({ objects: true, recent: true, projects: true, tasks: true });
+  const [expanded, setExpanded] = useState({ objects: false, recent: true, projects: true, tasks: true });
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const content = useMemo(() => getSessionSidebarContent(projects, sessions, tasks, search, false), [projects, sessions, tasks, search]);
@@ -53,11 +54,20 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
     })),
   }));
   const open = (path: string) => { navigate(path); onNavigate(); };
-  const startSession = () => {
-    const sessionId = useSessionStore.getState().createSession({ title: '新会话' });
-    useSessionStore.getState().openSession(sessionId, 'doe');
-    open(getSessionPath(sessionId, 'doe'));
-  };
+  const startSession = () => open('/trials/new');
+  const sessionLink = (session: WorkSession) => <Dropdown key={session.id} trigger={['contextMenu']} menu={{ items: [
+    { key: 'delete', label: '删除会话', icon: <DeleteOutlined />, danger: true },
+  ], onClick: () => Modal.confirm({
+    title: `删除会话“${session.title}”？`,
+    content: '将删除此会话及工作草稿。具体试验、执行记录、CSV 和已保存成果都会保留。',
+    okText: '删除会话', cancelText: '取消', okButtonProps: { danger: true },
+    onOk: () => {
+      useSessionStore.getState().deleteSession(session.id);
+      if (useSessionStore.getState().saveError) message.error('删除尚未保存到本机，请重试保存');
+      else message.success('会话已删除，试验数据与成果已保留');
+      if (location.pathname.startsWith(`/sessions/${encodeURIComponent(session.id)}`)) open('/');
+    },
+  }) }}><button className={`session-sidebar-link business-child-link ${location.pathname.includes(encodeURIComponent(session.id)) ? 'is-active' : ''}`} title="右键可删除会话" onClick={() => open(getSessionEntryPath(session))}><span>{session.title}</span></button></Dropdown>;
   const selectTreeNode = (keys: React.Key[]) => {
     const node = treeNodeByKey.get(String(keys[0] ?? ''));
     if (!node) return;
@@ -69,7 +79,7 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
   const saveProject = () => {
     if (!projectName.trim()) return;
     const id = createProject({ name: projectName.trim(), status: '进行中' });
-    setActiveProject(id); setProjectName(''); setNewProjectOpen(false); open('/projects');
+    setActiveProject(id); setProjectName(''); setNewProjectOpen(false); open(projectWorkspacePath(id));
   };
   const workbenchActive = location.pathname === '/' || location.pathname === '/trials/new';
   return <aside className={`session-sidebar business-sidebar ${mobileOpen ? 'is-open' : ''}`} id="session-sidebar" aria-label="工作台导航">
@@ -80,33 +90,35 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
       </button>
       <Input className="business-nav-search" prefix={<SearchOutlined />} allowClear placeholder="搜索会话" aria-label="搜索会话、项目和正式任务" value={search} onChange={event => setSearch(event.target.value)} />
       <button className={`session-sidebar-link business-workbench-link ${workbenchActive ? 'is-active' : ''}`} onClick={() => open('/')}><HomeOutlined />工作台</button>
+      <button className={`session-sidebar-link ${location.pathname === '/task-book-analysis' ? 'is-active' : ''}`} onClick={() => open('/task-book-analysis')}><FileSearchOutlined />分析任务书</button>
 
-      <section className="session-nav-section session-nav-section--label-highlight business-object-nav">
-        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, objects: !value.objects }))} aria-expanded={expanded.objects}>⌄ 物理对象</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建对象类别" title="新建对象类别" onClick={() => open('/physical-objects?create=family')} /></div>
-        {expanded.objects && (treeData.length ? <Tree className="business-object-tree" blockNode defaultExpandAll treeData={treeData} selectedKeys={selectedTreeKey ? [selectedTreeKey] : []} onSelect={selectTreeNode} /> : <p className="session-nav-empty">暂无对象类别</p>)}
-      </section>
 
       <section className="session-nav-section session-nav-section--label-highlight">
         <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, recent: !value.recent }))} aria-expanded={expanded.recent}>⌄ 最近会话</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建会话" title="新建会话" onClick={startSession} /></div>
-        {expanded.recent && (recent.length ? recent.slice(0, 8).map(session => <button key={session.id} className={`session-sidebar-link business-child-link ${location.pathname.includes(encodeURIComponent(session.id)) ? 'is-active' : ''}`} onClick={() => open(getSessionEntryPath(session))}><span>{session.title}</span></button>) : <p className="session-nav-empty">从一项工作开始</p>)}
+        {expanded.recent && (recent.length ? recent.slice(0, 8).map(sessionLink) : <p className="session-nav-empty">从一项工作开始</p>)}
       </section>
 
       <section className="session-nav-section session-nav-section--label-highlight">
         <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, projects: !value.projects }))} aria-expanded={expanded.projects}>⌄ 项目</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建项目" title="新建项目" onClick={() => setNewProjectOpen(true)} /></div>
         {expanded.projects && (visibleProjects.length ? visibleProjects.map(project => {
-          const children = sessions.filter(session => !session.archived && !session.taskId && getSessionCreationSource(session) === 'project' && session.projectId === project.id && session.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+          const children = sessions.filter(session => isSessionVisibleInSidebar(session) && !session.archived && !session.taskId && getSessionCreationSource(session) === 'project' && session.projectId === project.id && session.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
           return <div className="business-project-group" key={project.id}>
-            <div className="business-project-row"><button type="button" className="business-project-open" onClick={() => { setActiveProject(project.id); open('/projects'); }}><FolderOpenOutlined />{project.name}<Text type="secondary">{children.length}</Text></button><Button type="text" size="small" icon={<PlusOutlined />} aria-label={`在项目${project.name}中新建具体试验`} title="在此项目下创建具体试验" onClick={() => open(`/trials/new?projectId=${encodeURIComponent(project.id)}`)} /></div>
-            {children.length ? children.map(session => <button key={session.id} className="session-sidebar-link business-child-link" onClick={() => open(getSessionEntryPath(session))}>{session.title}</button>) : <p className="session-nav-empty business-project-empty">还没有项目内会话</p>}
-            <button className="session-sidebar-link business-child-link business-project-resources" onClick={() => { setActiveProject(project.id); open('/projects'); }}>项目共享数据与成果</button>
+            <div className="business-project-row"><button type="button" className="business-project-open" onClick={() => { setActiveProject(project.id); open(projectWorkspacePath(project.id)); }}><FolderOpenOutlined />{project.name}<Text type="secondary">{children.length}</Text></button><Button type="text" size="small" icon={<PlusOutlined />} aria-label={`在项目${project.name}中新建具体试验`} title="创建具体试验" onClick={() => open(`/trials/new?projectId=${encodeURIComponent(project.id)}`)} /></div>
+            {children.length ? children.map(sessionLink) : <p className="session-nav-empty business-project-empty">暂无工作会话，可从项目试验列表继续工作</p>}
+            <button className="session-sidebar-link business-child-link business-project-resources" onClick={() => { setActiveProject(project.id); open(projectWorkspacePath(project.id, 'resources')); }}>项目共享数据与成果</button>
           </div>;
         }) : <p className="session-nav-empty">暂无项目</p>)}
       </section>
 
       <section className="session-nav-section session-nav-section--label-highlight">
-        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, tasks: !value.tasks }))} aria-expanded={expanded.tasks}>⌄ 正式任务 <small>{content.visibleTasks.length}</small></button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建正式任务" title="新建正式任务" onClick={() => open('/task-center?newTask=1')} /></div>
+        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, tasks: !value.tasks }))} aria-expanded={expanded.tasks}>⌄ 正式任务 <small>{content.visibleTasks.length}</small></button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建正式任务" title="新建正式任务" onClick={() => open('/task-book-analysis')} /></div>
         {expanded.tasks && (content.visibleTasks.length ? content.visibleTasks.map(task => <button key={task.id} className="session-sidebar-link business-task-link" onClick={() => open(taskBookPath(task.id))}><BookOutlined /><span>{task.title}</span></button>) : <p className="session-nav-empty">暂无正式任务</p>)}
       </section>
+      <section className="session-nav-section session-nav-section--label-highlight business-object-nav">
+        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, objects: !value.objects }))} aria-expanded={expanded.objects}>⌄ 物理对象</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建对象类别" title="新建对象类别" onClick={() => open('/physical-objects?create=family')} /></div>
+        {expanded.objects && (treeData.length ? <Tree className="business-object-tree" blockNode defaultExpandAll treeData={treeData} selectedKeys={selectedTreeKey ? [selectedTreeKey] : []} onSelect={selectTreeNode} /> : <p className="session-nav-empty">暂无对象类别</p>)}
+      </section>
+
     </div>
     <Modal title="新建项目" open={newProjectOpen} onCancel={() => setNewProjectOpen(false)} onOk={saveProject} okText="创建" cancelText="取消">
       <Input autoFocus aria-label="项目名称" placeholder="项目名称" value={projectName} onChange={event => setProjectName(event.target.value)} onPressEnter={saveProject} />

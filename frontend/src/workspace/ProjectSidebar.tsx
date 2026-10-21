@@ -9,7 +9,9 @@ import { useProjectStore } from './projectStore';
 import type { ProjectView } from './types';
 import { useTaskStore } from './taskStore';
 import { useLocation } from 'react-router-dom';
-import { getSessionIdFromLocation, getSessionPath } from './sessionModel';
+import { getSessionIdFromLocation } from './sessionModel';
+import { projectWorkspacePath, sessionResourcesPath } from './sharedResourcesModel';
+import { useSessionStore } from './sessionStore';
 
 const { Text } = Typography;
 
@@ -80,12 +82,13 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
         isLeaf: true,
       })),
     };
-  }), [deleteProject, navigate, tasks, visibleProjects, onNavigate, projectId]);
+  }), [deleteProject, navigate, tasks, visibleProjects, onNavigate, projectId, sessionId]);
 
   const selectProjectView = (projectId: string, view: ProjectView) => {
     setActiveProject(projectId);
     setActiveView(view);
-    navigate(sessionId ? getSessionPath(sessionId, 'resources') : '/projects', sessionId ? { state: location.state } : undefined);
+    const session = useSessionStore.getState().sessions.find(item => item.id === sessionId);
+    navigate(session ? sessionResourcesPath(session, projects) : projectWorkspacePath(projectId, 'resources'), { state: { returnTo: location.pathname + location.search, returnState: location.state } });
     onNavigate?.();
   };
 

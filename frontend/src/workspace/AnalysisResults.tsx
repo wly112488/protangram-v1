@@ -12,8 +12,8 @@ import './resultCatalog.css';
 
 const kindLabels = { chart: '图表', table: '数据表', metric: '指标', document: '文档' };
 const kindIcons = { chart: <BarChartOutlined />, table: <TableOutlined />, metric: <NumberOutlined />, document: <FileTextOutlined /> };
-export default function AnalysisResults({ entries, actions, extra, shared = false, trial, trials, recordId, activeKind, onKindChange }: {
-  entries: ResultEntry[]; actions?: (entry: ResultEntry) => ReactNode; extra?: ReactNode; shared?: boolean; trial?: ConcreteTrial; trials?: ConcreteTrial[]; recordId?: string; activeKind?: string; onKindChange?: (kind: string) => void;
+export default function AnalysisResults({ entries, actions, extra, shared = false, trial, trials, recordId, activeKind, onKindChange, initialArtifactId }: {
+  entries: ResultEntry[]; actions?: (entry: ResultEntry) => ReactNode; extra?: ReactNode; shared?: boolean; trial?: ConcreteTrial; trials?: ConcreteTrial[]; recordId?: string; activeKind?: string; onKindChange?: (kind: string) => void; initialArtifactId?: string;
 }) {
   const [selection, setSelection] = useState<string>();
   const [query, setQuery] = useState('');
@@ -48,12 +48,13 @@ export default function AnalysisResults({ entries, actions, extra, shared = fals
     runs.push(...spectrum.results.map(result => resultNode(result, parentMatches)).filter((node): node is DataNode => Boolean(node)));
     return runs.length ? [{ key: `spectrum:${spectrum.key}`, selectable: false, title: <span className="result-directory-spectrum"><strong>{spectrum.name}</strong><small>{spectrum.trialName}</small></span>, children: runs }] : [];
   });
-  const selected = selection ? choices.get(selection) : undefined;
+  const selectedKey = selection ?? (initialArtifactId ? [...choices].find(([, choice]) => choice.entry?.artifact?.id === initialArtifactId)?.[0] : undefined);
+  const selected = selectedKey ? choices.get(selectedKey) : undefined;
   return <Card size="small" className="physical-analysis-results" title={shared ? '共享数据与成果' : '已保存成果'} extra={extra}>
     <div className="result-catalog-toolbar"><Input prefix={<SearchOutlined />} placeholder="搜索试验、载荷谱、CSV 或成果" aria-label="搜索成果目录" value={query} onChange={event => setQuery(event.target.value)} allowClear /><Select aria-label="成果类型" value={kind} onChange={value => { setLocalKind(value); onKindChange?.(value); }} options={[{ value: 'all', label: '全部类型' }, ...Object.entries(kindLabels).map(([value, label]) => ({ value, label }))]} /></div>
     <div className="result-catalog-layout">
       <aside className="result-catalog-directory" aria-label="试验、执行、CSV 与成果目录">
-        {treeData.length ? <Tree key={`${query}:${kind}`} showIcon blockNode defaultExpandAll selectedKeys={selection ? [selection] : []} treeData={treeData} onSelect={keys => { if (keys.length) setSelection(String(keys[0])); }} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={query ? '没有匹配的成果' : '暂无数据或已保存成果'} />}
+        {treeData.length ? <Tree key={`${query}:${kind}`} showIcon blockNode defaultExpandAll selectedKeys={selectedKey ? [selectedKey] : []} treeData={treeData} onSelect={keys => { if (keys.length) setSelection(String(keys[0])); }} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={query ? '没有匹配的成果' : '暂无数据或已保存成果'} />}
         {selected?.description && <Typography.Paragraph className="result-directory-description">{selected.description}</Typography.Paragraph>}
       </aside>
       <section className="result-catalog-preview" aria-label="选中内容预览">

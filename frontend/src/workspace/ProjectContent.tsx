@@ -1,277 +1,41 @@
-import React, { useMemo } from 'react';
-import { Alert, Button, Card, Empty, Popconfirm, Space, Tag, Typography, message } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
-import ProjectOverview from './ProjectOverview';
+import { Alert, Button, Select, Space, Typography } from 'antd';
+import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
-import type { ProjectArtifact, ProjectArtifactType, ProjectView } from './types';
-import { useSessionRouteState } from './useSessionState';
 import { useSessionStore } from './sessionStore';
-import { artifactResultLabel, resolvePhysicalSource } from './physicalBusinessContext';
 import { usePhysicalObjectStore } from './physicalObjectStore';
+import { collectSharedResources, sessionResourcesPath } from './sharedResourcesModel';
 import AnalysisResults from './AnalysisResults';
-import { collectAnalysisResults, getTrialArtifacts } from './analysisResultModel';
-import ProjectTrialsView from './ProjectTrialsView';
 
-const { Text, Title } = Typography;
-
-const viewLabels: Record<ProjectView, string> = {
-  overview: '项目概览',
-  trials: '工作内容与试验',
-  worksheet: '试验工作表',
-  charts: '数据图表',
-  design: '智能试验设计',
-  analysis: '试验数据分析',
-  rootCause: '根因分析',
-  calibration: '模型校准',
-  virtualCondition: '虚拟工况',
-  report: '报告',
-};
-
-const formatTime = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false });
-
-const readRecord = (value: unknown): Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
-
-const displayValue = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : '';
-
-const getArtifactFacts = (artifact: ProjectArtifact): string[] => {
-  const payload = artifact.payload;
-  const model = readRecord(payload.model);
-  const facts: string[] = [];
-  const add = (label: string, value: unknown) => {
-    const text = displayValue(value);
-    if (text) facts.push(`${label}：${text}`);
-  };
-
-  switch (artifact.type) {
-    case 'design': {
-      const plan = Array.isArray(payload.plan) ? payload.plan : [];
-      const designSummary = readRecord(payload.designSummary);
-      const config = readRecord(payload.config);
-      add('试验次数', plan.length || payload.runCount || designSummary.runCount);
-      add('目标响应', config.target);
-      add('设计策略', config.strategy);
-      add('预计覆盖率', typeof payload.coverage === 'number' ? `${payload.coverage}%` : undefined);
-      add('高风险工况', payload.highRiskCount);
-      break;
-    }
-    case 'analysis': {
-      const config = readRecord(payload.config);
-      add('异常范围', payload.abnormalRange);
-      add('异常事件', Array.isArray(payload.anomalies) ? payload.anomalies.length : undefined);
-      add('主要指标', Array.isArray(config.metrics) ? config.metrics.join('、') : undefined);
-      add('结论', payload.conclusion);
-      break;
-    }
-    case 'rootCause':
-      add('异常范围', payload.affectedRange);
-      add('主要根因', readRecord(payload.confirmedRootCause).reason);
-      add('关联程度', readRecord(payload.confirmedRootCause).relevance);
-      add('证据数量', Array.isArray(payload.evidence) ? payload.evidence.length : undefined);
-      break;
-    case 'calibration':
-      add('校准模型', [displayValue(model.modelName), displayValue(model.version)].filter(Boolean).join(' '));
-      add('校准结果', payload.errorLimit);
-      add('可信度', typeof payload.credibility === 'number' ? `${payload.credibility}%` : undefined);
-      add('可信范围', payload.trustedRange);
-      break;
-    case 'virtualCondition': {
-      const conditions = Array.isArray(payload.conditions) ? payload.conditions : [];
-      add('预测工况', Array.isArray(payload.conditions) ? payload.conditions.length : undefined);
-      add('高风险工况', payload.highRiskCount);
-      add('可信范围', payload.trustedRange);
-      add('风险摘要', conditions.filter((condition) => readRecord(condition).risk === '高').length > 0
-        ? `包含 ${conditions.filter((condition) => readRecord(condition).risk === '高').length} 个高风险工况`
-        : undefined);
-      break;
-    }
-    case 'report':
-      add('报告状态', artifact.status);
-      break;
-  }
-
-  return facts;
-};
-
-const ArtifactHistory: React.FC<{
-  artifacts: ProjectArtifact[];
-  projectId: string;
-  view: ProjectArtifactType;
-  isSessionWorkspace: boolean;
-}> = ({ artifacts, projectId, view, isSessionWorkspace }) => {
-  const removeArtifact = useProjectStore((state) => state.removeArtifact);
-  const setActiveView = useProjectStore((state) => state.setActiveView);
-  const sorted = useMemo(
-    () => [...artifacts].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
-    [artifacts],
-  );
-  const latest = sorted[0];
-  const latestFacts = latest ? getArtifactFacts(latest) : [];
-
-  const deleteArtifact = (artifactId: string) => {
-    removeArtifact(projectId, artifactId);
-    if (sorted.length === 1) setActiveView('overview');
-    message.success('结果已从项目中删除');
-  };
-
-  return (
-    <div className="workspace-content-stack">
-      <div className="workspace-content-heading">
-        <div>
-          <div className="workspace-kicker">{isSessionWorkspace ? '当前会话成果' : '项目内容'}</div>
-          <Title level={3}>{viewLabels[view]}</Title>
-          <Text type="secondary">{isSessionWorkspace ? '这里展示当前会话保存的结果和历史版本。' : '左侧只保留内容类别，具体执行结果和历史版本在这里管理。'}</Text>
-        </div>
-      </div>
-
-      {latest ? (
-        <Card className="workspace-card workspace-latest-artifact" bordered={false}>
-          <div className="workspace-artifact-head">
-            <div>
-              <Tag color="blue">当前最新结果</Tag><Tag>{artifactResultLabel(latest)}</Tag>
-              <Title level={4}>{latest.title}</Title>
-              <Text type="secondary">{latest.source} · {formatTime(latest.updatedAt)}</Text>
-            </div>
-            <Popconfirm title="确认删除这个结果？" onConfirm={() => deleteArtifact(latest.id)}>
-              <Button type="text" danger icon={<DeleteOutlined />}>删除</Button>
-            </Popconfirm>
-          </div>
-          <p className="workspace-artifact-summary">{latest.summary}</p>
-          {latestFacts.length > 0 && (
-            <ul className="workspace-artifact-facts">
-              {latestFacts.map((fact) => <li key={fact}>{fact}</li>)}
-            </ul>
-          )}
-          <details className="workspace-artifact-debug">
-            <summary>查看原始数据（调试信息）</summary>
-            <pre className="workspace-artifact-payload">{JSON.stringify(latest.payload, null, 2)}</pre>
-          </details>
-        </Card>
-      ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`暂无${viewLabels[view]}结果`} />
-      )}
-
-      {sorted.length > 1 && (
-        <Card className="workspace-card" title="历史记录" bordered={false}>
-          <div className="workspace-artifact-history">
-            {sorted.slice(1).map((artifact) => (
-              <div className="workspace-artifact-history-row" key={artifact.id}>
-                <div>
-                  <strong>{artifact.title}</strong><Tag>{artifactResultLabel(artifact)}</Tag>
-                  <Text type="secondary">{artifact.summary}</Text>
-                </div>
-                <Space>
-                  <Text type="secondary">{formatTime(artifact.updatedAt)}</Text>
-                  <Popconfirm title="确认删除这个历史结果？" onConfirm={() => deleteArtifact(artifact.id)}>
-                    <Button type="text" danger size="small" icon={<DeleteOutlined />} />
-                  </Popconfirm>
-                </Space>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-};
-
-const WorksheetView: React.FC<{ projectId: string }> = ({ projectId }) => {
-  const project = useProjectStore((state) => state.projects.find((item) => item.id === projectId) ?? null);
-  if (!project?.worksheet) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无工作表" />;
-
-  const rowNumbers = [...new Set(Object.keys(project.worksheet.data).map((key) => Number(key.split('-')[0])).filter(Number.isFinite))].sort((a, b) => a - b);
-
-  return (
-    <div className="workspace-content-stack">
-      <div className="workspace-content-heading">
-        <div>
-          <div className="workspace-kicker">{project.name}</div>
-          <Title level={3}>{project.worksheet.name}</Title>
-          <Text type="secondary">{rowNumbers.length} 行 · {project.worksheet.columns.length} 列</Text>
-        </div>
-      </div>
-      <Card className="workspace-card workspace-worksheet-card" bordered={false}>
-        <div className="workspace-table-scroll">
-          <table className="workspace-data-table">
-            <thead>
-              <tr><th>#</th>{project.worksheet.columns.map((column) => <th key={column}>{column}</th>)}</tr>
-            </thead>
-            <tbody>
-              {rowNumbers.map((row) => (
-                <tr key={row}>
-                  <th>{row}</th>
-                  {project.worksheet?.columns.map((column) => <td key={`${row}-${column}`}>{project.worksheet?.data[`${row}-${column}`] ?? ''}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-};
-
-const ChartsView: React.FC<{ projectId: string }> = ({ projectId }) => {
-  const project = useProjectStore((state) => state.projects.find((item) => item.id === projectId) ?? null);
-  return <AnalysisResults entries={collectAnalysisResults(undefined, project?.artifacts ?? []).filter(entry => entry.kind === 'chart')} />;
-};
-
-const ProjectContent: React.FC = () => {
-  const incoming = useSessionRouteState();
-  const sessionId = incoming?.workspaceSession?.sessionId;
-  const objects = usePhysicalObjectStore(state => state.objects);
+// One shared catalog for project, trial and legacy session links. No second result store.
+export default function ProjectContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { sessionId: routeSessionId } = useParams();
+  const [params, setParams] = useSearchParams();
+  const projects = useProjectStore(state => state.projects);
   const sessions = useSessionStore(state => state.sessions);
-  const physicalSource = resolvePhysicalSource(objects, incoming?.workspaceSession);
-  const sessionTitle = useSessionStore(state => state.sessions.find(item => item.id === sessionId)?.title);
-  const storedActiveProjectId = useProjectStore((state) => state.activeProjectId);
-  const activeProjectId = incoming?.workspaceSession?.targetProjectId ?? storedActiveProjectId;
-  const activeView = useProjectStore((state) => state.activeView);
-  const projects = useProjectStore((state) => state.projects);
-  const project = useProjectStore((state) => state.projects.find((item) => item.id === activeProjectId) ?? null);
-
-  if (physicalSource.missing) return <Alert type="error" showIcon message="当前试验来源不可用，未切换到其他对象或执行记录。" />;
-  if (physicalSource.trial) {
-    const sourceScope = { physicalObjectId: physicalSource.configuration!.id, experimentId: physicalSource.experiment?.id, trialId: physicalSource.trial.id };
-    const entries = collectAnalysisResults(physicalSource.trial, getTrialArtifacts(projects, sessions, sourceScope, physicalSource.trial));
-    return <div className="workspace-content-stack">
-      <div className="workspace-content-heading"><div><div className="workspace-kicker">当前具体试验 · 共享成果</div><Title level={3}>数据与成果</Title><Text type="secondary">汇总五个专业功能及 CSV 分析保存的成果，并保留试验、执行记录和原始文件来源。</Text></div></div>
-      <AnalysisResults entries={entries} trial={physicalSource.trial} shared />
-    </div>;
+  const objects = usePhysicalObjectStore(state => state.objects);
+  const activeProjectId = useProjectStore(state => state.activeProjectId);
+  const legacySession = sessions.find(item => item.id === routeSessionId);
+  const sessionId = params.get('sessionId') ?? undefined;
+  const projectId = params.get('projectId') ?? (location.pathname === '/projects' ? activeProjectId ?? undefined : undefined);
+  const trialId = params.get('trialId') ?? undefined;
+  const scope = collectSharedResources(projects, sessions, objects, { projectId, sessionId, trialId });
+  const routeState = location.state as { returnTo?: string; returnState?: unknown; artifactId?: string } | null;
+  const returnTo = routeState?.returnTo;
+  if (routeSessionId) {
+    return legacySession ? <Navigate to={sessionResourcesPath(legacySession, projects)} replace state={location.state} />
+      : <Alert type="error" showIcon message="原会话不存在，未切换到其他项目成果。" />;
   }
-
-  if (!project || !activeProjectId) {
-    return (
-      <div className="workspace-empty-center">
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={<div><strong>当前没有可展示的数据与成果</strong><p>请从左侧项目列表选择一个数据与成果空间。</p></div>}
-        />
-      </div>
-    );
-  }
-
-  if (activeView === 'overview') {
-    const related = objects.flatMap(category => category.configurations.flatMap(object => object.experiments.flatMap(experiment => experiment.trials.map(trial => ({ object, experiment, trial }))))).filter(({ trial }) =>
-      sessions.some(session => (session.projectId === project.id || session.storageProjectId === project.id) && session.businessScope?.trialId === trial.id)
-      || project.artifacts.some(artifact => (artifact.payload.sourceScope as { trialId?: string } | undefined)?.trialId === trial.id));
-    if (related.length || project.artifacts.some(artifact => artifact.type !== 'report')) {
-      const entries = related.flatMap(({ object, experiment, trial }) => collectAnalysisResults(trial, getTrialArtifacts(projects, sessions, { physicalObjectId: object.id, experimentId: experiment.id, trialId: trial.id }, trial)));
-      const grouped = new Set(entries.flatMap(entry => entry.artifact ? [`${entry.artifact.projectId}/${entry.artifact.id}`] : []));
-      const unbound = project.artifacts.filter(artifact => !grouped.has(`${artifact.projectId}/${artifact.id}`));
-      entries.push(...collectAnalysisResults(undefined, unbound));
-      return <AnalysisResults entries={[...new Map(entries.map(entry => [entry.key, entry])).values()]} trials={related.map(item => item.trial)} shared />;
-    }
-    return <ProjectOverview project={project} isSessionWorkspace={Boolean(sessionId)} sessionTitle={sessionTitle} />;
-  }
-  if (activeView === 'worksheet') return <WorksheetView projectId={activeProjectId} />;
-  if (activeView === 'charts') return <ChartsView projectId={activeProjectId} />;
-  if (activeView === 'trials') {
-    if (sessionId) return <ProjectOverview project={project} isSessionWorkspace sessionTitle={sessionTitle} />;
-    return <ProjectTrialsView projectId={activeProjectId} />;
-  }
-
-  const artifacts = project.artifacts.filter((artifact) => artifact.type === activeView);
-  return <ArtifactHistory artifacts={artifacts} projectId={activeProjectId} view={activeView} isSessionWorkspace={Boolean(sessionId)} />;
-};
-
-export default ProjectContent;
+  return <div className="workspace-content-stack">
+    <div className="workspace-content-heading">
+      <Typography.Title level={3}>共享数据与成果</Typography.Title>
+      {returnTo?.startsWith('/') && !returnTo.startsWith('//') && <Button aria-label="返回原工作界面" icon={<ArrowLeftOutlined />} onClick={() => navigate(returnTo, { state: routeState?.returnState })}>返回原工作界面</Button>}
+    </div>
+    {!sessionId && <Space wrap><Typography.Text>具体试验</Typography.Text><Select aria-label="筛选具体试验" style={{ minWidth: 260 }} value={trialId ?? 'all'} options={[{ value: 'all', label: '本项目全部试验及历史成果' }, ...scope.related.map(entry => ({ value: entry.trial.id, label: `${entry.trial.name} · ${entry.object.name} / ${entry.experiment.name}` }))]} onChange={value => { const next = new URLSearchParams(params); if (value === 'all') next.delete('trialId'); else next.set('trialId', value); setParams(next, { state: location.state }); }} /></Space>}
+    {scope.missing ? <Alert type="warning" showIcon message="当前项目、会话或试验来源不可用" description="未切换到其他试验，也未删除已有成果。可返回项目重新选择查看范围。" />
+      : <AnalysisResults key={`${projectId ?? sessionId}:${trialId ?? 'all'}`} entries={scope.entries} trials={scope.trials} shared initialArtifactId={routeState?.artifactId} />}
+  </div>;
+}

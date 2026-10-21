@@ -9,6 +9,7 @@ import type {
   TaskProfessionalProjectStatus,
   TaskReportSection,
   TaskStatus,
+  TaskTrialDraft,
 } from './taskTypes';
 import { addTaskRequirement, removeTaskRequirement, reopenTaskRequirement, satisfyTaskRequirement, updateTaskRequirement } from './taskPlanModel';
 import { synchronizeTaskReportJson } from './taskReportAiModel';
@@ -33,6 +34,8 @@ interface CreateDemoTaskInput {
 interface TaskState {
   tasks: TaskRecord[];
   createTask: (input: CreateTaskInput) => string;
+  setAnalysisPlan: (taskId: string, requirements: TaskRequirement[], trialDrafts: TaskTrialDraft[]) => void;
+  bindTrialDraft: (taskId: string, draftId: string, source: NonNullable<TaskTrialDraft['source']>, sessionId: string, patch?: Partial<Pick<TaskTrialDraft, 'name' | 'loadSpectrum' | 'description' | 'categoryId' | 'physicalObjectId' | 'experimentId'>>) => void;
   createDemoTask: (input: CreateDemoTaskInput) => string;
   addRequirement: (taskId: string, input: { text: string; capability?: TaskRequirement['capability'] }) => void;
   updateRequirement: (taskId: string, requirementId: string, patch: Pick<TaskRequirement, 'text' | 'capability'>) => void;
@@ -88,6 +91,10 @@ const invalidateFormalReport = (task: TaskRecord): Pick<TaskRecord, 'requirement
 
 export const useTaskStore = create<TaskState>()(persist((set) => ({
   tasks: [],
+  setAnalysisPlan: (taskId, requirements, trialDrafts) => set(state => ({ tasks: state.tasks.map(task => task.id === taskId
+    ? { ...task, requirements, trialDrafts, planConfirmed: false, updatedAt: new Date().toISOString() } : task) })),
+  bindTrialDraft: (taskId, draftId, source, sessionId, patch) => set(state => ({ tasks: state.tasks.map(task => task.id === taskId
+    ? { ...task, trialDrafts: task.trialDrafts?.map(draft => draft.id === draftId ? { ...draft, ...patch, source, sessionId, confirmedAt: draft.confirmedAt ?? new Date().toISOString() } : draft), planConfirmed: true, updatedAt: new Date().toISOString() } : task) })),
   createTask: (input) => {
     const now = new Date().toISOString();
     const task: TaskRecord = {

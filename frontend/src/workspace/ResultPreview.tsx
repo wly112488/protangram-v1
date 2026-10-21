@@ -10,6 +10,7 @@ import TrialDataTable from './TrialDataTable';
 import { artifactResultLabel, recordLabel } from './physicalBusinessContext';
 import { downloadTrialChart } from './trialChartOutput';
 import { WORKSHEET_PAGE_SIZE } from './csvWorksheetModel';
+import type { PhysicalBusinessScope } from './sessionModel';
 
 export default function ResultPreview({ entry }: { entry: ResultEntry }) {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export default function ResultPreview({ entry }: { entry: ResultEntry }) {
   const [exporting, setExporting] = useState(false);
   const reportId = entry.artifact?.payload.reportId;
   const report = entry.kind === 'document' && typeof reportId === 'string' ? loadAnalysisReports().find(item => item.id === reportId) : undefined;
+  const sourceScope = entry.artifact?.payload.sourceScope as PhysicalBusinessScope | undefined;
   return <div className="result-preview" data-result-key={entry.key}>
     {entry.sourceAvailable === false && <Alert type="warning" showIcon message="来源 CSV 已移除；保留成果供追溯，不能重新计算或作为当前有效结果。" />}
     {entry.artifact && artifactResultLabel(entry.artifact) === '演示成果' && <Alert type="info" showIcon message="演示成果：所关联的 CSV 仅为业务上下文，并未参与计算。" />}
@@ -31,7 +33,7 @@ export default function ResultPreview({ entry }: { entry: ResultEntry }) {
     {entry.table && <TrialDataTable table={entry.table} rawFile={entry.rawFile} />}
     {entry.result?.kind === 'chart' && <ReactECharts option={entry.result.option} style={{ height: 390 }} notMerge />}
     {entry.result?.kind === 'table' && <Table size="small" rowKey={(_, index) => String(index)} scroll={{ x: 'max-content' }} pagination={{ defaultPageSize: WORKSHEET_PAGE_SIZE, showSizeChanger: false }} dataSource={entry.result.rows} columns={entry.result.columns.map(column => ({ title: `${column.label}${column.unit ? ` / ${column.unit}` : ''}`, dataIndex: column.key, width: 150, render: value => value ?? '—' }))} />}
-    {entry.kind === 'document' && <><Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>{report?.reportContent || entry.artifact?.summary}</Typography.Paragraph>{report && <Button onClick={() => navigate(`${sessionId ? `/sessions/${sessionId}` : ''}/report/generate/${encodeURIComponent(report.id)}`)}>打开报告</Button>}{!report && <Alert type="info" showIcon message="历史报告仅保留成果摘要，本机未找到对应报告正文。" />}</>}
+    {entry.kind === 'document' && <><Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>{report?.reportContent || entry.artifact?.summary}</Typography.Paragraph>{report && <Button onClick={() => navigate(`${sessionId ? `/sessions/${sessionId}` : ''}/report/generate/${encodeURIComponent(report.id)}`, { state: entry.artifact ? { workspaceSession: { mode: 'project', targetProjectId: entry.artifact.projectId, ...sourceScope } } : undefined })}>打开报告</Button>}{!report && <Alert type="info" showIcon message="历史报告仅保留成果摘要，本机未找到对应报告正文。" />}</>}
     {entry.result?.kind === 'metric' && <Typography.Paragraph className="result-metric-value">{entry.result.value ?? '—'} {entry.result.unit}</Typography.Paragraph>}
   </div>;
 }

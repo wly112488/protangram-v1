@@ -2,7 +2,7 @@ import type { Project } from './types';
 import type { TaskRecord } from './taskTypes';
 
 export type TrialCreationContext =
-  | { mode: 'task'; taskId: string; taskName: string; projectId: string }
+  | { mode: 'task'; taskId: string; taskName: string; projectId?: string }
   | { mode: 'project'; projectId: string; projectName: string }
   | { mode: 'independent' }
   | { mode: 'missing-task'; taskId: string }
@@ -11,13 +11,16 @@ export type TrialCreationContext =
 export function resolveTrialCreationContext(search: string, tasks: TaskRecord[], projects: Project[]): TrialCreationContext {
   const params = new URLSearchParams(search);
   const taskId = params.get('taskBookId');
+  const projectId = params.get('projectId');
+  const project = projects.find(item => item.id === projectId && !item.sessionOwnerId);
   if (taskId) {
     const task = tasks.find(item => item.id === taskId);
-    return task ? { mode: 'task', taskId, taskName: task.title, projectId: task.projectId } : { mode: 'missing-task', taskId };
+    if (!task) return { mode: 'missing-task', taskId };
+    if (projectId && !project) return { mode: 'missing-project', projectId };
+    const target = project ?? projects.find(item => item.id === task.projectId && !item.sessionOwnerId);
+    return { mode: 'task', taskId, taskName: task.title, ...(target ? { projectId: target.id } : {}) };
   }
-  const projectId = params.get('projectId');
   if (projectId) {
-    const project = projects.find(item => item.id === projectId && !item.sessionOwnerId);
     return project ? { mode: 'project', projectId, projectName: project.name } : { mode: 'missing-project', projectId };
   }
   return { mode: 'independent' };

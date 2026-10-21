@@ -34,10 +34,10 @@ test('task workbench opens the cited original PDF in a right-side viewer', () =>
 });
 
 test('task creation persists the selected PDF so it can be reopened later', () => {
-  const centerSource = readFileSync(path.join(frontendRoot, 'src/workspace/TaskCenter.tsx'), 'utf8');
+  const centerSource = readFileSync(path.join(frontendRoot, 'src/workspace/TaskBookAnalysisPage.tsx'), 'utf8');
   const storageSource = readFileSync(path.join(frontendRoot, 'src/workspace/taskBookStorage.ts'), 'utf8');
 
-  assert.match(centerSource, /saveTaskBookFile\(taskId, taskBookFile\)/);
+  assert.match(centerSource, /saveTaskBookFile\(taskId, file\)/);
   assert.match(storageSource, /indexedDB\.open/);
   assert.match(storageSource, /loadTaskBookFile/);
 });

@@ -1,3 +1,5 @@
+import type { PhysicalBusinessScope } from './sessionModel';
+
 export type TaskStatus = '进行中' | '已完成' | '已归档';
 export type TaskRequirementStatus = '待完成' | '进行中' | '待确认' | '已满足';
 
@@ -62,9 +64,24 @@ export interface TaskRecord {
   planConfirmed?: boolean;
   status: TaskStatus;
   requirements: TaskRequirement[];
+  trialDrafts?: TaskTrialDraft[];
   artifactRefs?: TaskArtifactReference[];
   professionalProjects?: TaskProfessionalProject[];
   reportDraft: TaskReportDraft;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TaskTrialDraft {
+  id: string;
+  name: string;
+  categoryId?: string;
+  physicalObjectId?: string;
+  experimentId?: string;
+  loadSpectrum: string;
+  description?: string;
+  requirementIds: string[];
+  source?: PhysicalBusinessScope;
+  sessionId?: string;
+  confirmedAt?: string;
 }

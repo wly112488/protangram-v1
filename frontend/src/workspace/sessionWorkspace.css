@@ -146,6 +146,7 @@
 .report-tag-controls .ant-tag { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 760px) { .task-artifact-scope { margin: 12px 14px 0; } .report-tag-controls { width: 100%; } }
 .session-shared-resources { padding: 24px; }
+.session-shared-resources > .ant-tabs .workspace-content-stack { padding: 8px 0 0; }
 .session-shared-resource-actions { display: flex; justify-content: flex-end; margin-bottom: 16px; }
 .session-assistant-body { height: 100%; }
 .session-resource-drawer .workspace-project-sidebar { display: flex !important; position: static !important; width: 100% !important; min-width: 0; max-width: 100%; height: auto; box-shadow: none; border: 0; padding: 0; transform: none !important; }

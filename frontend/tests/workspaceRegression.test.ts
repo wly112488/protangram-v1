@@ -149,24 +149,20 @@ test('cross-page workflows explain which task data model or validation context w
   for (const source of sources) assert.match(source, /已从[\s\S]{0,400}带入业务上下文|已从试验数据分析带入/);
 });
 
-test('project artifact content keeps raw payload in a collapsed debug section and offers a continue action', () => {
+test('shared catalog renders saved content and retains the originating work route', () => {
   const source = readFileSync(new URL('../src/workspace/ProjectContent.tsx', import.meta.url), 'utf8');
 
-  assert.match(source, /<details/);
-  assert.match(source, /调试信息|原始数据/);
-  assert.match(source, /workspace-artifact-summary/);
-  assert.match(source, /继续|新建/);
-  assert.match(source, /workspaceSession: \{ mode: 'project', targetProjectId: projectId \}/);
+  assert.match(source, /collectSharedResources/);
+  assert.match(source, /<AnalysisResults/);
+  assert.match(source, /返回原工作界面/);
+  assert.doesNotMatch(source, /JSON\.stringify/);
 });
 
-test('project overview recommends deterministic next actions from saved artifacts and virtual risk', () => {
-  const source = readFileSync(new URL('../src/workspace/ProjectOverview.tsx', import.meta.url), 'utf8');
-
-  for (const action of ['试验设计', '试验数据分析', '模型校准', '虚拟工况', '补充试验设计', '报告', '验证设计', '创建任务']) {
-    assert.ok(source.includes(action), `missing next-step action: ${action}`);
-  }
-  assert.match(source, /workspaceSession/);
-  assert.match(source, /highRiskCount|高风险/);
+test('project landing separates concrete trials from shared resources without a duplicate overview', () => {
+  const source = readFileSync(new URL('../src/workspace/ProjectResourcesPage.tsx', import.meta.url), 'utf8');
+  assert.match(source, /具体试验/);
+  assert.match(source, /共享数据与成果/);
+  assert.doesNotMatch(source, /ProjectOverview|<Drawer|项目资源目录/);
 });
 
 test('project sidebar names the project contents and saved outcomes instead of suggesting feature navigation', () => {

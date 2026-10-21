@@ -54,6 +54,7 @@ interface ProjectWorkspaceState {
   setActiveView: (view: ProjectView) => void;
   createProject: (input: CreateProjectInput) => string;
   deleteProject: (projectId: string) => void;
+  retainTrialSource: (projectId: string, source: NonNullable<Project['trialSources']>[number]) => void;
   renameProject: (projectId: string, name: string) => void;
   archiveProject: (projectId: string, archived: boolean) => void;
   createProjectFromDesign: (input: CreateProjectFromDesignInput) => string;
@@ -136,6 +137,14 @@ export const useProjectStore = create<ProjectWorkspaceState>()(
         if (!name.trim()) return;
         set(state => ({ projects: state.projects.map(project => project.id === projectId
           ? { ...project, name: name.trim(), updatedAt: new Date().toISOString() } : project) }));
+      },
+
+      retainTrialSource: (projectId, source) => {
+        const project = get().projects.find(item => item.id === projectId && !item.sessionOwnerId);
+        if (!project || project.trialSources?.some(item => item.physicalObjectId === source.physicalObjectId
+          && item.experimentId === source.experimentId && item.trialId === source.trialId)) return;
+        set(state => ({ projects: state.projects.map(item => item.id === projectId
+          ? { ...item, trialSources: [...(item.trialSources ?? []), source] } : item) }));
       },
 
       archiveProject: (projectId, archived) => set(state => ({ projects: state.projects.map(project => project.id === projectId

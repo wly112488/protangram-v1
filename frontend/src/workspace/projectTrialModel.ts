@@ -26,10 +26,12 @@ export function getProjectTrialEntries(
   const projectSessions = sessions.filter(session =>
     session.projectId === projectId || session.storageProjectId === projectId,
   );
-  const scopes = [
+  const sourceScopes: Array<PhysicalBusinessScope | undefined> = [
+    ...(project.trialSources ?? []),
     ...projectSessions.map(session => session.businessScope),
     ...project.artifacts.map(artifactScope),
-  ].filter((scope): scope is PhysicalBusinessScope =>
+  ];
+  const scopes = sourceScopes.filter((scope): scope is PhysicalBusinessScope =>
     Boolean(scope?.physicalObjectId && scope.experimentId && (scope.trialId || scope.testRecordId)),
   );
 

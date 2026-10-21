@@ -10,6 +10,8 @@ export interface WorkSession {
   title: string;
   projectId?: string;
   taskId?: string;
+  taskWork?: { taskId: string; trialDraftId: string };
+  sidebarVisible?: boolean;
   creationSource: SessionCreationSource;
   storageProjectId: string;
   capability: SessionCapability;
@@ -78,11 +80,10 @@ export const readSessionDraft = <T,>(session: WorkSession | undefined, capabilit
 export const getSessionResumePath = (session: WorkSession) => session.capability === 'task' && session.taskId
   ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}` : getSessionPath(session.id, session.capability);
 
-export const getSessionEntryPath = (session: WorkSession) => session.taskId
-  ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}`
-  : session.businessScope?.trialId
-    ? getSessionPath(session.id, 'doe')
-    : getSessionPath(session.id, 'resources');
+export const getSessionEntryPath = (session: WorkSession) => session.businessScope?.trialId
+  ? getSessionPath(session.id, 'doe')
+  : session.taskId ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}`
+    : getSessionPath(session.id);
 
 export const isCompatibleSessionHandoff = (context: WorkspaceSessionState, state?: BusinessRouteState | null) => !state?.workspaceSession
     || (!state.workspaceSession.sessionId || state.workspaceSession.sessionId === context.sessionId)

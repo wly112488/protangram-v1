@@ -1,56 +1,40 @@
-import React, { useState } from 'react';
-import { Button, Drawer, Empty, List, Modal } from 'antd';
-import { DatabaseOutlined, ExperimentOutlined, FolderOpenOutlined } from '@ant-design/icons';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Button, Empty, List, Modal, Select, Space, Tabs, Typography } from 'antd';
+import { FolderOpenOutlined } from '@ant-design/icons';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import ProjectContent from './ProjectContent';
-import ProjectSidebar from './ProjectSidebar';
+import ProjectTrialsView from './ProjectTrialsView';
 import { LEGACY_EXPERIMENT_STORAGE_KEY, useProjectStore } from './projectStore';
 import type { LegacyGeneratedExperiment } from './projectModel';
 
 const loadLegacyExperiments = (): LegacyGeneratedExperiment[] => {
-  try {
-    const raw = localStorage.getItem(LEGACY_EXPERIMENT_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed as LegacyGeneratedExperiment[] : [];
-  } catch {
-    return [];
-  }
+  try { const parsed = JSON.parse(localStorage.getItem(LEGACY_EXPERIMENT_STORAGE_KEY) ?? '[]'); return Array.isArray(parsed) ? parsed : []; }
+  catch { return []; }
 };
 
-const ProjectResourcesPage: React.FC = () => {
-  const navigate = useNavigate();
+export default function ProjectResourcesPage() {
+  const [params, setParams] = useSearchParams();
   const location = useLocation();
-  const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const projectId = useProjectStore(state => state.activeProjectId);
+  const activeId = useProjectStore(state => state.activeProjectId);
   const projects = useProjectStore(state => state.projects);
-  const importLegacyExperiment = useProjectStore(state => state.importLegacyExperiment);
-  const setActiveProject = useProjectStore(state => state.setActiveProject);
-  const importCandidates = loadLegacyExperiments().filter(legacy => !projects.some(project => project.id === legacy.id));
-  const isSessionResources = location.pathname.startsWith('/sessions/');
+  const visible = projects.filter(item => !item.sessionOwnerId);
+  const projectId = params.get('projectId') ?? (visible.some(item => item.id === activeId) ? activeId : null);
+  const project = visible.find(item => item.id === projectId);
+  const view = params.get('view') === 'resources' ? 'resources' : 'trials';
+  const importCandidates = loadLegacyExperiments().filter(legacy => !projects.some(item => item.id === legacy.id));
+  const selectProject = (id: string) => { useProjectStore.getState().setActiveProject(id); setParams({ projectId: id, view: 'trials' }); };
   return <div className="session-shared-resources">
-    <p className="session-resource-description">{isSessionResources ? '这里展示当前会话保存的数据与成果。' : '这里只展示项目共享资源；各会话成果请在对应会话中查看。'}</p>
-    <div className="session-shared-resource-actions">
-      {!isSessionResources && <Button icon={<FolderOpenOutlined />} onClick={() => setImportOpen(true)}>导入旧版项目</Button>}
-      {!isSessionResources && projectId && <Button type="primary" icon={<ExperimentOutlined />} onClick={() => navigate(`/trials/new?projectId=${encodeURIComponent(projectId)}`)}>在此项目中新建具体试验</Button>}
-      <Button icon={<DatabaseOutlined />} onClick={() => setOpen(true)}>{isSessionResources ? '查看成果目录' : '项目资源目录'}</Button>
-    </div>
-    <ProjectContent />
-    <Drawer className="session-resource-drawer" title={isSessionResources ? '当前会话已保存成果' : '项目共享数据与成果'} open={open} onClose={() => setOpen(false)} size={370}>
-      <ProjectSidebar projectId={projectId ?? undefined} onNavigate={() => setOpen(false)} />
-    </Drawer>
+    <div className="workspace-content-heading"><Typography.Title level={3}>{project?.name ?? '项目'}</Typography.Title><Space wrap>
+      <Select aria-label="选择项目" placeholder="选择项目" style={{ minWidth: 200 }} value={project?.id} options={visible.map(item => ({ value: item.id, label: item.name }))} onChange={selectProject} />
+      <Button icon={<FolderOpenOutlined />} onClick={() => setImportOpen(true)}>导入旧版项目</Button>
+    </Space></div>
+    {project ? <Tabs activeKey={view} onChange={value => { const next = new URLSearchParams({ projectId: project.id, view: value }); setParams(next, { state: location.state }); }} items={[
+      { key: 'trials', label: '具体试验', children: <ProjectTrialsView projectId={project.id} /> },
+      { key: 'resources', label: '共享数据与成果', children: <ProjectContent /> },
+    ]} /> : <Empty description={projectId ? '该项目已不存在，请选择其他项目' : '请从左侧新建项目，或选择一个已有项目'} />}
     <Modal title="导入旧版试验项目" open={importOpen} footer={null} onCancel={() => setImportOpen(false)}>
-      {importCandidates.length > 0 ? <List dataSource={importCandidates} renderItem={item => (
-        <List.Item actions={[<Button key="import" type="link" onClick={() => {
-          const importedProjectId = importLegacyExperiment(item);
-          setActiveProject(importedProjectId);
-          setImportOpen(false);
-          navigate('/projects');
-        }}>导入</Button>] }>
-          <List.Item.Meta title={item.name} description={item.designName || '历史项目'} />
-        </List.Item>
-      )} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有尚未导入的旧版试验项目" />}
+      {importCandidates.length ? <List dataSource={importCandidates} renderItem={item => <List.Item actions={[<Button key="import" type="link" onClick={() => { const id = useProjectStore.getState().importLegacyExperiment(item); setImportOpen(false); selectProject(id); }}>导入</Button>]}><List.Item.Meta title={item.name} description={item.designName || '历史项目'} /></List.Item>} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有尚未导入的旧版试验项目" />}
     </Modal>
   </div>;
-};
-export default ProjectResourcesPage;
+}

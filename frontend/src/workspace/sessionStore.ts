@@ -35,6 +35,8 @@ interface SessionStore {
   ensureTaskSession: (task: { id: string; title: string; projectId: string }, businessScope?: PhysicalBusinessScope) => string;
   ensureProjectSession: (projectId: string, businessScope?: PhysicalBusinessScope) => string;
   ensurePhysicalSession: (scope: PhysicalBusinessScope, title: string) => string;
+  ensureTaskTrialSession: (taskId: string, draftId: string, scope: PhysicalBusinessScope, projectId?: string) => string;
+  publishSession: (id: string) => void;
   getWorkspaceSession: (id: string) => WorkspaceSessionState | undefined;
   openSession: (id: string | null, capability?: SessionCapability) => void;
   renameSession: (id: string, title: string) => void;
@@ -65,14 +67,14 @@ export const useSessionStore = create<SessionStore>((set, get) => {
   };
   const update = (id: string, fn: (session: WorkSession) => WorkSession) => commit(get().sessions.map(session =>
     session.id === id ? { ...fn(session), updatedAt: new Date().toISOString() } : session));
-  const create = (input: { title?: string; projectId?: string; taskId?: string; storageProjectId?: string; creationSource?: SessionCreationSource; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => {
+  const create = (input: { taskWork?: WorkSession['taskWork']; sidebarVisible?: boolean; title?: string; projectId?: string; taskId?: string; storageProjectId?: string; creationSource?: SessionCreationSource; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => {
     const id = createSessionId();
     const title = input.title?.trim() || '新会话';
     const storageProjectId = input.storageProjectId ?? useProjectStore.getState().createProject({
       name: title, sessionOwnerId: id, description: '会话数据与成果', status: '进行中',
     });
     const now = new Date().toISOString();
-    commit([...get().sessions, { id, title, projectId: input.projectId, taskId: input.taskId, creationSource: input.creationSource ?? (input.taskId ? 'task' : input.projectId ? 'project' : 'standalone'), storageProjectId, businessScope: input.businessScope,
+    commit([...get().sessions, { id, title, projectId: input.projectId, taskId: input.taskId, creationSource: input.creationSource ?? (input.taskId ? 'task' : input.projectId ? 'project' : 'standalone'), storageProjectId, businessScope: input.businessScope, taskWork: input.taskWork, sidebarVisible: input.sidebarVisible,
       capability: input.taskId ? 'task' : 'overview', pinned: false, archived: false,
       createdAt: now, updatedAt: now,
       drafts: input.initialDrafts ? JSON.parse(JSON.stringify(input.initialDrafts)) as WorkSession['drafts'] : {},
@@ -83,6 +85,16 @@ export const useSessionStore = create<SessionStore>((set, get) => {
   return {
     ...load(),
     createSession: (input = {}) => create(input),
+    ensureTaskTrialSession: (taskId, draftId, scope, projectId) => {
+      const existing = get().sessions.find(session => session.taskWork?.taskId === taskId && session.taskWork.trialDraftId === draftId && samePhysicalSource(session.businessScope, scope));
+      if (existing) return existing.id;
+      const task = useTaskStore.getState().tasks.find(item => item.id === taskId);
+      const draft = task?.trialDrafts?.find(item => item.id === draftId);
+      const published = task?.requirements.some(item => draft?.requirementIds.includes(item.id) && item.status === '已满足');
+      return create({ title: scope.trialName, projectId, storageProjectId: projectId, businessScope: scope,
+        taskWork: { taskId, trialDraftId: draftId }, sidebarVisible: Boolean(published) });
+    },
+    publishSession: id => update(id, session => ({ ...session, sidebarVisible: true })),
     ensurePhysicalSession: (scope, title) => {
       if (!scope.physicalObjectId) return create({ title });
       const existing = get().sessions.find(session => !session.taskId && !session.archived && samePhysicalSource(session.businessScope, scope));
@@ -95,11 +107,12 @@ export const useSessionStore = create<SessionStore>((set, get) => {
         if (businessScope) update(existing.id, session => ({ ...session, businessScope: { ...session.businessScope, ...businessScope } }));
         return existing.id;
       }
-      return create({ title: task.title, projectId: task.projectId, taskId: task.id, storageProjectId: task.projectId, businessScope });
+      const project = useProjectStore.getState().projects.find(item => item.id === task.projectId);
+      return create({ title: task.title, projectId: project?.id, taskId: task.id, storageProjectId: project?.id, businessScope });
     },
     ensureProjectSession: (projectId, businessScope) => {
-      const existing = get().sessions.find(session => !session.taskId && session.storageProjectId === projectId
-        && (!businessScope || !session.businessScope || samePhysicalSource(session.businessScope, businessScope)));
+      const existing = get().sessions.find(session => !session.taskId && !session.archived && session.storageProjectId === projectId
+        && (businessScope ? samePhysicalSource(session.businessScope, businessScope) : !session.businessScope));
       if (existing) {
         if (businessScope) update(existing.id, session => ({ ...session, businessScope: { ...session.businessScope, ...businessScope } }));
         return existing.id;
@@ -127,7 +140,19 @@ export const useSessionStore = create<SessionStore>((set, get) => {
     togglePinned: (id) => update(id, session => ({ ...session, pinned: !session.pinned })),
     archiveSession: (id, archived) => update(id, session => ({ ...session, archived })),
     // Keep artifact spaces: existing reports and task evidence may reference them.
-    deleteSession: (id) => commit(get().sessions.filter(session => session.id !== id), get().activeSessionId === id ? null : get().activeSessionId),
+    deleteSession: (id) => {
+      const session = get().sessions.find(item => item.id === id);
+      const source = session?.businessScope;
+      // Session state is disposable; project membership and canonical trial data are not.
+      if (source?.physicalObjectId && source.experimentId && source.trialId) {
+        const projects = useProjectStore.getState();
+        const owners = new Set([session?.projectId, session?.storageProjectId]);
+        for (const project of projects.projects.filter(item => owners.has(item.id) && !item.sessionOwnerId)) {
+          projects.retainTrialSource(project.id, { physicalObjectId: source.physicalObjectId, experimentId: source.experimentId, trialId: source.trialId });
+        }
+      }
+      commit(get().sessions.filter(session => session.id !== id), get().activeSessionId === id ? null : get().activeSessionId);
+    },
     deleteProjectGroup: (projectId) => {
       if (getProjectDeletionBlock(projectId, get().sessions, useTaskStore.getState().tasks)) return false;
       const remaining = get().sessions.filter(session => session.projectId !== projectId);

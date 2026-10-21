@@ -464,7 +464,9 @@ Extend ProjectView in frontend/src/workspace/types.ts with 'trials'. In buildPro
 
     if (!project.sessionOwnerId && (project.trialRefs ?? []).length > 0) {
       items.push({ key: project.id + ':trials', title: '关联具体试验', view: 'trials' });
-    } Create ProjectTrialReferencesView.tsx to resolve each reference through resolveProjectTrialReference and render:
+    }
+
+Create ProjectTrialReferencesView.tsx to resolve each reference through resolveProjectTrialReference and render:
 - available source: hierarchy path, number of execution records, optional task-book name, open action and remove action;
 - unavailable source: “来源不可用”, the referenced IDs for diagnosis, disabled open action and remove action.
 

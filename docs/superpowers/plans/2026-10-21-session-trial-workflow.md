@@ -1,6 +1,6 @@
 # ProTangram 会话与试验工作流实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (\`- [ ]\`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 让“新会话”入口真正创建会话记录，并在项目资源中按具体试验组织执行记录、CSV 和专业成果；保留现有数据归属，不引入跨项目引用具体试验的新关系。
 
@@ -117,10 +117,10 @@
 test('recent-session plus creates a session instead of opening trial creation', () => {
   const sidebar = readFileSync(path.join(frontendRoot, 'src/workspace/BusinessSidebar.tsx'), 'utf8');
   assert.match(sidebar, /aria-label="新建会话"/);
-  assert.match(sidebar, /createSession\\(\\{ title: '新会话' \\}\\)/);
-  assert.match(sidebar, /openSession\\([^,]+, 'doe'\\)/);
-  assert.match(sidebar, /getSessionPath\\([^,]+, 'doe'\\)/);
-  assert.doesNotMatch(sidebar, /const startSession = \\(\\) => open\\('\\/trials\\/new'\\)/);
+  assert.match(sidebar, /createSession\(\{ title: '新会话' \}\)/);
+  assert.match(sidebar, /openSession\([^,]+, 'doe'\)/);
+  assert.match(sidebar, /getSessionPath\([^,]+, 'doe'\)/);
+  assert.doesNotMatch(sidebar, /const startSession = \(\) => open\('\/trials\/new'\)/);
 });
 ~~~
 
@@ -201,7 +201,7 @@ import { build } from 'esbuild';
 
 const bundled = await build({
   stdin: {
-    contents: \"export * from './src/workspace/projectTrialModel';\",
+    contents: "export * from './src/workspace/projectTrialModel';",
     resolveDir: process.cwd(),
   },
   bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',

@@ -439,6 +439,9 @@ The duplicate trial names are intentional: they prove source matching is based o
       const source = readFileSync(new URL('../src/workspace/ProjectResourcesPage.tsx', import.meta.url), 'utf8');
       assert.match(source, /!isSessionResources && activeProject/);
       assert.match(source, /ProjectTrialReferencePicker/);
+      const picker = readFileSync(new URL('../src/workspace/ProjectTrialReferencePicker.tsx', import.meta.url), 'utf8');
+      assert.match(picker, /candidate\.loadSpectrum/);
+      assert.match(picker, /candidate\.taskBookId/);
     });
 
 - [ ] **Step 2: Run the focused test before UI implementation**
@@ -875,7 +878,7 @@ For the available-source row, add `<Button key="open" type="primary" onClick={()
 
 Run from `frontend/`:
 
-    node --test tests/projectTrialReferences.test.mjs tests/projectTrialReferenceSessions.test.mjs
+    node --test tests/projectTrialReferences.test.mjs tests/projectTrialReferenceStore.test.mjs tests/projectTrialReferenceSessions.test.mjs
 
 Expected: all reference and session-isolation tests PASS.
 
@@ -938,6 +941,10 @@ Create `frontend/scripts/verify-project-trial-references.mjs` with this executab
       await page.goto(baseURL + '/projects');
       await page.getByRole('button', { name: '添加已有具体试验', exact: true }).click();
       const dialog = page.getByRole('dialog');
+      const search = dialog.getByPlaceholder('搜索对象、试验构型、具体试验、载荷谱或任务书');
+      await search.fill('不存在的载荷谱');
+      await dialog.getByText('没有可关联的具体试验', { exact: true }).waitFor();
+      await search.fill('LS-1');
       await dialog.getByRole('button', { name: '关联此试验', exact: true }).click();
       await dialog.waitFor({ state: 'hidden' });
       await page.locator('.ant-tree-treenode[data-node-key="' + projectId + ':trials"] .ant-tree-node-content-wrapper').click();
@@ -1042,13 +1049,22 @@ Create `frontend/scripts/verify-project-trial-references.mjs` with this executab
         [sessionB.businessScope.physicalObjectId, sessionB.businessScope.experimentId, sessionB.businessScope.trialId],
         [fixture.objectId, fixture.experimentId, fixture.trialId],
       );
+      await page.evaluate(async storageProjectId => {
+        const { useProjectStore } = await window.__ptImport('/src/workspace/projectStore.ts');
+        useProjectStore.getState().addArtifact(storageProjectId, {
+          type: 'analysis', title: '保留成果', source: '测试', summary: '用于验证移除关联不会删除成果', payload: {}, status: '已保存',
+        });
+      }, sessionA.storageProjectId);
       console.log('PASS project B keeps the same source IDs but separate session state');
 
       await page.goto(baseURL + '/sessions/' + encodeURIComponent(sessionBId) + '/resources');
       assert.equal(await page.getByRole('button', { name: '添加已有具体试验', exact: true }).count(), 0);
       console.log('PASS session-owned resources do not expose the organizational-project picker');
 
-      const beforeRemoval = trialSnapshot(await state(), fixture);
+      const beforeRemovalState = await state();
+      const beforeRemoval = trialSnapshot(beforeRemovalState, fixture);
+      const sessionIdsBeforeRemoval = beforeRemovalState.sessions.map(item => item.id).sort();
+      assert.ok(beforeRemovalState.projects.find(item => item.id === sessionA.storageProjectId).artifacts.some(item => item.title === '保留成果'));
       await openReferenceList(fixture.projectA);
       await page.getByRole('button', { name: '移除关联', exact: true }).click();
       await page.getByRole('button', { name: '确认移除', exact: true }).click();
@@ -1056,7 +1072,9 @@ Create `frontend/scripts/verify-project-trial-references.mjs` with this executab
       assert.equal(afterRemoval.projects.find(item => item.id === fixture.projectA).trialRefs.length, 0);
       assert.equal(afterRemoval.projects.find(item => item.id === fixture.projectB).trialRefs.length, 1);
       assert.deepEqual(trialSnapshot(afterRemoval, fixture), beforeRemoval);
-      console.log('PASS removing one reference preserves other references and all canonical trial data');
+      assert.deepEqual(afterRemoval.sessions.map(item => item.id).sort(), sessionIdsBeforeRemoval);
+      assert.ok(afterRemoval.projects.find(item => item.id === sessionA.storageProjectId).artifacts.some(item => item.title === '保留成果'));
+      console.log('PASS removing one reference preserves other references, sessions, artifacts and canonical trial data');
 
       await openReferenceList(fixture.projectB);
       await page.evaluate(async trialId => {
@@ -1114,9 +1132,9 @@ Coverage result: **COVERAGE_COMPLETE**.
 
 ## Final Verification Contract
 
-Before treating this plan as complete after implementation:
+Before treating this plan as complete after implementation, run the following commands from `frontend/`.
 
-1. Run the focused model/session tests and the full test suite:
+1. Run the focused model, persistence and session tests and then the full test suite:
 
        node --test tests/projectTrialReferences.test.mjs tests/projectTrialReferenceStore.test.mjs tests/projectTrialReferenceSessions.test.mjs
        node --test tests/*.test.mjs
@@ -1129,7 +1147,7 @@ Before treating this plan as complete after implementation:
        npm run build
        git diff --check
 
-   Expected: ESLint reports no errors, the build succeeds, and git diff --check emits no output. Record any pre-existing warnings separately; do not suppress them to make the result appear clean. Record any pre-existing lint or bundle warnings separately; do not suppress them to make the result appear clean.
+   Expected: ESLint reports no errors, the build succeeds, and git diff --check emits no output. Record any pre-existing lint or bundle warnings separately; do not suppress them to make the result appear clean.
 
 3. Run the Playwright browser script against an isolated test context. The script must not use the user's existing browser profile or modify real user data.
 

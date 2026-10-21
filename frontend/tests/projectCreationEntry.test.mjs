@@ -18,3 +18,12 @@ test('workspace sidebar groups workbench sessions, projects and formal tasks', (
   assert.match(sidebar, /business-object-tree/);
   assert.match(sidebar, /物理对象/);
 });
+
+test('recent-session plus creates a session instead of opening trial creation', () => {
+  const sidebar = readFileSync(path.join(frontendRoot, 'src/workspace/BusinessSidebar.tsx'), 'utf8');
+  assert.match(sidebar, /aria-label="新建会话"/);
+  assert.match(sidebar, /createSession\(\{ title: '新会话' \}\)/);
+  assert.match(sidebar, /openSession\([^,]+, 'doe'\)/);
+  assert.match(sidebar, /getSessionPath\([^,]+, 'doe'\)/);
+  assert.doesNotMatch(sidebar, /const startSession = \(\) => open\('\/trials\/new'\)/);
+});

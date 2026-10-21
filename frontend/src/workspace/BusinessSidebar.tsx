@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
 import { useSessionStore } from './sessionStore';
 import { useTaskStore } from './taskStore';
-import { getSessionEntryPath } from './sessionModel';
+import { getSessionEntryPath, getSessionPath } from './sessionModel';
 import { getRecentSessionsForHome, getSessionCreationSource, getSessionSidebarContent } from './sessionSidebarModel';
 import { taskBookPath } from './taskTrialModel';
 import comacLogo from '@/assets/comac_logo.png';
@@ -53,7 +53,11 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
     })),
   }));
   const open = (path: string) => { navigate(path); onNavigate(); };
-  const startSession = () => open('/trials/new');
+  const startSession = () => {
+    const sessionId = useSessionStore.getState().createSession({ title: '新会话' });
+    useSessionStore.getState().openSession(sessionId, 'doe');
+    open(getSessionPath(sessionId, 'doe'));
+  };
   const selectTreeNode = (keys: React.Key[]) => {
     const node = treeNodeByKey.get(String(keys[0] ?? ''));
     if (!node) return;

@@ -1118,7 +1118,7 @@ Before treating this plan as complete after implementation:
 
 1. Run the focused model/session tests and the full test suite:
 
-       node --test tests/projectTrialReferences.test.mjs tests/projectTrialReferenceSessions.test.mjs
+       node --test tests/projectTrialReferences.test.mjs tests/projectTrialReferenceStore.test.mjs tests/projectTrialReferenceSessions.test.mjs
        node --test tests/*.test.mjs
 
    Expected: all selected and full-suite tests pass.

@@ -199,6 +199,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { build } from 'esbuild';
 
+const memory = new Map();
+globalThis.localStorage = {
+  getItem: key => memory.get(key) ?? null,
+  setItem: (key, value) => memory.set(key, value),
+  removeItem: key => memory.delete(key),
+};
+globalThis.window = { localStorage: globalThis.localStorage };
+
 const bundled = await build({
   stdin: {
     contents: "export * from './src/workspace/projectTrialModel';",
@@ -398,14 +406,17 @@ git commit -m "feat: derive project trial entries from existing sources"
 在 frontend/src/workspace/ProjectContent.tsx 中为 viewLabels 增加 trials 对应的“工作内容与试验”，导入 ProjectTrialsView，并在 worksheet/charts 分支之后、ArtifactHistory fallback 之前增加：
 
 ~~~tsx
-if (activeView === 'trials') return <ProjectTrialsView projectId={activeProjectId} />;
+if (activeView === 'trials') {
+  if (sessionId) return <ProjectOverview project={project} isSessionWorkspace sessionTitle={sessionTitle} />;
+  return <ProjectTrialsView projectId={activeProjectId} />;
+}
 ~~~
 
 在 frontend/src/workspace/ProjectSidebar.tsx 中，项目级目录显示 trials；当组件以 projectId 作为会话资源抽屉的固定范围时，过滤掉 trials：
 
 ~~~tsx
 children: buildProjectNavigation(project)
-  .filter(item => !projectId || item.view !== 'trials')
+  .filter(item => !sessionId || item.view !== 'trials')
   .map(item => ({ key: item.key, title: item.title, isLeaf: true })),
 ~~~
 
@@ -460,11 +471,7 @@ const ProjectTrialsView: React.FC<{ projectId: string }> = ({ projectId }) => {
       </div>
 
       {entries.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前项目尚无已关联的具体试验">
-          <Button type="primary" onClick={() => navigate('/trials/new?projectId=' + encodeURIComponent(projectId))}>
-            新建具体试验
-          </Button>
-        </Empty>
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前项目尚无已关联的具体试验" />
       ) : entries.map(entry => {
         const scope = {
           physicalObjectId: entry.object.id,
@@ -481,7 +488,7 @@ const ProjectTrialsView: React.FC<{ projectId: string }> = ({ projectId }) => {
           <Card
             key={entry.object.id + ':' + entry.experiment.id + ':' + entry.trial.id}
             className="workspace-card project-trial-card"
-            title={<div><Title level={4}>{entry.trial.name}</Title><Text type="secondary">{entry.object.name} · {entry.experiment.name}</Text></div>}
+            title={<div><Title level={4}>{entry.trial.name}</Title><Text type="secondary">{entry.category.name} · {entry.object.name} · {entry.experiment.name}</Text></div>}
             extra={<Button onClick={() => { if (trialPath) navigate(trialPath); }}>打开具体试验</Button>}
           >
             <Space wrap>

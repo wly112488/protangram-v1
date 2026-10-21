@@ -8,15 +8,17 @@
 
 **Tech Stack:** React, TypeScript, Ant Design, Zustand, localStorage persistence, existing Node test suite, Vite build and Playwright browser verification.
 
-**Spec:** docs/superpowers/specs/2026-10-09-session-workbench-design.md. Related business evidence: docs/reviews/2026-10-13-cross-function-sharing.md and docs/reviews/2026-10-15-task-trial-integration.md.
+**Spec / Business Basis:** `docs/superpowers/specs/2026-10-09-session-workbench-design.md` defines session grouping and artifact-space boundaries; `docs/reviews/2026-10-13-cross-function-sharing.md` defines stable source identity and canonical data ownership; `docs/reviews/2026-10-15-task-trial-integration.md` defines task-book relationships and source-data ownership. The project-to-trial reference behavior in this plan is the new extension derived from these constraints.
 
 ## Global Constraints
 
 - A session is a named, persistent work context. Creating one requires no project. Projects group sessions; formal tasks keep their requirements, artifact references and reports. Existing professional modules remain interactive pages.
-- Persist session metadata, per-capability committed settings, editable drafts, preparation confirmations, completed results and route handoffs. Do not persist temporary loading or modal-open states.
+- Each session has an internal artifact space separate from its optional organizational project.
 - Internal spaces stay out of project pickers and navigation.
 - Moving a session changes its group, not its inputs or artifact IDs.
 - Existing projects and tasks retain their data.
+- Persist session metadata, per-capability committed settings, editable drafts, preparation confirmations, completed results and route handoffs.
+- Do not persist temporary loading or modal-open states.
 
 ---
 
@@ -186,7 +188,7 @@ Expected: FAIL because projectTrialReferenceModel.ts and its exports do not exis
 
 - [ ] **Step 3: Add the relationship type and pure model helpers**
 
-Add to frontend/src/workspace/types.ts:
+Add the reference type beside the existing project types, add the optional property inside the existing Project interface, and extend the existing ProjectView union in place. Do not declare a second Project or ProjectView type.
 
     export interface ProjectTrialReference {
       id: string;
@@ -196,8 +198,11 @@ Add to frontend/src/workspace/types.ts:
       createdAt: string;
     }
 
-    // Add this property to the existing Project interface; do not create a second interface.
+    // Inside the existing Project interface:
     trialRefs?: ProjectTrialReference[];
+
+    // Replace the existing ProjectView union with:
+    export type ProjectView = 'overview' | 'worksheet' | 'charts' | ProjectArtifactType | 'trials';
 
 Create frontend/src/workspace/projectTrialReferenceModel.ts with these functions and behavior:
 
@@ -362,7 +367,7 @@ Coverage result: **COVERAGE_COMPLETE**.
 **Acceptance:**
 
 - The picker shows only existing concrete trials from the canonical hierarchy and shows their complete hierarchy path.
-- Search filters by category, physical object, trial configuration, concrete-trial name, load spectrum and task-book ID/name where available.
+- Search filters by category, physical object, trial configuration, concrete-trial name, load spectrum and task-book ID. Display the task-book name when the referenced ID resolves in the task store.
 - Existing references are excluded from candidates; adding a reference updates the project list immediately.
 - The project view shows current source names resolved by IDs, execution-record count and task-book association when present.
 - A stale reference is visible as unavailable and can be removed; it cannot open a guessed source.
@@ -437,6 +442,7 @@ First add resolveProjectTrialReference and listProjectTrialCandidates to project
             physicalObjectName: physicalObject.name,
             experimentName: experiment.name,
             trialName: trial.name,
+            loadSpectrum: trial.loadSpectrum,
             recordCount: trial.records.length,
             taskBookId: trial.taskBookId,
           })))));
@@ -446,7 +452,7 @@ First add resolveProjectTrialReference and listProjectTrialCandidates to project
 
 The candidate function traverses category.configurations, physicalObject.experiments and experiment.trials; excludes candidates when sameProjectTrialSource matches a reference; returns the three IDs, four display names, recordCount and taskBookId. Do not fall back to names.
 
-Create ProjectTrialReferencePicker.tsx as a controlled modal with props open, project, objects, onAdd(source), onCancel. Use listProjectTrialCandidates(objects, project.trialRefs) as the source list. Render each candidate's path as “categoryName / physicalObjectName / experimentName / trialName”; include recordCount and task-book association as secondary information. Search must filter only display fields and must never participate in identity matching. The add action calls onAdd with only physicalObjectId, experimentId and trialId, then leaves the candidate unavailable in the current picker because it is now referenced.
+Create ProjectTrialReferencePicker.tsx as a controlled modal with props open, project, objects, onAdd(source), onCancel. Use listProjectTrialCandidates(objects, project.trialRefs) as the source list. Render each candidate's path as “categoryName / physicalObjectName / experimentName / trialName”; include loadSpectrum, recordCount and task-book association as secondary information. Search must filter only display fields (including loadSpectrum and taskBookId) and must never participate in identity matching. The add action calls onAdd with only physicalObjectId, experimentId and trialId, then leaves the candidate unavailable in the current picker because it is now referenced.
 
 The picker must not accept an arbitrary name as a reference and must not create a concrete trial. Add a local search string and filter candidates by the hierarchy labels plus load-spectrum name and task-book ID/name; the filter changes only the displayed candidate list, not identity. A representative selection handler is:
 
@@ -467,8 +473,8 @@ Extend ProjectView in frontend/src/workspace/types.ts with 'trials'. In buildPro
     }
 
 Create ProjectTrialReferencesView.tsx to resolve each reference through resolveProjectTrialReference and render:
-- available source: hierarchy path, number of execution records, optional task-book name, open action and remove action;
-- unavailable source: “来源不可用”, the referenced IDs for diagnosis, disabled open action and remove action.
+- available source: hierarchy path, loadSpectrum, number of execution records, optional task-book name, an “打开工作台” button and a “移除关联” button;
+- unavailable source: “来源不可用”, the referenced IDs for diagnosis, a disabled “打开工作台” button and an enabled “移除关联” button. The removal confirmation uses the button text “确认移除”.
 
 The remove action must call removeTrialReference(project.id, reference.id) after a confirmation. It must not call any physical-object, file, chart, session or artifact deletion API.
 
@@ -544,8 +550,15 @@ Add these assertions:
 
       assert.equal(first, repeated);
       assert.notEqual(first, otherProject);
-      assert.equal(useSessionStore.getState().sessions.find(item => item.id === first).storageProjectId, projectA);
-      assert.equal(useSessionStore.getState().sessions.find(item => item.id === otherProject).storageProjectId, projectB);
+      const sessionA = useSessionStore.getState().sessions.find(item => item.id === first);
+      const sessionB = useSessionStore.getState().sessions.find(item => item.id === otherProject);
+      assert.equal(sessionA.projectId, projectA);
+      assert.equal(sessionB.projectId, projectB);
+      assert.notEqual(sessionA.storageProjectId, projectA);
+      assert.notEqual(sessionB.storageProjectId, projectB);
+      assert.notEqual(sessionA.storageProjectId, sessionB.storageProjectId);
+      assert.equal(useProjectStore.getState().projects.find(item => item.id === sessionA.storageProjectId).sessionOwnerId, first);
+      assert.equal(useProjectStore.getState().projects.find(item => item.id === sessionB.storageProjectId).sessionOwnerId, otherProject);
       assert.deepEqual(
         ['physicalObjectId', 'experimentId', 'trialId'].map(key => useSessionStore.getState().sessions.find(item => item.id === first).businessScope[key]),
         ['physicalObjectId', 'experimentId', 'trialId'].map(key => scope[key]),
@@ -601,7 +614,7 @@ Use this implementation shape:
         trialName: source.trial.name,
       };
       const existing = get().sessions.find(session => !session.taskId && !session.archived
-        && session.storageProjectId === projectId
+        && session.projectId === projectId
         && session.businessScope?.trialId === source.trial.id
         && samePhysicalSource(session.businessScope, scope));
       if (existing) {
@@ -611,12 +624,11 @@ Use this implementation shape:
       return create({
         title: source.trial.name + ' · 试验工作',
         projectId,
-        storageProjectId: projectId,
         businessScope: scope,
       });
     },
 
-Reuse only a non-task, non-archived session where storageProjectId equals projectId and samePhysicalSource(session.businessScope, scope) is true and the trialId is equal. Update display names from the canonical source. Otherwise create a new session with the canonical trial name, projectId and storageProjectId both set to the requested project, and businessScope containing the source IDs and current display names. Do not change ensureProjectSession, which remains the creation path for a new trial launched from a project.
+Reuse only a non-task, non-archived session where session.projectId equals the requested organizational project, session.businessScope.trialId equals the canonical trial ID, and samePhysicalSource(session.businessScope, scope) is true. Update display names from the canonical source. Otherwise create a session with projectId set to the organizational project and omit storageProjectId so the existing create helper creates a separate session-owned artifact space. Do not change ensureProjectSession, which remains the creation path for a new trial launched from a project.
 
 - [ ] **Step 4: Open references through the new action**
 
@@ -651,7 +663,7 @@ Seed the canonical physical-object, project and session storage keys with synthe
 1. Create project A and project B, then add the same existing concrete trial to each.
 2. Verify both projects show the same canonical hierarchy and record count.
 3. Open the reference in project A; assert the session route and stored businessScope contain the original source IDs.
-4. Open the reference in project B; assert its storageProjectId differs from project A while the source IDs remain equal.
+4. Open the reference in project B; assert session.projectId equals project B, both sessions have distinct storageProjectId values backed by projects whose sessionOwnerId matches their session IDs, and the source IDs remain equal.
 5. Remove the reference from project A; assert project B still lists it and the original trial, records, CSV files and charts remain unchanged.
 6. Remove or invalidate a referenced source in the isolated fixture; assert the UI displays “来源不可用”, disables open and permits removal.
 7. Navigate to /sessions/<sessionId>/resources and assert the organizational-project picker is not present.

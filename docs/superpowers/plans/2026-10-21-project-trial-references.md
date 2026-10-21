@@ -396,7 +396,7 @@ Coverage result: **COVERAGE_COMPLETE**.
 
 - [ ] **Step 1: Add model tests for candidates and stale references**
 
-Extend the imports in frontend/tests/projectTrialReferences.test.mjs with listProjectTrialCandidates, resolveProjectTrialReference and buildProjectNavigation. Add `import { readFileSync } from 'node:fs';` and this fixture and assertions:
+Keep the existing imports for addProjectTrialReference, findProjectTrialReference and removeProjectTrialReference. Add `import { listProjectTrialCandidates, resolveProjectTrialReference } from '../src/workspace/projectTrialReferenceModel.ts';`, `import { buildProjectNavigation } from '../src/workspace/projectModel.ts';` and `import { readFileSync } from 'node:fs';`. Add this fixture and assertions:
 
     const objects = [{
       id: 'category-1', name: '涵道风扇',
@@ -538,7 +538,7 @@ Create `frontend/src/workspace/ProjectTrialReferencePicker.tsx` with this implem
 
 - [ ] **Step 4: Add a reference view and project navigation**
 
-Extend ProjectView in frontend/src/workspace/types.ts with 'trials'. In buildProjectNavigation, add “关联具体试验” only when a non-session-owned project has at least one reference:
+Confirm the `ProjectView` union from Task 1 includes 'trials'. In `buildProjectNavigation`, add “关联具体试验” only when a non-session-owned project has at least one reference:
 
     if (!project.sessionOwnerId && (project.trialRefs ?? []).length > 0) {
       items.push({ key: project.id + ':trials', title: '关联具体试验', view: 'trials' });
@@ -656,9 +656,10 @@ Keep all existing ProjectArtifact, session resource and worksheet behavior uncha
 Run:
 
     node --test tests/projectTrialReferences.test.mjs
+    npm run build
     git diff --check
 
-Expected: all project-reference model tests PASS; git diff --check emits no output. Review the diff to confirm no reference action mutates ConcreteTrial or taskBookId.
+Expected: all project-reference model tests PASS, `npm run build` succeeds, and `git diff --check` emits no output. Review the diff to confirm no reference action mutates ConcreteTrial or taskBookId.
 
 - [ ] **Step 7: Commit the project UI**
 
@@ -830,7 +831,20 @@ Reuse only a non-task, non-archived session where session.projectId equals the r
 
 - [ ] **Step 4: Open references through the new action**
 
-Modify `frontend/src/workspace/ProjectTrialReferencesView.tsx` to add `useNavigate`, `message`, `getSessionPath` and `useSessionStore` imports. Inside the component, add `navigate`, `ensureProjectTrialSession` and `openSession` hooks, then add this handler:
+Modify `frontend/src/workspace/ProjectTrialReferencesView.tsx` to add these imports:
+
+    import { message } from 'antd';
+    import { useNavigate } from 'react-router-dom';
+    import { getSessionPath } from './sessionModel';
+    import { useSessionStore } from './sessionStore';
+
+Inside the component, add these hooks:
+
+    const navigate = useNavigate();
+    const ensureProjectTrialSession = useSessionStore(state => state.ensureProjectTrialSession);
+    const openSession = useSessionStore(state => state.openSession);
+
+Then add this handler:
 
     const openReference = (reference: NonNullable<Project['trialRefs']>[number]) => {
       const resolved = resolveProjectTrialReference(usePhysicalObjectStore.getState().objects, reference);
@@ -1086,19 +1100,6 @@ Then run:
     git add src/workspace/sessionStore.ts src/workspace/ProjectTrialReferencesView.tsx tests/projectTrialReferenceSessions.test.mjs scripts/verify-project-trial-references.mjs
     git commit -m "feat: open referenced trials in project sessions"
 
-- [ ] **Step 7: Run browser acceptance and commit**
-
-Run with an existing Vite server:
-
-    PROTANGRAM_TEST_URL=http://127.0.0.1:5175 node scripts/verify-project-trial-references.mjs
-
-Expected: all nine PASS messages print and the script exits with status 0.
-
-Then run:
-
-    git add src/workspace/sessionStore.ts src/workspace/ProjectTrialReferencesView.tsx tests/projectTrialReferenceSessions.test.mjs scripts/verify-project-trial-references.mjs
-    git commit -m "feat: open referenced trials in project sessions"
-
 **Per-Task Coverage Review**
 
 - Source validity → tests reject missing category/object/configuration/trial IDs and browser UI disables opening stale references.
@@ -1122,12 +1123,13 @@ Before treating this plan as complete after implementation:
 
    Expected: all selected and full-suite tests pass.
 
-2. Run lint on every changed TS/TSX module using the repository's existing ESLint configuration, then run:
+2. From `frontend/`, lint the exact changed TypeScript modules and run the production build:
 
+       npx eslint src/workspace/types.ts src/workspace/projectTrialReferenceModel.ts src/workspace/projectStore.ts src/workspace/projectModel.ts src/workspace/ProjectTrialReferencePicker.tsx src/workspace/ProjectTrialReferencesView.tsx src/workspace/ProjectResourcesPage.tsx src/workspace/ProjectContent.tsx src/workspace/ProjectOverview.tsx src/workspace/sessionStore.ts
        npm run build
        git diff --check
 
-   Expected: build succeeds and git diff --check emits no output. Record any pre-existing lint or bundle warnings separately; do not suppress them to make the result appear clean.
+   Expected: ESLint reports no errors, the build succeeds, and git diff --check emits no output. Record any pre-existing warnings separately; do not suppress them to make the result appear clean. Record any pre-existing lint or bundle warnings separately; do not suppress them to make the result appear clean.
 
 3. Run the Playwright browser script against an isolated test context. The script must not use the user's existing browser profile or modify real user data.
 

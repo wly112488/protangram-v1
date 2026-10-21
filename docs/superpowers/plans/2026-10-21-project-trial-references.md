@@ -289,19 +289,40 @@ Implement the actions with the following logic inside the existing Zustand store
 
 Import the helpers and ProjectTrialSource type from projectTrialReferenceModel.ts. Do not change deleteProject or physicalObjectStore behavior.
 
-Create frontend/tests/projectTrialReferenceStore.test.mjs. Set globalThis.localStorage and globalThis.window.localStorage to an in-memory Map before importing the store. Seed the key protangram-project-workspace-v1 with a Zustand persist payload whose projects array contains a legacy project without trialRefs, then bundle projectStore.ts with esbuild using this entry:
+Create frontend/tests/projectTrialReferenceStore.test.mjs with this setup before the test cases. The seed proves that a legacy project without trialRefs is still loaded by the current store:
 
-    stdin: {
-      contents: "export { useProjectStore, WORKSPACE_STORAGE_KEY } from './src/workspace/projectStore';",
-      resolveDir: process.cwd(),
-    },
-    bundle: true,
-    write: false,
-    format: 'esm',
-    platform: 'node',
-    logLevel: 'silent',
+    import assert from 'node:assert/strict';
+    import test from 'node:test';
+    import { build } from 'esbuild';
 
-Import the bundle from a data URL and export useProjectStore and WORKSPACE_STORAGE_KEY. Then run this test body against the bundled store:
+    const memory = new Map();
+    globalThis.localStorage = {
+      getItem: key => memory.get(key) ?? null,
+      setItem: (key, value) => memory.set(key, value),
+      removeItem: key => memory.delete(key),
+    };
+    globalThis.window = { localStorage: globalThis.localStorage };
+    memory.set('protangram-project-workspace-v1', JSON.stringify({
+      state: {
+        projects: [{ id: 'legacy-project', name: '旧项目', status: '进行中',
+          createdAt: '2026-10-21T00:00:00.000Z', updatedAt: '2026-10-21T00:00:00.000Z',
+          basicInfo: {}, datasets: [], artifacts: [] }],
+        activeProjectId: 'legacy-project', activeView: 'overview',
+      },
+      version: 1,
+    }));
+    const bundle = await build({
+      stdin: {
+        contents: "export { useProjectStore, WORKSPACE_STORAGE_KEY } from './src/workspace/projectStore';",
+        resolveDir: process.cwd(),
+      },
+      bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',
+    });
+    const api = await import('data:text/javascript;base64,' + Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+    const { useProjectStore, WORKSPACE_STORAGE_KEY } = api;
+    assert.equal(useProjectStore.getState().projects.find(item => item.id === 'legacy-project').trialRefs, undefined);
+
+Then run this test body against the bundled store:
 
     test('project reference actions persist and stay scoped to each project', () => {
       const store = useProjectStore.getState();
@@ -324,7 +345,7 @@ Import the bundle from a data URL and export useProjectStore and WORKSPACE_STORA
       assert.equal(useProjectStore.getState().projects.find(item => item.id === projectB).trialRefs[0].id, referenceB);
     });
 
-Also verify a legacy Project object with no trialRefs remains readable after the store is initialized. The test must not depend on the user's browser storage.
+The test must use only the in-memory storage above and must not depend on the user's browser storage.
 
 Run:
 
@@ -539,9 +560,44 @@ Coverage result: **COVERAGE_COMPLETE**.
 
 - [ ] **Step 1: Write failing session isolation tests**
 
-Create frontend/tests/projectTrialReferenceSessions.test.mjs. Initialize an in-memory localStorage, bundle sessionStore.ts, projectStore.ts, physicalObjectStore.ts and physicalBusinessContext.ts with esbuild, and export useSessionStore, useProjectStore, usePhysicalObjectStore and resolvePhysicalSource. Create a category, physical object, trial configuration and concrete trial using the physical-object store, then create project A and project B. Use a scope with the IDs returned by the store methods.
+Create frontend/tests/projectTrialReferenceSessions.test.mjs with this complete fixture setup before the test cases:
 
-Add these assertions:
+    import assert from 'node:assert/strict';
+    import test from 'node:test';
+    import { build } from 'esbuild';
+
+    const memory = new Map();
+    globalThis.localStorage = {
+      getItem: key => memory.get(key) ?? null,
+      setItem: (key, value) => memory.set(key, value),
+      removeItem: key => memory.delete(key),
+    };
+    globalThis.window = { localStorage: globalThis.localStorage };
+    const bundle = await build({
+      stdin: {
+        contents: "export { useSessionStore } from './src/workspace/sessionStore'; export { useProjectStore } from './src/workspace/projectStore'; export { usePhysicalObjectStore } from './src/workspace/physicalObjectStore'; export { resolvePhysicalSource } from './src/workspace/physicalBusinessContext';",
+        resolveDir: process.cwd(),
+      },
+      bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',
+    });
+    const api = await import('data:text/javascript;base64,' + Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+    const { useSessionStore, useProjectStore, usePhysicalObjectStore, resolvePhysicalSource } = api;
+    usePhysicalObjectStore.setState({ objects: [] });
+    useProjectStore.setState({ projects: [], activeProjectId: null, activeView: 'overview' });
+    useSessionStore.setState({ sessions: [], activeSessionId: null, saveError: null });
+
+    const categoryId = usePhysicalObjectStore.getState().addRoot({ name: '测试对象类别', type: '测试对象类别' });
+    const objectId = usePhysicalObjectStore.getState().addConfiguration(categoryId, { name: '具体对象 A' });
+    const experimentId = usePhysicalObjectStore.getState().addExperiment(objectId, { name: '试验构型 A', parameters: [] });
+    const trialId = usePhysicalObjectStore.getState().addConcreteTrial(experimentId, {
+      name: '具体试验 A', loadSpectrum: 'LS-1', taskBookId: 'task-book-1',
+    });
+    const projectA = useProjectStore.getState().createProject({ name: '项目 A' });
+    const projectB = useProjectStore.getState().createProject({ name: '项目 B' });
+    const scope = {
+      physicalObjectId: objectId, physicalObjectName: '具体对象 A',
+      experimentId, experimentName: '试验构型 A', trialId, trialName: '具体试验 A',
+    };
 
     test('project trial sessions reuse only the same source within the same project', () => {
       const first = useSessionStore.getState().ensureProjectTrialSession(projectA, scope);
@@ -569,6 +625,8 @@ Add these assertions:
       const blank = useSessionStore.getState().ensureProjectSession(projectA);
       const opened = useSessionStore.getState().ensureProjectTrialSession(projectA, scope);
       assert.notEqual(blank, opened);
+      assert.throws(() => useSessionStore.getState().ensureProjectTrialSession(projectA, { ...scope, physicalObjectId: 'deleted-object' }));
+      assert.throws(() => useSessionStore.getState().ensureProjectTrialSession(projectA, { ...scope, experimentId: 'deleted-setup' }));
       assert.throws(() => useSessionStore.getState().ensureProjectTrialSession(projectA, { ...scope, trialId: 'deleted-trial' }));
     });
 
@@ -851,7 +909,7 @@ Run from `frontend` with the Vite server already running:
 
     PROTANGRAM_TEST_URL=http://127.0.0.1:5173 node scripts/verify-project-trial-references.mjs
 
-Expected: all eight PASS messages print and the script exits with status 0. If a selector fails, fix the accessible UI label or the selector; do not replace visible user actions with direct component-handler calls.
+Expected: all nine PASS messages print and the script exits with status 0. If a selector fails, fix the accessible UI label or the selector; do not replace visible user actions with direct component-handler calls.
 
 Then run:
 

@@ -109,7 +109,7 @@
 - 新会话保留独立使用能力，不要求项目或任务书。
 - 刷新后会话记录仍存在，且未产生新的具体试验或执行记录。
 
-- [ ] **Step 1: Add a failing source-contract regression**
+- [x] **Step 1: Add a failing source-contract regression**
 
 在 frontend/tests/projectCreationEntry.test.mjs 中增加以下测试：
 
@@ -124,7 +124,7 @@ test('recent-session plus creates a session instead of opening trial creation', 
 });
 ~~~
 
-- [ ] **Step 2: Run the regression and confirm it fails before implementation**
+- [x] **Step 2: Run the regression and confirm it fails before implementation**
 
 Run from frontend:
 
@@ -134,7 +134,7 @@ node --test tests/projectCreationEntry.test.mjs
 
 Expected: the new test fails because startSession currently navigates directly to /trials/new and does not create a WorkSession.
 
-- [ ] **Step 3: Change the session action**
+- [x] **Step 3: Change the session action**
 
 在 BusinessSidebar.tsx 中从 sessionModel 引入 getSessionPath，并将 startSession 改为：
 
@@ -148,7 +148,7 @@ const startSession = () => {
 
 保留现有“最近会话”加号及其 aria-label；不要在该回调中调用 addConcreteTrial、addTrialRecord 或 /trials/new。
 
-- [ ] **Step 4: Run the focused tests**
+- [x] **Step 4: Run the focused tests**
 
 ~~~bash
 node --test tests/projectCreationEntry.test.mjs tests/sessionWorkbench.test.mjs
@@ -156,11 +156,11 @@ node --test tests/projectCreationEntry.test.mjs tests/sessionWorkbench.test.mjs
 
 Expected: all tests pass. The session-store test must continue proving independent sessions have separate storage projects and retain their drafts after reload.
 
-- [ ] **Step 5: Verify the actual user flow**
+- [x] **Step 5: Verify the actual user flow**
 
 启动前端后，在浏览器中点击左侧“最近会话”旁的加号。确认 URL 进入新的 /sessions/<id>/doe，页面提示先创建具体试验；刷新后仍打开同一会话。对比点击前后的 protangram-physical-objects-v1，确认没有新增 ConcreteTrial 或 TestRecord。随后点击页面中的“创建具体试验”，确认只有该明确动作才进入 /trials/new。
 
-- [ ] **Step 6: Commit the isolated change**
+- [x] **Step 6: Commit the isolated change**
 
 ~~~bash
 git add frontend/src/workspace/BusinessSidebar.tsx frontend/tests/projectCreationEntry.test.mjs
@@ -190,7 +190,7 @@ git commit -m "fix: create a session from the recent-session action"
 - 具体试验下的 records 完整保留且不被复制；无任务书的具体试验正常出现。
 - 失效的来源 ID 不得回退到同名对象、其他构型或其他执行记录。
 
-- [ ] **Step 1: Add failing projection tests**
+- [x] **Step 1: Add failing projection tests**
 
 新建 frontend/tests/projectTrialModel.test.mjs，先以以下 fixture 和断言定义预期行为。测试通过 esbuild 将 TypeScript 模型打包后导入，与现有模型测试保持一致。
 
@@ -279,7 +279,7 @@ test('invalid source IDs do not fall back to a different trial', () => {
 });
 ~~~
 
-- [ ] **Step 2: Run the model tests and confirm the missing export fails**
+- [x] **Step 2: Run the model tests and confirm the missing export fails**
 
 ~~~bash
 node --test tests/projectTrialModel.test.mjs
@@ -287,7 +287,7 @@ node --test tests/projectTrialModel.test.mjs
 
 Expected: FAIL because projectTrialModel.ts does not exist yet.
 
-- [ ] **Step 3: Implement the source projection**
+- [x] **Step 3: Implement the source projection**
 
 新建 frontend/src/workspace/projectTrialModel.ts：
 
@@ -362,7 +362,7 @@ export function getProjectTrialEntries(
 }
 ~~~
 
-- [ ] **Step 4: Run the projection and ownership regressions**
+- [x] **Step 4: Run the projection and ownership regressions**
 
 ~~~bash
 node --test tests/projectTrialModel.test.mjs tests/physicalNavigation.test.mjs tests/taskTrialIntegration.test.mjs
@@ -370,7 +370,7 @@ node --test tests/projectTrialModel.test.mjs tests/physicalNavigation.test.mjs t
 
 Expected: all tests pass. The new projection must not mutate objects, sessions, projects, records or artifacts.
 
-- [ ] **Step 5: Commit the model and its tests**
+- [x] **Step 5: Commit the model and its tests**
 
 ~~~bash
 git add frontend/src/workspace/projectTrialModel.ts frontend/tests/projectTrialModel.test.mjs
@@ -405,7 +405,7 @@ git commit -m "feat: derive project trial entries from existing sources"
 - Session-resource drawers do not expose the project-level trial catalog; their current-session scope remains unchanged.
 - No “link existing trial from another project” control or ProjectTrial persistence is added.
 
-- [ ] **Step 1: Add the project navigation key**
+- [x] **Step 1: Add the project navigation key**
 
 在 frontend/src/workspace/types.ts 的 ProjectView 联合类型中增加 trials。
 
@@ -415,7 +415,7 @@ git commit -m "feat: derive project trial entries from existing sources"
 { key: project.id + ':trials', title: '工作内容与试验', view: 'trials' },
 ~~~
 
-- [ ] **Step 2: Wire the new view without changing existing result views**
+- [x] **Step 2: Wire the new view without changing existing result views**
 
 在 frontend/src/workspace/ProjectContent.tsx 中为 viewLabels 增加 trials 对应的“工作内容与试验”，导入 ProjectTrialsView，并在 worksheet/charts 分支之后、ArtifactHistory fallback 之前增加：
 
@@ -434,7 +434,7 @@ children: buildProjectNavigation(project)
   .map(item => ({ key: item.key, title: item.title, isLeaf: true })),
 ~~~
 
-- [ ] **Step 3: Render the trial hierarchy from the projection**
+- [x] **Step 3: Render the trial hierarchy from the projection**
 
 新建 frontend/src/workspace/ProjectTrialsView.tsx，使用以下完整实现作为起点。它只读取 Store；试验、记录、文件和成果均通过现有 ID 访问。
 
@@ -582,11 +582,11 @@ export default ProjectTrialsView;
 ~~~
 
 在 ProjectContent.tsx 中仅为 trials 视图增加分支；不要覆盖已有的当前具体试验成果分支。ProjectSidebar 在项目级目录中显示该入口，但在固定到单个会话的资源抽屉中隐藏该入口。
-- [ ] **Step 4: Add navigation-model assertions**
+- [x] **Step 4: Add navigation-model assertions**
 
 在 projectTrialModel.test.mjs 或独立的项目导航测试中，调用 buildProjectNavigation，确认即使项目没有具体试验，也存在唯一的 trials 导航项；测试同一具体试验对应多个项目会话时仍只返回一个条目。
 
-- [ ] **Step 5: Run focused tests and build**
+- [x] **Step 5: Run focused tests and build**
 
 ~~~bash
 node --test tests/projectTrialModel.test.mjs tests/projectCreationEntry.test.mjs tests/physicalNavigation.test.mjs tests/taskTrialIntegration.test.mjs tests/crossFunctionSharing.test.mjs
@@ -596,7 +596,7 @@ npm run build
 
 Expected: all focused tests pass and TypeScript/Vite production build succeeds. Existing unrelated warnings must be reported, not silently reclassified as this change's failures.
 
-- [ ] **Step 6: Verify the rendered user flow**
+- [x] **Step 6: Verify the rendered user flow**
 
 在浏览器中分别验证：
 
@@ -608,7 +608,7 @@ Expected: all focused tests pass and TypeScript/Vite production build succeeds. 
 - 会话资源抽屉中没有项目级“工作内容与试验”入口，现有当前会话成果访问不回归。
 - 左侧“最近会话”加号创建会话，不会直接创建具体试验。
 
-- [ ] **Step 7: Commit the view and navigation changes**
+- [x] **Step 7: Commit the view and navigation changes**
 
 ~~~bash
 git add frontend/src/workspace/types.ts frontend/src/workspace/projectModel.ts frontend/src/workspace/ProjectSidebar.tsx frontend/src/workspace/ProjectContent.tsx frontend/src/workspace/ProjectTrialsView.tsx frontend/tests/projectTrialModel.test.mjs
@@ -634,7 +634,7 @@ git commit -m "feat: organize project content around concrete trials"
 - 项目目录是现有关系的投影，不创建第二份数据。
 - 任务书仍然可选；AI 自动任务拆解与跨项目引用已有具体试验未进入本期实现。
 
-- [ ] **Step 1: Run the full frontend test suite**
+- [x] **Step 1: Run the full frontend test suite**
 
 ~~~bash
 node --test tests/*.test.mjs
@@ -642,7 +642,7 @@ node --test tests/*.test.mjs
 
 Expected: all tests pass. If the baseline contains unrelated failures, compare against the same main revision and document the exact pre-existing failures; do not suppress or relabel newly introduced failures.
 
-- [ ] **Step 2: Run the production build and diff checks**
+- [x] **Step 2: Run the production build and diff checks**
 
 ~~~bash
 npm run build
@@ -652,11 +652,11 @@ git status --short
 
 Expected: build passes, diff check is clean, and only files listed in this plan are changed.
 
-- [ ] **Step 3: Review source ownership and excluded scope**
+- [x] **Step 3: Review source ownership and excluded scope**
 
 Search the diff for addConcreteTrial、addTrialRecord、sourceScope、businessScope、taskBookId and projectId. Confirm the sidebar session action creates only a WorkSession; the project view reads current sources; no new trial copy, cross-project reference model, taskbook auto-parser, backend endpoint or dependency was introduced.
 
-- [ ] **Step 4: Commit the verified result**
+- [x] **Step 4: Commit the verified result**
 
 ~~~bash
 git add frontend/src/workspace/BusinessSidebar.tsx frontend/src/workspace/projectTrialModel.ts frontend/src/workspace/ProjectTrialsView.tsx frontend/src/workspace/types.ts frontend/src/workspace/projectModel.ts frontend/src/workspace/ProjectSidebar.tsx frontend/src/workspace/ProjectContent.tsx frontend/tests/projectCreationEntry.test.mjs frontend/tests/projectTrialModel.test.mjs
@@ -666,6 +666,14 @@ git commit -m "feat: align session and trial resource navigation"
 **Per-Task Coverage Review:** The complete test suite covers existing source and task integration contracts; build and diff checks cover type correctness and patch scope; manual browser checks cover actual navigation and negative conditions. The final source audit directly verifies excluded features remain absent.
 
 **Coverage result: COVERAGE_COMPLETE**
+
+## Execution Evidence
+
+- Task 1 commit: `fe5bfaa` (`fix: create a session from the recent-session action`). The focused entry and session tests passed; an isolated browser context confirmed the new session survives refresh and leaves `protangram-physical-objects-v1` unchanged.
+- Task 2 commit: `db8d842` (`feat: derive project trial entries from existing sources`). Projection, physical-navigation and task-integration checks passed.
+- Task 3 commit: `97baefe` (`feat: organize project content around concrete trials`). Navigation, project-scope and nested-record browser checks passed; the session report resource drawer omits the project-level trial catalog.
+- Final regression: `node --test tests/*.test.mjs` passed (138 tests); `npm run build` passed with the existing large-chunk warning; `git diff --check` passed and the worktree is clean.
+- Scope audit confirmed project trials remain a projection of session/artifact source IDs. No `ProjectTrial` persistence, cross-project reference picker, backend endpoint, task-book parser or duplicate trial/record/file store was added.
 
 ## Self-Review
 

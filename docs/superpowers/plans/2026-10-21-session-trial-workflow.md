@@ -209,7 +209,7 @@ globalThis.window = { localStorage: globalThis.localStorage };
 
 const bundled = await build({
   stdin: {
-    contents: "export * from './src/workspace/projectTrialModel';",
+    contents: "export * from './src/workspace/projectTrialModel'; export { buildProjectNavigation } from './src/workspace/projectModel';",
     resolveDir: process.cwd(),
   },
   bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent',
@@ -254,8 +254,22 @@ test('a trial without taskBookId remains visible in its project', () => {
   assert.equal(entries[0].trial.taskBookId, undefined);
 });
 
-test('another project trial is not included without a project-local session or artifact source', () => {
+test('project trial lists remain scoped to project-local sessions', () => {
   assert.deepEqual(api.getProjectTrialEntries('project-a', objects, projects, sessions).map(entry => entry.trial.id), ['trial-1']);
+  assert.deepEqual(api.getProjectTrialEntries('project-b', objects, projects, sessions).map(entry => entry.trial.id), ['trial-2']);
+});
+
+test('a project artifact source can expose its real trial without copying it', () => {
+  const artifactProjects = [
+    { id: 'project-a', artifacts: [{ id: 'artifact-1', payload: { sourceScope: scope } }] },
+    { id: 'project-b', artifacts: [] },
+  ];
+  assert.deepEqual(api.getProjectTrialEntries('project-a', objects, artifactProjects, []).map(entry => entry.trial.id), ['trial-1']);
+});
+
+test('project navigation exposes the work-and-trials view even when empty', () => {
+  const items = api.buildProjectNavigation({ id: 'project-a', name: '项目 A', artifacts: [] });
+  assert.equal(items.filter(item => item.view === 'trials').length, 1);
 });
 
 test('invalid source IDs do not fall back to a different trial', () => {

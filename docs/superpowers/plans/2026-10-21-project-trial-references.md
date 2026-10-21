@@ -595,7 +595,7 @@ The remove handler must not call any physical-object, file, chart, session or ar
 
 - [ ] **Step 5: Wire the picker and project view**
 
-Modify `frontend/src/workspace/ProjectResourcesPage.tsx` as follows. Add `message` to the Ant Design import; import ProjectTrialReferencePicker and usePhysicalObjectStore; add `const [addTrialOpen, setAddTrialOpen] = useState(false)`, `const objects = usePhysicalObjectStore(state => state.objects)`, `const addTrialReference = useProjectStore(state => state.addTrialReference)`, and resolve the active organizational project:
+Modify `frontend/src/workspace/ProjectResourcesPage.tsx` as follows. Add `message` to the Ant Design import; import ProjectTrialReferencePicker, `resolveProjectTrialReference` and usePhysicalObjectStore; add `const [addTrialOpen, setAddTrialOpen] = useState(false)`, `const objects = usePhysicalObjectStore(state => state.objects)`, `const addTrialReference = useProjectStore(state => state.addTrialReference)`, and resolve the active organizational project:
 
     const activeProject = projects.find(item => item.id === projectId && !item.sessionOwnerId);
 
@@ -615,6 +615,14 @@ Mount the picker after ProjectContent:
         if (!targetProject) {
           setAddTrialOpen(false);
           message.error('当前项目已不存在，请重新选择项目');
+          return;
+        }
+        const currentSource = resolveProjectTrialReference(usePhysicalObjectStore.getState().objects, {
+          id: 'pending-reference', ...source, createdAt: new Date().toISOString(),
+        });
+        if (currentSource.missing) {
+          setAddTrialOpen(false);
+          message.error('具体试验已不存在，请刷新后重试');
           return;
         }
         const referenceId = addTrialReference(targetProject.id, source);

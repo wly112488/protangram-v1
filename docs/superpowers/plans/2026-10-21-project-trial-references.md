@@ -396,7 +396,7 @@ Coverage result: **COVERAGE_COMPLETE**.
 
 - [ ] **Step 1: Add model tests for candidates and stale references**
 
-Extend the imports in frontend/tests/projectTrialReferences.test.mjs with listProjectTrialCandidates and resolveProjectTrialReference. Add this fixture and assertions:
+Extend the imports in frontend/tests/projectTrialReferences.test.mjs with listProjectTrialCandidates, resolveProjectTrialReference and buildProjectNavigation. Add this fixture and assertions:
 
     const objects = [{
       id: 'category-1', name: '涵道风扇',
@@ -426,7 +426,14 @@ Extend the imports in frontend/tests/projectTrialReferences.test.mjs with listPr
       assert.equal(resolveProjectTrialReference(objects, { ...reference, trialId: 'deleted-trial' }).missing, true);
     });
 
-The duplicate trial names are intentional: they prove source matching is based on IDs, not names.
+The duplicate trial names are intentional: they prove source matching is based on IDs, not names. Add this navigation boundary test in the same file:
+
+    test('trial-reference navigation is present only for organizational projects with references', () => {
+      const base = project('project-navigation');
+      const withReference = { id: 'ref-nav', physicalObjectId: 'object-1', experimentId: 'setup-1', trialId: 'trial-1', createdAt: '2026-10-21T01:00:00.000Z' };
+      assert.ok(buildProjectNavigation({ ...base, trialRefs: [withReference] }).some(item => item.view === 'trials'));
+      assert.equal(buildProjectNavigation({ ...base, sessionOwnerId: 'session-1', trialRefs: [withReference] }).some(item => item.view === 'trials'), false);
+    });
 
 - [ ] **Step 2: Run the focused test before UI implementation**
 
@@ -473,17 +480,55 @@ First add resolveProjectTrialReference and listProjectTrialCandidates to project
 
 The candidate function traverses category.configurations, physicalObject.experiments and experiment.trials; excludes candidates when sameProjectTrialSource matches a reference; returns the three IDs, four display names, recordCount and taskBookId. Do not fall back to names.
 
-Create ProjectTrialReferencePicker.tsx as a controlled modal with props open, project, objects, onAdd(source), onCancel. Use listProjectTrialCandidates(objects, project.trialRefs) as the source list. Render each candidate's path as “categoryName / physicalObjectName / experimentName / trialName”; include loadSpectrum, recordCount and task-book association as secondary information. Search must filter only display fields (including loadSpectrum and taskBookId) and must never participate in identity matching. The add action calls onAdd with only physicalObjectId, experimentId and trialId, then leaves the candidate unavailable in the current picker because it is now referenced.
+Create `frontend/src/workspace/ProjectTrialReferencePicker.tsx` with this implementation. Search is presentation-only; the submitted reference always contains the three stable IDs.
 
-The picker must not accept an arbitrary name as a reference and must not create a concrete trial. Add a local search string and filter candidates by the hierarchy labels plus load-spectrum name and task-book ID/name; the filter changes only the displayed candidate list, not identity. A representative selection handler is:
+    import React, { useMemo, useState } from 'react';
+    import { Button, Empty, Input, List, Modal, Typography } from 'antd';
+    import type { Project } from './types';
+    import type { PhysicalObject } from './physicalObjectStore';
+    import { listProjectTrialCandidates, type ProjectTrialSource } from './projectTrialReferenceModel';
+    import { useTaskStore } from './taskStore';
 
-    const addSelectedTrial = (candidate: ProjectTrialCandidate) => {
-      onAdd({
-        physicalObjectId: candidate.physicalObjectId,
-        experimentId: candidate.experimentId,
-        trialId: candidate.trialId,
-      });
+    const { Text } = Typography;
+    interface Props {
+      open: boolean;
+      project: Project;
+      objects: PhysicalObject[];
+      onAdd: (source: ProjectTrialSource) => void;
+      onCancel: () => void;
+    }
+
+    const ProjectTrialReferencePicker: React.FC<Props> = ({ open, project, objects, onAdd, onCancel }) => {
+      const [search, setSearch] = useState('');
+      const tasks = useTaskStore(state => state.tasks);
+      const candidates = useMemo(() => listProjectTrialCandidates(objects, project.trialRefs).filter(candidate => {
+        const taskBookName = tasks.find(task => task.id === candidate.taskBookId)?.title ?? '';
+        const searchable = [candidate.categoryName, candidate.physicalObjectName, candidate.experimentName,
+          candidate.trialName, candidate.loadSpectrum, candidate.taskBookId, taskBookName].filter(Boolean).join(' ').toLocaleLowerCase();
+        return searchable.includes(search.trim().toLocaleLowerCase());
+      }), [objects, project.trialRefs, search, tasks]);
+
+      return <Modal title="添加已有具体试验" open={open} onCancel={onCancel} footer={null} destroyOnClose>
+        <Input allowClear placeholder="搜索对象、试验构型、具体试验、载荷谱或任务书" value={search}
+          onChange={event => setSearch(event.target.value)} />
+        {candidates.length ? <List style={{ marginTop: 12 }} dataSource={candidates} rowKey={item => item.trialId}
+          renderItem={candidate => {
+            const taskBookName = tasks.find(task => task.id === candidate.taskBookId)?.title;
+            const path = [candidate.categoryName, candidate.physicalObjectName, candidate.experimentName, candidate.trialName].join(' / ');
+            return <List.Item actions={[<Button key="add" type="primary" onClick={() => onAdd({
+              physicalObjectId: candidate.physicalObjectId,
+              experimentId: candidate.experimentId,
+              trialId: candidate.trialId,
+            })}>关联此试验</Button>] }>
+              <List.Item.Meta title={candidate.trialName} description={<div><div>{path}</div>
+                <Text type="secondary">载荷谱：{candidate.loadSpectrum || '—'} · 执行记录：{candidate.recordCount} · 任务书：{taskBookName || candidate.taskBookId || '未关联'}</Text>
+              </div>} />
+            </List.Item>;
+          }} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有可关联的具体试验" />}
+      </Modal>;
     };
+
+    export default ProjectTrialReferencePicker;
 
 - [ ] **Step 4: Add a reference view and project navigation**
 
@@ -493,23 +538,145 @@ Extend ProjectView in frontend/src/workspace/types.ts with 'trials'. In buildPro
       items.push({ key: project.id + ':trials', title: '关联具体试验', view: 'trials' });
     }
 
-Create ProjectTrialReferencesView.tsx to resolve each reference through resolveProjectTrialReference and render:
-- available source: hierarchy path, loadSpectrum, number of execution records, optional task-book name, an “打开工作台” button and a “移除关联” button;
-- unavailable source: “来源不可用”, the referenced IDs for diagnosis, a disabled “打开工作台” button and an enabled “移除关联” button. The removal confirmation uses the button text “确认移除”.
+Create `frontend/src/workspace/ProjectTrialReferencesView.tsx` with this implementation. It resolves every render from the latest canonical store; stale references can be removed but cannot open. The confirmation button text is “确认移除”.
 
-The remove action must call removeTrialReference(project.id, reference.id) after a confirmation. It must not call any physical-object, file, chart, session or artifact deletion API.
+    import React from 'react';
+    import { Button, Empty, List, message, Popconfirm, Space, Tag, Typography } from 'antd';
+    import { useNavigate } from 'react-router-dom';
+    import type { Project } from './types';
+    import { getSessionPath } from './sessionModel';
+    import { resolveProjectTrialReference } from './projectTrialReferenceModel';
+    import { usePhysicalObjectStore } from './physicalObjectStore';
+    import { useProjectStore } from './projectStore';
+    import { useSessionStore } from './sessionStore';
+    import { useTaskStore } from './taskStore';
+
+    const { Text, Title } = Typography;
+    const ProjectTrialReferencesView: React.FC<{ project: Project }> = ({ project }) => {
+      const navigate = useNavigate();
+      const objects = usePhysicalObjectStore(state => state.objects);
+      const tasks = useTaskStore(state => state.tasks);
+      const removeTrialReference = useProjectStore(state => state.removeTrialReference);
+      const ensureProjectTrialSession = useSessionStore(state => state.ensureProjectTrialSession);
+      const openSession = useSessionStore(state => state.openSession);
+      const references = project.trialRefs ?? [];
+
+      const openReference = (reference: NonNullable<Project['trialRefs']>[number]) => {
+        const resolved = resolveProjectTrialReference(usePhysicalObjectStore.getState().objects, reference);
+        if (resolved.missing) {
+          message.error('关联的具体试验已不存在，请移除失效引用后重试');
+          return;
+        }
+        try {
+          const scope = {
+            physicalObjectId: resolved.physicalObject.id,
+            physicalObjectName: resolved.physicalObject.name,
+            experimentId: resolved.experiment.id,
+            experimentName: resolved.experiment.name,
+            trialId: resolved.trial.id,
+            trialName: resolved.trial.name,
+          };
+          const sessionId = ensureProjectTrialSession(project.id, scope);
+          openSession(sessionId, 'doe');
+          navigate(getSessionPath(sessionId, 'doe'));
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : '无法打开关联的具体试验');
+        }
+      };
+
+      return <div className="workspace-content-stack">
+        <div className="workspace-content-heading"><div><Title level={3}>关联具体试验</Title>
+          <Text type="secondary">项目只保存关联关系，试验数据仍归属于原物理对象。</Text></div></div>
+        {references.length ? <List rowKey="id" dataSource={references} renderItem={reference => {
+          const resolved = resolveProjectTrialReference(objects, reference);
+          const removeButton = <Popconfirm title="确认移除该关联？" okText="确认移除" cancelText="取消"
+            onConfirm={() => removeTrialReference(project.id, reference.id)}>
+            <Button danger type="link">移除关联</Button>
+          </Popconfirm>;
+          if (resolved.missing) return <List.Item actions={[
+            <Button key="open" disabled>打开工作台</Button>, removeButton,
+          ]}>
+            <List.Item.Meta title={<Space><Tag>来源不可用</Tag><Text type="secondary">具体试验 ID：{reference.trialId}</Text></Space>}
+              description={'来源 ID：' + reference.physicalObjectId + ' / ' + reference.experimentId + ' / ' + reference.trialId} />
+          </List.Item>;
+          const { category, physicalObject, experiment, trial } = resolved;
+          const taskBookName = tasks.find(task => task.id === trial.taskBookId)?.title;
+          const path = [category.name, physicalObject.name, experiment.name, trial.name].join(' / ');
+          return <List.Item actions={[
+            <Button key="open" type="primary" onClick={() => openReference(reference)}>打开工作台</Button>, removeButton,
+          ]}>
+            <List.Item.Meta title={trial.name} description={<div><div>{path}</div>
+              <Text type="secondary">载荷谱：{trial.loadSpectrum || '—'} · 执行记录：{trial.records.length} · 任务书：{taskBookName || trial.taskBookId || '未关联'}</Text>
+            </div>} />
+          </List.Item>;
+        }} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未关联具体试验" />}
+      </div>;
+    };
+
+    export default ProjectTrialReferencesView;
+
+The remove handler must not call any physical-object, file, chart, session or artifact deletion API.
 
 - [ ] **Step 5: Wire the picker and project view**
 
-In ProjectResourcesPage.tsx, add state for the picker and render the action only for a selected organizational project:
+Modify `frontend/src/workspace/ProjectResourcesPage.tsx` as follows. Add `message` to the Ant Design import; import ProjectTrialReferencePicker and usePhysicalObjectStore; add `const [addTrialOpen, setAddTrialOpen] = useState(false)`, `const objects = usePhysicalObjectStore(state => state.objects)`, `const addTrialReference = useProjectStore(state => state.addTrialReference)`, and resolve the active organizational project:
 
-    {!isSessionResources && projectId && (
-      <Button onClick={() => setAddTrialOpen(true)}>添加已有具体试验</Button>
+    const activeProject = projects.find(item => item.id === projectId && !item.sessionOwnerId);
+
+Replace the existing project-only action block with:
+
+    {!isSessionResources && activeProject && <Button type="primary" onClick={() => setAddTrialOpen(true)}>添加已有具体试验</Button>}
+
+Mount the picker after ProjectContent:
+
+    {!isSessionResources && activeProject && <ProjectTrialReferencePicker
+      open={addTrialOpen}
+      project={activeProject}
+      objects={objects}
+      onCancel={() => setAddTrialOpen(false)}
+      onAdd={source => {
+        const targetProject = useProjectStore.getState().projects.find(item => item.id === activeProject.id && !item.sessionOwnerId);
+        if (!targetProject) {
+          setAddTrialOpen(false);
+          message.error('当前项目已不存在，请重新选择项目');
+          return;
+        }
+        const referenceId = addTrialReference(targetProject.id, source);
+        setAddTrialOpen(false);
+        if (!referenceId) message.error('关联失败：项目已不存在');
+        else message.success('已关联具体试验');
+      }}
+    />}
+
+The picker and button must not render when `location.pathname.startsWith('/sessions/')`.
+
+In `frontend/src/workspace/projectModel.ts`, extend `buildProjectNavigation` after the overview item:
+
+    if (!project.sessionOwnerId && (project.trialRefs ?? []).length > 0) {
+      items.push({ key: project.id + ':trials', title: '关联具体试验', view: 'trials' });
+    }
+
+In `frontend/src/workspace/ProjectContent.tsx`, import ProjectTrialReferencesView, add `trials: '关联具体试验'` to `viewLabels`, and after the existing overview/worksheet/charts branches add:
+
+    if (activeView === 'trials') {
+      if (sessionId || project.sessionOwnerId) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前会话不展示项目关联试验" />;
+      return <ProjectTrialReferencesView project={project} />;
+    }
+
+This branch must run before the generic ArtifactHistory fallback.
+
+In `frontend/src/workspace/ProjectOverview.tsx`, after the metric grid add:
+
+    {(project.trialRefs ?? []).length > 0 && !isSessionWorkspace && !project.sessionOwnerId && (
+      <Card className="workspace-card" title="关联具体试验" bordered={false}>
+        <Space>
+          <Text>已关联具体试验：{project.trialRefs!.length}</Text>
+          <Button type="link" onClick={() => setActiveView('trials')}>查看关联试验</Button>
+        </Space>
+      </Card>
     )}
 
-Mount ProjectTrialReferencePicker with open={addTrialOpen}, the currently resolved project and canonical objects. Its onAdd handler must re-read useProjectStore.getState().projects before calling addTrialReference; if the project no longer exists, close the picker and show an error rather than writing to another project. Render the picker only when pathname does not start with /sessions/.
-
-In ProjectContent.tsx, add the '关联具体试验' label to the existing viewLabels record and render ProjectTrialReferencesView for the 'trials' view only when the current workspace is not session-owned. In ProjectOverview.tsx, show the referenced-trial count and a button that selects the 'trials' view when the count is nonzero. Keep all existing ProjectArtifact and worksheet rendering behavior unchanged.
+Keep all existing ProjectArtifact, session resource and worksheet behavior unchanged.
 
 - [ ] **Step 6: Run the focused tests and inspect the UI diff**
 

@@ -197,7 +197,9 @@ Add to frontend/src/workspace/types.ts:
     }
 
     // Add this property to the existing Project interface; do not create a second interface.
-    trialRefs?: ProjectTrialReference[]; Create frontend/src/workspace/projectTrialReferenceModel.ts with these functions and behavior:
+    trialRefs?: ProjectTrialReference[];
+
+Create frontend/src/workspace/projectTrialReferenceModel.ts with these functions and behavior:
 
     import type { Project, ProjectTrialReference } from './types.ts';
 

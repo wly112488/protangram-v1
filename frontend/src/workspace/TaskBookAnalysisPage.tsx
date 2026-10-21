@@ -10,6 +10,7 @@ import { createTaskAnalysisPreview, taskCapabilityLabels } from './taskAnalysisM
 import { taskBookPath } from './taskTrialModel';
 import type { TaskRequirement, TaskTrialDraft } from './taskTypes';
 import './taskAnalysis.css';
+import { DEMO_TASK_TEXT } from './demoData';
 
 export default function TaskBookAnalysisPage() {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ export default function TaskBookAnalysisPage() {
     setDrafts(items => items.map(item => ({ ...item, requirementIds: item.requirementIds.filter(value => value !== id) })));
   };
   return <div className="task-analysis-page">
-    <div className="workspace-content-heading"><div><Typography.Title level={2}>分析任务书</Typography.Title>{project && <Tag>{project.name}</Tag>}</div><Upload accept=".pdf,.txt,.md" showUploadList={false} beforeUpload={importFile} disabled={saving}><Button icon={<UploadOutlined />} loading={loading}>{file ? '更换任务书' : '导入任务书'}</Button></Upload></div>
+    <div className="workspace-content-heading"><div><Typography.Title level={2}>分析任务书</Typography.Title>{project && <Tag>{project.name}</Tag>}</div><Space><Button disabled={saving} onClick={() => void importFile(new File([DEMO_TASK_TEXT], '涵道风扇性能验证任务书（演示）.txt', { type: 'text/plain' }))}>使用演示任务书</Button><Upload accept=".pdf,.txt,.md" showUploadList={false} beforeUpload={importFile} disabled={saving}><Button icon={<UploadOutlined />} loading={loading}>{file ? '更换任务书' : '导入任务书'}</Button></Upload></Space></div>
     <Steps size="small" current={file ? 1 : 0} items={[{ title: '导入任务书' }, { title: '复核试验模板' }, { title: '开展试验工作' }]} />
     {!file ? <Card className="task-analysis-empty"><Empty image={<FileSearchOutlined style={{ fontSize: 56, color: '#8eacd4' }} />} description="导入任务书，查看试验模板与任务拆解"><Upload accept=".pdf,.txt,.md" showUploadList={false} beforeUpload={importFile}><Button type="primary" icon={<UploadOutlined />}>导入并分析</Button></Upload></Empty></Card> : <Spin spinning={loading}><div className="task-analysis-layout">
       <Card title={file.name} className="task-analysis-source">{/\.pdf$/i.test(file.name) ? <iframe title="任务书原文" src={url} /> : <Typography.Paragraph className="task-analysis-text">{text}</Typography.Paragraph>}</Card>

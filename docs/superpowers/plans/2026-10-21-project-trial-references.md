@@ -1,6 +1,6 @@
 # Project-to-Trial References Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (\`- [ ]\`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Allow an organizational project to reference an existing concrete trial while keeping the physical-object hierarchy as the sole owner of the trial, execution records, CSV files and charts.
 
@@ -110,6 +110,7 @@ Do not modify physicalObjectStore.ts to add project ownership. Do not modify bac
 - Create: frontend/src/workspace/projectTrialReferenceModel.ts
 - Modify: frontend/src/workspace/projectStore.ts
 - Test: frontend/tests/projectTrialReferences.test.mjs
+- Test: frontend/tests/projectTrialReferenceStore.test.mjs
 
 **Interfaces:**
 
@@ -258,11 +259,11 @@ The existing Project interface must be extended in place; do not declare a secon
       objects: PhysicalObject[],
       references: ProjectTrialReference[] = [],
     ) {
-      const referenced = new Set(references.map(reference =>
-        [reference.physicalObjectId, reference.experimentId, reference.trialId].join(':')));
       return objects.flatMap(category => category.configurations.flatMap(physicalObject =>
         physicalObject.experiments.flatMap(experiment => experiment.trials
-          .filter(trial => !referenced.has([physicalObject.id, experiment.id, trial.id].join(':')))
+          .filter(trial => !references.some(reference => sameProjectTrialSource(reference, {
+            physicalObjectId: physicalObject.id, experimentId: experiment.id, trialId: trial.id,
+          })))
           .map(trial => ({
             physicalObjectId: physicalObject.id,
             experimentId: experiment.id,
@@ -278,7 +279,7 @@ The existing Project interface must be extended in place; do not declare a secon
 
 Keep IDs as the sole relationship key. Display names are resolved from the current source; do not persist copied names in the reference.
 
-- [ ] **Step 4: Add projectStore actions and rerun tests**
+- [ ] **Step 4: Add projectStore actions and persistence tests**
 
 Extend ProjectWorkspaceState with:
 
@@ -287,11 +288,13 @@ Extend ProjectWorkspaceState with:
 
 Implement addTrialReference by finding the project, returning null if it no longer exists, calling addProjectTrialReference with newId('project-trial-ref') and the current ISO timestamp, returning the existing reference ID for duplicates, and persisting the updated Project only when added. Implement removeTrialReference with removeProjectTrialReference; when removed is false, leave state unchanged. Import the helpers from projectTrialReferenceModel.ts. Do not change deleteProject or physicalObjectStore behavior.
 
+Create frontend/tests/projectTrialReferenceStore.test.mjs using the existing in-memory localStorage plus esbuild pattern from frontend/tests/sessionWorkbench.test.mjs. Bundle projectStore.ts and export useProjectStore. Create two projects, add the same source to each, and assert both projects retain one reference. Read localStorage key protangram-project-workspace-v1 and assert the saved state contains the reference. Remove the reference from project A and assert project A has no reference, project B still has one, and neither project was deleted.
+
 Run:
 
-    node --test tests/projectTrialReferences.test.mjs
+    node --test tests/projectTrialReferences.test.mjs tests/projectTrialReferenceStore.test.mjs
 
-Expected: both tests PASS.
+Expected: all model and persistence tests PASS.
 
 - [ ] **Step 5: Commit the independently tested model**
 

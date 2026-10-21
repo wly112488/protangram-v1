@@ -4,7 +4,7 @@
 
 **Goal:** Allow an organizational project to reference an existing concrete trial while keeping the physical-object hierarchy as the sole owner of the trial, execution records, CSV files and charts.
 
-**Architecture:** Add a project-to-trial association containing stable source IDs; do not add project ownership fields to ConcreteTrial. The project UI manages references and resolves their display information from the canonical physical-object store. Opening a reference creates or reuses a project-scoped work session for that exact trial source, without reusing a session whose source is unrelated or unspecified.
+**Architecture:** Add a project-to-trial association containing stable source IDs; do not add project ownership fields to ConcreteTrial. The project UI manages references and resolves their display information from the canonical physical-object store. Opening a reference creates or reuses a session grouped under that organizational project and bound to the exact trial source; its artifact space remains session-owned and separate from the organizational project.
 
 **Tech Stack:** React, TypeScript, Ant Design, Zustand, localStorage persistence, existing Node test suite, Vite build and Playwright browser verification.
 
@@ -413,7 +413,7 @@ Run:
 
     node --test tests/projectTrialReferences.test.mjs
 
-Expected: candidate and stale-reference tests fail until listProjectTrialCandidates and resolveProjectTrialReference are present and correctly wired to the fixture.
+Expected: FAIL because listProjectTrialCandidates and resolveProjectTrialReference are not implemented yet; do not proceed until the failing test names identify these missing exports.
 
 - [ ] **Step 3: Add the project picker**
 
@@ -532,9 +532,9 @@ Coverage result: **COVERAGE_COMPLETE**.
 **Acceptance:**
 
 - Opening a reference validates that the project and full source tuple still exist.
-- A project trial session is reused only when it belongs to the same storage project and already has the same concrete-trial source.
+- A project trial session is reused only when it is grouped under the same organizational project and already has the same concrete-trial source.
 - An unrelated session or a session with no source is never silently repurposed for an existing referenced trial.
-- Opening a trial in two projects preserves the same physicalObjectId, experimentId and trialId but keeps storageProjectId and session drafts scoped to each project.
+- Opening a trial in two projects preserves the same physicalObjectId, experimentId and trialId but creates separate session drafts and session-owned artifact spaces, with each session grouped under its respective project.
 - Task-book association is not changed.
 
 - [ ] **Step 1: Write failing session isolation tests**
@@ -642,32 +642,221 @@ Run:
 
 Expected: all reference and session-isolation tests PASS.
 
-- [ ] **Step 6: Add browser acceptance scenarios**
+- [ ] **Step 6: Create the isolated browser acceptance script**
 
-Create verify-project-trial-references.mjs using the existing Playwright scripts' isolated browser-context pattern. Begin with this setup and use only a fresh browser context:
+Create `frontend/scripts/verify-project-trial-references.mjs` with this executable test. It uses the same isolated Playwright installation and Vite module-resolution pattern as `frontend/scripts/verify-cross-function-sharing.mjs`; it mutates only the fresh browser context and uses visible controls for adding, opening and removing references.
 
     import assert from 'node:assert/strict';
     import { createRequire } from 'node:module';
+
+    const baseURL = process.env.PROTANGRAM_TEST_URL ?? 'http://127.0.0.1:5173';
+    process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/tmp/protangram-browser-check/browsers';
+    process.env.LD_LIBRARY_PATH ??= '/tmp/protangram-browser-check/runtime/usr/lib/x86_64-linux-gnu';
     const require = createRequire(process.env.PROTANGRAM_PLAYWRIGHT_ROOT ?? '/tmp/protangram-browser-check/node_modules/playwright/package.json');
     const { chromium } = require('playwright');
-    const baseURL = process.env.PROTANGRAM_TEST_URL ?? 'http://127.0.0.1:5175';
-    const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+    const browser = await chromium.launch({
+      headless: true,
+      executablePath: process.env.PROTANGRAM_CHROMIUM_PATH ?? '/tmp/protangram-browser-check/browsers/chromium-1248/chrome-linux64/chrome',
+      args: ['--no-sandbox'],
+      env: { ...process.env },
+    });
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     await context.route('**/*', route =>
       ['POST', 'PUT', 'PATCH', 'DELETE'].includes(route.request().method()) ? route.abort() : route.continue());
+    await context.addInitScript(() => {
+      window.__ptImport = async path => {
+        const name = path.split('/').at(-1);
+        const parent = name === 'taskStore.ts' ? '/src/workspace/TaskCenter.tsx' : '/src/workspace/SessionWorkbench.tsx';
+        const source = await (await fetch(parent)).text();
+        const actualURL = Array.from(source.matchAll(/from\s+["']([^"']+)["']/g)).map(match => match[1])
+          .find(url => url.split('?')[0].endsWith('/' + name));
+        return import(actualURL ?? path);
+      };
+    });
     const page = await context.newPage();
+    page.setDefaultTimeout(12000);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
 
-Seed the canonical physical-object, project and session storage keys with synthetic fixture data in this context. Use real visible controls for selection, addition, opening and removal; do not call component handlers directly. Verify these user-visible flows:
-1. Create project A and project B, then add the same existing concrete trial to each.
-2. Verify both projects show the same canonical hierarchy and record count.
-3. Open the reference in project A; assert the session route and stored businessScope contain the original source IDs.
-4. Open the reference in project B; assert session.projectId equals project B, both sessions have distinct storageProjectId values backed by projects whose sessionOwnerId matches their session IDs, and the source IDs remain equal.
-5. Remove the reference from project A; assert project B still lists it and the original trial, records, CSV files and charts remain unchanged.
-6. Remove or invalidate a referenced source in the isolated fixture; assert the UI displays “来源不可用”, disables open and permits removal.
-7. Navigate to /sessions/<sessionId>/resources and assert the organizational-project picker is not present.
-8. Confirm the page has no runtime errors.
+    const state = () => page.evaluate(() => {
+      const read = key => JSON.parse(localStorage.getItem(key) ?? '{}');
+      return {
+        objects: read('protangram-physical-objects-v1').state?.objects ?? [],
+        projects: read('protangram-project-workspace-v1').state?.projects ?? [],
+        sessions: read('protangram-work-sessions-v1').sessions ?? [],
+      };
+    });
+    const setActiveProject = async projectId => page.evaluate(async id => {
+      const { useProjectStore } = await window.__ptImport('/src/workspace/projectStore.ts');
+      useProjectStore.getState().setActiveProject(id);
+    }, projectId);
+    const openReferenceList = async projectId => {
+      await setActiveProject(projectId);
+      await page.goto(baseURL + '/projects');
+      await page.locator('.ant-tree-node-content-wrapper').filter({ hasText: '关联具体试验' }).click();
+      await page.getByRole('heading', { name: '关联具体试验', exact: true }).waitFor();
+    };
+    const addReference = async projectId => {
+      await setActiveProject(projectId);
+      await page.goto(baseURL + '/projects');
+      await page.getByRole('button', { name: '添加已有具体试验', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('button', { name: '关联此试验', exact: true }).click();
+      await dialog.waitFor({ state: 'hidden' });
+      await page.locator('.ant-tree-node-content-wrapper').filter({ hasText: '关联具体试验' }).click();
+      await page.getByRole('heading', { name: '关联具体试验', exact: true }).waitFor();
+      await page.getByText('测试对象类别 / 具体对象 A / 试验构型 A / 具体试验 A', { exact: true }).waitFor();
+    };
+    const openReference = async projectId => {
+      await openReferenceList(projectId);
+      await page.getByRole('button', { name: '打开工作台', exact: true }).click();
+      await page.waitForURL(url => /\/sessions\/[^/]+\/doe$/.test(url.pathname));
+      return decodeURIComponent(new URL(page.url()).pathname.split('/')[2]);
+    };
+    const trialSnapshot = (saved, fixture) => {
+      const category = saved.objects.find(item => item.id === fixture.categoryId);
+      const object = category.configurations.find(item => item.id === fixture.objectId);
+      const experiment = object.experiments.find(item => item.id === fixture.experimentId);
+      const trial = experiment.trials.find(item => item.id === fixture.trialId);
+      return {
+        id: trial.id,
+        taskBookId: trial.taskBookId,
+        recordIds: trial.records.map(record => record.id),
+        rawFileIds: trial.records.flatMap(record => record.rawFiles.map(file => file.id)),
+        chartIds: trial.charts.map(chart => chart.id),
+      };
+    };
+
+    try {
+      await page.goto(baseURL);
+      const fixture = await page.evaluate(async () => {
+        const { usePhysicalObjectStore } = await window.__ptImport('/src/workspace/physicalObjectStore.ts');
+        const { useProjectStore } = await window.__ptImport('/src/workspace/projectStore.ts');
+        const { useSessionStore } = await window.__ptImport('/src/workspace/sessionStore.ts');
+        usePhysicalObjectStore.setState({ objects: [] });
+        useProjectStore.setState({ projects: [], activeProjectId: null, activeView: 'overview' });
+        useSessionStore.setState({ sessions: [], activeSessionId: null, saveError: null });
+
+        const physical = usePhysicalObjectStore.getState();
+        const categoryId = physical.addRoot({ name: '测试对象类别', type: '测试对象类别' });
+        const objectId = physical.addConfiguration(categoryId, { name: '具体对象 A' });
+        const experimentId = usePhysicalObjectStore.getState().addExperiment(objectId, { name: '试验构型 A', parameters: [] });
+        const trialId = usePhysicalObjectStore.getState().addConcreteTrial(experimentId, {
+          name: '具体试验 A', loadSpectrum: 'LS-1', taskBookId: 'task-book-1',
+        });
+        const recordId = usePhysicalObjectStore.getState().addTrialRecord(trialId, { name: '第 1 次记录' });
+        const fileId = 'file-reference-test';
+        usePhysicalObjectStore.getState().addRawFile(trialId, recordId, {
+          id: fileId, name: 'sample.csv', mimeType: 'text/csv', size: 0,
+          addedAt: new Date().toISOString(), headers: ['time', 'value'], rowCount: 2,
+        });
+        const chartId = usePhysicalObjectStore.getState().saveChart(trialId, recordId, {
+          name: '试验图表', rawFileId: fileId, xField: 'time', yField: 'value',
+          chartType: 'line', startRow: 1, endRow: 2, scale: 1, offset: 0,
+          color: '#2563eb', smooth: false,
+        });
+        const projectA = useProjectStore.getState().createProject({ name: '项目 A' });
+        const projectB = useProjectStore.getState().createProject({ name: '项目 B' });
+        useProjectStore.getState().setActiveProject(projectA);
+        return { categoryId, objectId, experimentId, trialId, recordId, fileId, chartId, projectA, projectB };
+      });
+
+      await addReference(fixture.projectA);
+      console.log('PASS add and display an existing concrete trial in project A');
+      const projectAId = fixture.projectA;
+      let saved = await state();
+      assert.equal(saved.projects.find(item => item.id === projectAId).trialRefs.length, 1);
+
+      await addReference(fixture.projectB);
+      console.log('PASS reference the same canonical trial from project B');
+      saved = await state();
+      assert.equal(saved.projects.find(item => item.id === fixture.projectB).trialRefs.length, 1);
+      assert.deepEqual(trialSnapshot(saved, fixture).recordIds, [fixture.recordId]);
+      assert.deepEqual(trialSnapshot(saved, fixture).rawFileIds, [fixture.fileId]);
+      assert.deepEqual(trialSnapshot(saved, fixture).chartIds, [fixture.chartId]);
+
+      const sessionAId = await openReference(fixture.projectA);
+      let opened = await state();
+      const sessionA = opened.sessions.find(item => item.id === sessionAId);
+      assert.equal(sessionA.projectId, fixture.projectA);
+      assert.equal(sessionA.businessScope.physicalObjectId, fixture.objectId);
+      assert.equal(sessionA.businessScope.experimentId, fixture.experimentId);
+      assert.equal(sessionA.businessScope.trialId, fixture.trialId);
+      assert.notEqual(sessionA.storageProjectId, fixture.projectA);
+      assert.equal(opened.projects.find(item => item.id === sessionA.storageProjectId).sessionOwnerId, sessionAId);
+      console.log('PASS opening project A creates a source-bound session-owned workspace');
+
+      const repeatedAId = await openReference(fixture.projectA);
+      assert.equal(repeatedAId, sessionAId);
+      console.log('PASS reopening the same reference reuses the matching session');
+
+      const sessionBId = await openReference(fixture.projectB);
+      opened = await state();
+      const sessionB = opened.sessions.find(item => item.id === sessionBId);
+      assert.equal(sessionB.projectId, fixture.projectB);
+      assert.notEqual(sessionB.storageProjectId, sessionA.storageProjectId);
+      assert.equal(opened.projects.find(item => item.id === sessionB.storageProjectId).sessionOwnerId, sessionBId);
+      assert.deepEqual(
+        [sessionB.businessScope.physicalObjectId, sessionB.businessScope.experimentId, sessionB.businessScope.trialId],
+        [fixture.objectId, fixture.experimentId, fixture.trialId],
+      );
+      console.log('PASS project B keeps the same source IDs but separate session state');
+
+      await page.goto(baseURL + '/sessions/' + encodeURIComponent(sessionBId) + '/resources');
+      assert.equal(await page.getByRole('button', { name: '添加已有具体试验', exact: true }).count(), 0);
+      console.log('PASS session-owned resources do not expose the organizational-project picker');
+
+      const beforeRemoval = trialSnapshot(await state(), fixture);
+      await openReferenceList(fixture.projectA);
+      await page.getByRole('button', { name: '移除关联', exact: true }).click();
+      await page.getByRole('button', { name: '确认移除', exact: true }).click();
+      let afterRemoval = await state();
+      assert.equal(afterRemoval.projects.find(item => item.id === fixture.projectA).trialRefs.length, 0);
+      assert.equal(afterRemoval.projects.find(item => item.id === fixture.projectB).trialRefs.length, 1);
+      assert.deepEqual(trialSnapshot(afterRemoval, fixture), beforeRemoval);
+      console.log('PASS removing one reference preserves other references and all canonical trial data');
+
+      await openReferenceList(fixture.projectB);
+      await page.evaluate(async trialId => {
+        const { usePhysicalObjectStore } = await window.__ptImport('/src/workspace/physicalObjectStore.ts');
+        usePhysicalObjectStore.setState(state => ({
+          objects: state.objects.map(category => ({
+            ...category,
+            configurations: category.configurations.map(object => ({
+              ...object,
+              experiments: object.experiments.map(experiment => ({
+                ...experiment,
+                trials: experiment.trials.filter(trial => trial.id !== trialId),
+              })),
+            })),
+          })),
+        }));
+      }, fixture.trialId);
+      await page.getByText('来源不可用', { exact: true }).waitFor();
+      assert.equal(await page.getByRole('button', { name: '打开工作台', exact: true }).isDisabled(), true);
+      await page.getByRole('button', { name: '移除关联', exact: true }).click();
+      await page.getByRole('button', { name: '确认移除', exact: true }).click();
+      assert.equal((await state()).projects.find(item => item.id === fixture.projectB).trialRefs.length, 0);
+      console.log('PASS stale references cannot open a guessed source and can be removed');
+
+      assert.deepEqual(errors, []);
+      console.log('PASS no browser runtime errors');
+    } finally {
+      await browser.close();
+    }
+
+- [ ] **Step 7: Run browser acceptance and commit**
+
+Run from `frontend` with the Vite server already running:
+
+    PROTANGRAM_TEST_URL=http://127.0.0.1:5173 node scripts/verify-project-trial-references.mjs
+
+Expected: all eight PASS messages print and the script exits with status 0. If a selector fails, fix the accessible UI label or the selector; do not replace visible user actions with direct component-handler calls.
+
+Then run:
+
+    git add src/workspace/sessionStore.ts src/workspace/ProjectTrialReferencesView.tsx tests/projectTrialReferenceSessions.test.mjs scripts/verify-project-trial-references.mjs
+    git commit -m "feat: open referenced trials in project sessions"
 
 - [ ] **Step 7: Run browser acceptance and commit**
 

@@ -411,36 +411,156 @@ children: buildProjectNavigation(project)
 
 - [ ] **Step 3: Render the trial hierarchy from the projection**
 
-新建 ProjectTrialsView.tsx，沿用 Ant Design 的 Card、List、Button、Empty、Tag、Typography；从 Store 读取当前项目、会话、物理对象和任务书。核心数据计算如下：
+新建 frontend/src/workspace/ProjectTrialsView.tsx，使用以下完整实现作为起点。它只读取 Store；试验、记录、文件和成果均通过现有 ID 访问。
 
 ~~~tsx
-const entries = useMemo(
-  () => getProjectTrialEntries(projectId, objects, projects, sessions),
-  [projectId, objects, projects, sessions],
-);
+import React, { useMemo } from 'react';
+import { Alert, Button, Card, Empty, List, Space, Tag, Typography } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import { useProjectStore } from './projectStore';
+import { useSessionStore } from './sessionStore';
+import { usePhysicalObjectStore } from './physicalObjectStore';
+import { useTaskStore } from './taskStore';
+import { getProjectTrialEntries } from './projectTrialModel';
+import { collectAnalysisResults, getTrialArtifacts } from './analysisResultModel';
+import AnalysisResults from './AnalysisResults';
+import { physicalSourcePath } from './physicalBusinessContext';
+import { taskBookPath } from './taskTrialModel';
+
+const { Text, Title } = Typography;
+
+const ProjectTrialsView: React.FC<{ projectId: string }> = ({ projectId }) => {
+  const navigate = useNavigate();
+  const projects = useProjectStore(state => state.projects);
+  const sessions = useSessionStore(state => state.sessions);
+  const objects = usePhysicalObjectStore(state => state.objects);
+  const tasks = useTaskStore(state => state.tasks);
+  const project = projects.find(item => item.id === projectId);
+  const entries = useMemo(
+    () => getProjectTrialEntries(projectId, objects, projects, sessions),
+    [projectId, objects, projects, sessions],
+  );
+
+  if (!project) return <Empty description="当前项目不存在或已不可用" />;
+
+  const taskBookIds = [...new Set(entries.map(entry => entry.trial.taskBookId).filter((id): id is string => Boolean(id)))];
+  const taskBooks = taskBookIds.map(id => ({ id, task: tasks.find(item => item.id === id) }));
+
+  return (
+    <div className="workspace-content-stack">
+      <div className="workspace-content-heading">
+        <div>
+          <div className="workspace-kicker">{project.name}</div>
+          <Title level={3}>工作内容与试验</Title>
+          <Text type="secondary">具体试验保留自己的执行记录；CSV、图表和专业成果按真实来源查看。</Text>
+        </div>
+        <Button type="primary" onClick={() => navigate('/trials/new?projectId=' + encodeURIComponent(projectId))}>
+          在此项目中新建具体试验
+        </Button>
+      </div>
+
+      {entries.length === 0 ? (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前项目尚无已关联的具体试验">
+          <Button type="primary" onClick={() => navigate('/trials/new?projectId=' + encodeURIComponent(projectId))}>
+            新建具体试验
+          </Button>
+        </Empty>
+      ) : entries.map(entry => {
+        const scope = {
+          physicalObjectId: entry.object.id,
+          experimentId: entry.experiment.id,
+          trialId: entry.trial.id,
+        };
+        const artifacts = getTrialArtifacts(projects, sessions, scope, entry.trial);
+        const results = collectAnalysisResults(entry.trial, artifacts);
+        const trialPath = physicalSourcePath(objects, scope);
+        const taskBookId = entry.trial.taskBookId;
+        const task = taskBookId ? tasks.find(item => item.id === taskBookId) : undefined;
+
+        return (
+          <Card
+            key={entry.object.id + ':' + entry.experiment.id + ':' + entry.trial.id}
+            className="workspace-card project-trial-card"
+            title={<div><Title level={4}>{entry.trial.name}</Title><Text type="secondary">{entry.object.name} · {entry.experiment.name}</Text></div>}
+            extra={<Button onClick={() => { if (trialPath) navigate(trialPath); }}>打开具体试验</Button>}
+          >
+            <Space wrap>
+              <Tag>{entry.trial.loadSpectrum || '未填写载荷谱'}</Tag>
+              <Tag>{entry.trial.records.length} 次执行记录</Tag>
+              {task && <Tag color="blue">已关联任务书：{task.title}</Tag>}
+              {taskBookId && !task && <Tag color="warning">任务书关联失效：{taskBookId}</Tag>}
+            </Space>
+
+            <div className="project-trial-records">
+              <Title level={5}>执行记录</Title>
+              <List
+                dataSource={entry.trial.records}
+                locale={{ emptyText: '暂无执行记录' }}
+                renderItem={record => {
+                  const recordPath = physicalSourcePath(objects, { ...scope, testRecordId: record.id });
+                  const files = record.rawFiles.filter(file => file.status !== 'removed');
+                  return (
+                    <List.Item actions={[
+                      <Button key="open-record" type="link" onClick={() => { if (recordPath) navigate(recordPath); }}>
+                        查看执行记录
+                      </Button>,
+                    ]}>
+                      <List.Item.Meta
+                        title={'第 ' + record.executionNumber + ' 次执行记录 · ' + record.name}
+                        description={
+                          <Space wrap>
+                            <Tag>{files.length} 个有效 CSV</Tag>
+                            <Tag>{record.tables.length} 个派生数据表</Tag>
+                            {files.map(file => <Tag key={file.id}>{file.name}</Tag>)}
+                          </Space>
+                        }
+                      />
+                    </List.Item>
+                  );
+                }}
+              />
+            </div>
+
+            <div className="project-trial-results">
+              <Title level={5}>专业功能及成果</Title>
+              {results.length
+                ? <AnalysisResults entries={results} trial={entry.trial} shared />
+                : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无已保存的专业成果" />}
+            </div>
+
+            {taskBookId && !task && (
+              <Alert type="warning" showIcon message="任务书关联已失效" description="当前任务书 ID 不存在；试验及执行记录仍保留原归属。" />
+            )}
+          </Card>
+        );
+      })}
+
+      {taskBooks.length > 0 && (
+        <Card className="workspace-card" title="附录：任务书与关联信息（可选）">
+          <List
+            dataSource={taskBooks}
+            renderItem={({ id, task }) => (
+              <List.Item actions={task ? [
+                <Button key="open-task" type="link" onClick={() => navigate(taskBookPath(id))}>查看任务书原文及关联信息</Button>,
+              ] : []}>
+                <List.Item.Meta
+                  title={task?.title || '失效的任务书关联'}
+                  description={task ? '任务书通过具体试验的 taskBookId 关联；不改变试验、执行记录和成果的原有归属。' : '任务书 ID：' + id}
+                />
+              </List.Item>
+            )}
+          />
+          <Text type="secondary">本计划不自动拆解任务书，也不生成 AI 任务项。</Text>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+export default ProjectTrialsView;
 ~~~
 
-每个具体试验卡片必须从 entry.trial.records 读取执行记录；不得另建执行记录 Store。记录入口使用现有来源导航：
-
-~~~tsx
-const path = physicalSourcePath(objects, {
-  physicalObjectId: entry.object.id,
-  experimentId: entry.experiment.id,
-  trialId: entry.trial.id,
-  testRecordId: record.id,
-});
-if (path) navigate(path);
-~~~
-
-在每个具体试验卡片中按以下顺序展示：
-
-1. 具体试验名称、所属物理对象/试验构型、载荷谱和执行记录数量。
-2. 执行记录列表；每条记录展示 executionNumber、记录名称、有效 CSV 文件名和派生数据表数量，并提供“查看执行记录”操作。
-3. “专业功能及成果”区域：使用 getTrialArtifacts(projects, sessions, scope, trial) 获取现有来源成果，再用 collectAnalysisResults(trial, artifacts) 和 AnalysisResults 渲染；不要复制 artifact 或自行拼接无来源的结果。
-4. 可选任务书附录：只有 taskBookId 存在时才展示任务书关联信息和“查看任务书”入口，目标使用 taskBookPath(taskBookId)。如果 ID 不再对应现有任务，明确显示关联失效，不得自动改绑其他任务。
-
-无试验时显示 Empty 和“在此项目中新建具体试验”按钮，按钮导航到 /trials/new?projectId=<当前项目 ID>。此操作创建新的具体试验，不提供选择其他项目已有试验的入口。
-
+在 ProjectContent.tsx 中仅为 trials 视图增加分支；不要覆盖已有的当前具体试验成果分支。ProjectSidebar 在项目级目录中显示该入口，但在固定到单个会话的资源抽屉中隐藏该入口。
 - [ ] **Step 4: Add navigation-model assertions**
 
 在 projectTrialModel.test.mjs 或独立的项目导航测试中，调用 buildProjectNavigation，确认即使项目没有具体试验，也存在唯一的 trials 导航项；测试同一具体试验对应多个项目会话时仍只返回一个条目。

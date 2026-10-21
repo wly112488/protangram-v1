@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { BusinessRouteState, ModelContract, WorkspaceSessionState } from '../types/businessContext';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
-import { getProjectDeletionBlock, getSessionWorkspaceContext, isCompatibleSessionHandoff, getSessionDraftKey, type SessionCapability, type PhysicalBusinessScope, type WorkSession } from './sessionModel';
+import { getProjectDeletionBlock, getSessionWorkspaceContext, isCompatibleSessionHandoff, getSessionDraftKey, type SessionCapability, type PhysicalBusinessScope, type SessionCreationSource, type WorkSession } from './sessionModel';
 import { resolvePhysicalSource, samePhysicalSource } from './physicalBusinessContext';
 import { usePhysicalObjectStore } from './physicalObjectStore';
 
@@ -17,7 +17,11 @@ const load = (): { sessions: WorkSession[]; activeSessionId: string | null; save
     const data = raw ? JSON.parse(raw) : null;
     if (!data) return { sessions: [], activeSessionId: null, saveError: null };
     if (data.version !== 1 || !Array.isArray(data.sessions)) throw new Error('invalid session data');
-    return { sessions: data.sessions, activeSessionId: data.activeSessionId ?? null, saveError: null };
+    const sessions = (data.sessions as Array<WorkSession & { creationSource?: SessionCreationSource }>).map(session => ({
+      ...session,
+      creationSource: session.creationSource ?? (session.taskId ? 'task' : session.projectId ? 'project' : 'standalone'),
+    }));
+    return { sessions, activeSessionId: data.activeSessionId ?? null, saveError: null };
   } catch {
     return { sessions: [], activeSessionId: null, saveError: '本机会话存储不可用，请检查浏览器存储后重试' };
   }
@@ -27,9 +31,9 @@ interface SessionStore {
   sessions: WorkSession[];
   activeSessionId: string | null;
   saveError: string | null;
-  createSession: (input?: { title?: string; projectId?: string; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => string;
-  ensureTaskSession: (task: { id: string; title: string; projectId: string }) => string;
-  ensureProjectSession: (projectId: string) => string;
+  createSession: (input?: { title?: string; projectId?: string; creationSource?: SessionCreationSource; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => string;
+  ensureTaskSession: (task: { id: string; title: string; projectId: string }, businessScope?: PhysicalBusinessScope) => string;
+  ensureProjectSession: (projectId: string, businessScope?: PhysicalBusinessScope) => string;
   ensurePhysicalSession: (scope: PhysicalBusinessScope, title: string) => string;
   getWorkspaceSession: (id: string) => WorkspaceSessionState | undefined;
   openSession: (id: string | null, capability?: SessionCapability) => void;
@@ -61,14 +65,14 @@ export const useSessionStore = create<SessionStore>((set, get) => {
   };
   const update = (id: string, fn: (session: WorkSession) => WorkSession) => commit(get().sessions.map(session =>
     session.id === id ? { ...fn(session), updatedAt: new Date().toISOString() } : session));
-  const create = (input: { title?: string; projectId?: string; taskId?: string; storageProjectId?: string; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => {
+  const create = (input: { title?: string; projectId?: string; taskId?: string; storageProjectId?: string; creationSource?: SessionCreationSource; initialDrafts?: WorkSession['drafts']; businessScope?: PhysicalBusinessScope }) => {
     const id = createSessionId();
     const title = input.title?.trim() || '新会话';
     const storageProjectId = input.storageProjectId ?? useProjectStore.getState().createProject({
       name: title, sessionOwnerId: id, description: '会话数据与成果', status: '进行中',
     });
     const now = new Date().toISOString();
-    commit([...get().sessions, { id, title, projectId: input.projectId, taskId: input.taskId, storageProjectId, businessScope: input.businessScope,
+    commit([...get().sessions, { id, title, projectId: input.projectId, taskId: input.taskId, creationSource: input.creationSource ?? (input.taskId ? 'task' : input.projectId ? 'project' : 'standalone'), storageProjectId, businessScope: input.businessScope,
       capability: input.taskId ? 'task' : 'overview', pinned: false, archived: false,
       createdAt: now, updatedAt: now,
       drafts: input.initialDrafts ? JSON.parse(JSON.stringify(input.initialDrafts)) as WorkSession['drafts'] : {},
@@ -85,13 +89,23 @@ export const useSessionStore = create<SessionStore>((set, get) => {
       if (existing) update(existing.id, session => ({ ...session, businessScope: { ...session.businessScope, ...scope } }));
       return existing?.id ?? create({ title, businessScope: scope });
     },
-    ensureTaskSession: (task) => get().sessions.find(session => session.taskId === task.id)?.id
-      ?? create({ title: task.title, projectId: task.projectId, taskId: task.id, storageProjectId: task.projectId }),
-    ensureProjectSession: (projectId) => {
-      const existing = get().sessions.find(session => !session.taskId && session.storageProjectId === projectId);
-      if (existing) return existing.id;
+    ensureTaskSession: (task, businessScope) => {
+      const existing = get().sessions.find(session => session.taskId === task.id);
+      if (existing) {
+        if (businessScope) update(existing.id, session => ({ ...session, businessScope: { ...session.businessScope, ...businessScope } }));
+        return existing.id;
+      }
+      return create({ title: task.title, projectId: task.projectId, taskId: task.id, storageProjectId: task.projectId, businessScope });
+    },
+    ensureProjectSession: (projectId, businessScope) => {
+      const existing = get().sessions.find(session => !session.taskId && session.storageProjectId === projectId
+        && (!businessScope || !session.businessScope || samePhysicalSource(session.businessScope, businessScope)));
+      if (existing) {
+        if (businessScope) update(existing.id, session => ({ ...session, businessScope: { ...session.businessScope, ...businessScope } }));
+        return existing.id;
+      }
       const project = useProjectStore.getState().projects.find(item => item.id === projectId);
-      return create({ title: project?.name ?? '项目成果', projectId, storageProjectId: projectId });
+      return create({ title: businessScope?.trialName ?? project?.name ?? '项目成果', projectId, storageProjectId: projectId, businessScope });
     },
     getWorkspaceSession: (id) => {
       const session = get().sessions.find(item => item.id === id);

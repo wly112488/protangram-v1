@@ -3,6 +3,15 @@
 .session-brand { display: flex; align-items: center; gap: 10px; background: transparent; border: 0; padding: 0 5px 12px; color: inherit; text-align: left; cursor: pointer; font-size: 17px; font-weight: 700; }
 .session-brand small { display: block; font-size: 11px; color: #768399; font-weight: 400; padding-top: 3px; }
 .session-brand-mark { width: 33px; height: 33px; display: grid; place-items: center; background: #2363d3; color: white; border-radius: 9px; font-size: 21px; }
+.session-brand-logo { width: 36px; height: 36px; flex: 0 0 36px; object-fit: contain; }
+.business-sidebar .business-object-nav { padding-top: 8px; border-top: 1px solid #e3eaf3; }
+.business-sidebar .business-object-tree { margin: 0 4px; background: transparent; color: #53647b; }
+.business-sidebar .business-object-tree .ant-tree-node-content-wrapper { min-height: 32px; line-height: 32px; }
+.business-sidebar .business-object-tree .ant-tree-node-content-wrapper:hover { background: #e7edf5; }
+.physical-tree-node-title { display: flex; align-items: center; justify-content: space-between; gap: 5px; min-width: 0; }
+.physical-tree-node-title > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.physical-tree-node-title .business-tree-add { flex: 0 0 24px; opacity: .75; }
+.physical-tree-node-title .business-tree-add:hover { opacity: 1; }
 .session-sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 .session-sidebar button:not(.ant-btn) { font-family: inherit; }
 .session-sidebar-link { display: flex; align-items: center; gap: 9px; width: 100%; padding: 10px 9px; border: 0; border-radius: 7px; background: transparent; color: #53647b; text-align: left; cursor: pointer; font-size: 13px; }
@@ -32,6 +41,29 @@
 .session-nav-row:hover .session-nav-title, .session-nav-row:has(button:focus-visible) .session-nav-title { padding-right: 75px; }
 .session-pin-indicator { color: #8fa1bb; font-size: 10px; }
 .session-nav-empty { padding: 2px 9px; font-size: 12px; color: #8a96a7; line-height: 1.7; }
+.business-sidebar { padding: 14px; gap: 8px; }
+.business-sidebar .business-nav-search { margin-bottom: 5px; }
+.business-sidebar .business-workbench-link { margin-bottom: 8px; }
+.business-sidebar .session-nav-section--label-highlight { margin-top: 10px; }
+.business-sidebar .session-section-label { padding: 4px 7px; }
+.business-sidebar .session-section-label > button:first-child { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.business-sidebar .session-section-label .ant-btn { color: #53647b; }
+.business-sidebar .business-child-link { padding: 7px 9px; font-size: 12px; }
+.business-sidebar .business-project-group { margin: 3px 0 8px 11px; padding-left: 7px; border-left: 1px solid #d8e0eb; }
+.business-sidebar .business-project-row { display: flex; align-items: center; }
+.business-sidebar .business-project-open { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; border: 0; background: transparent; padding: 7px 2px; color: #52637a; text-align: left; cursor: pointer; }
+.business-sidebar .business-project-open > span { margin-left: auto; font-size: 11px; }
+.business-sidebar .business-project-row .ant-btn { color: #53647b; }
+.business-sidebar .business-project-empty { padding-left: 3px; }
+.business-sidebar .business-project-resources { color: #426da9; }
+.trial-create-page { max-width: 820px; margin: 0 auto; padding: 28px 30px 56px; }
+.trial-create-heading { margin: 10px 0 22px; }
+.trial-create-heading h2 { margin: 4px 0 7px; }
+.trial-create-card { margin-top: 18px; }
+.trial-inline-create { margin: -12px 0 10px; }
+.trial-workbench-actions { margin: -24px 0 34px; }
+.trial-workbench-home .session-home-intro { margin-bottom: 36px; }
+.trial-workbench-footnote { display: flex; align-items: center; gap: 8px; margin-top: 28px; color: #75849a; font-size: 13px; }
 .session-project-heading { position: relative; display: flex; align-items: center; }
 .session-project-heading .session-row-actions { right: 25px; }
 .session-project-heading:hover > button:first-child, .session-project-heading:has(button:focus-visible) > button:first-child { padding-right: 74px; }
@@ -137,3 +169,4 @@ html[data-theme="dark"] .session-group-task-link:hover, html[data-theme="dark"] 
 html[data-theme="dark"] .session-shell .session-main-content { background: #141b28; }
 @media (max-width: 1200px) { .session-sidebar { width: 225px; flex-basis: 225px; } .session-home { padding: 45px 28px; } .session-capability-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .session-sidebar { position: fixed; top: 0; bottom: 0; left: 0; width: 260px; transform: translateX(-100%); transition: transform 0.15s; } .session-sidebar.is-open { transform: translateX(0); } .session-sidebar-backdrop { display: block; position: fixed; inset: 0; border: 0; background: #172a4559; z-index: 35; } .session-topbar { padding: 0 14px; } .session-topbar .session-mobile-toggle { display: inline-flex; } .session-home { padding: 34px 20px; } .session-home-intro { margin-bottom: 32px; } .session-capability-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .session-capability-cards > button { min-height: 145px; } .session-recent-grid { grid-template-columns: 1fr; } .session-workbench-header { align-items: flex-start; padding: 20px 16px; } .session-title-line h1 { font-size: 18px; } .session-header-actions > .ant-btn { padding-inline: 8px; } .session-header-actions .ant-btn span:not(.anticon) { display: none; } .session-capability-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px 16px; gap: 7px; } .session-capability-tabs > button { min-height: 52px; gap: 7px; padding: 6px 8px; } .session-capability-tab-icon { width: 30px; height: 30px; flex-basis: 30px; border-radius: 8px; font-size: 16px; } .session-capability-tab-copy strong { font-size: 11px; } .session-capability-tab-copy small { font-size: 8px; } .session-professional-content { padding: 20px 14px 36px; } .session-overview { padding: 14px 2px; } .session-shell .task-center-page { padding: 20px 14px; } }
+@media (max-width: 760px) { .trial-create-page { padding: 18px 14px 40px; } .trial-create-page .ant-space-compact { flex-wrap: nowrap; } .trial-create-page .ant-space-compact .ant-select { min-width: 0; } .trial-workbench-actions { margin: -16px 0 26px; } }

@@ -62,6 +62,7 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     const upstreamRefs = input.payload.upstreamArtifactRefs as Array<{ projectId: string; artifactId: string }> | undefined;
     const artifact = useProjectStore.getState().addArtifact(projectId, { ...input, payload: {
       ...input.payload,
+      sourceCapability: capability,
       resultMode: input.payload.resultMode ?? (input.type === 'design' && (input.payload.designSummary || input.payload.designMethod) ? 'configuration' : 'demo'),
       sourceScope: sourceContext?.scope,
       sourceContext,

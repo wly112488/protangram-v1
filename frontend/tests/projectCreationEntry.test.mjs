@@ -6,11 +6,15 @@ import test from 'node:test';
 
 const frontendRoot = fileURLToPath(new URL('..', import.meta.url));
 
-test('independent project creation lives in Task Center, not the project-data sidebar', () => {
-  const sidebar = readFileSync(path.join(frontendRoot, 'src/workspace/ProjectSidebar.tsx'), 'utf8');
-  const taskCenter = readFileSync(path.join(frontendRoot, 'src/workspace/TaskCenter.tsx'), 'utf8');
-  assert.doesNotMatch(sidebar, /新建项目/);
-  assert.doesNotMatch(sidebar, /workspace-project-add/);
-  assert.match(taskCenter, /新建独立项目/);
-  assert.match(taskCenter, /导入旧版试验项目/);
+test('workspace sidebar groups workbench sessions, projects and formal tasks', () => {
+  const sidebar = readFileSync(path.join(frontendRoot, 'src/workspace/BusinessSidebar.tsx'), 'utf8');
+  assert.match(sidebar, /工作台/);
+  assert.match(sidebar, /最近会话/);
+  assert.match(sidebar, /项目/);
+  assert.match(sidebar, /正式任务/);
+  assert.match(sidebar, /搜索会话/);
+  assert.match(sidebar, /新建项目/);
+  assert.match(sidebar, /trials\/new\?projectId/);
+  assert.match(sidebar, /business-object-tree/);
+  assert.match(sidebar, /物理对象/);
 });

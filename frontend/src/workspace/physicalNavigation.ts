@@ -1,5 +1,27 @@
 import { findObjectCategory, type PhysicalObject } from './physicalObjectStore';
 
+export interface PhysicalTreeNodeModel {
+  key: string;
+  kind: 'category' | 'object' | 'configuration';
+  id: string;
+  categoryId?: string;
+  parentId?: string;
+  name: string;
+  children: PhysicalTreeNodeModel[];
+}
+
+export function buildPhysicalTreeModel(objects: PhysicalObject[]): PhysicalTreeNodeModel[] {
+  return objects.map(category => ({
+    key: JSON.stringify(['category', category.id]), kind: 'category', id: category.id, name: category.name,
+    children: category.configurations.map(object => ({
+      key: JSON.stringify(['object', category.id, object.id]), kind: 'object', id: object.id, categoryId: category.id, parentId: category.id, name: object.name,
+      children: object.experiments.map(configuration => ({
+        key: JSON.stringify(['configuration', category.id, object.id, configuration.id]), kind: 'configuration', id: configuration.id, categoryId: category.id, parentId: object.id, name: configuration.name, children: [],
+      })),
+    })),
+  }));
+}
+
 // Both the tree and the workspace resolve the same parent chain. Explicit IDs
 // are never repaired by switching to an unrelated object or execution.
 export function resolvePhysicalNavigation(objects: PhysicalObject[], params: URLSearchParams) {

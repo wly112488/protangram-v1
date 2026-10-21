@@ -16,5 +16,5 @@ export default function TrialDataTable({ table, rawFile }: { table: DerivedTable
   if (!rawFile) return <Alert type="warning" message="原始文件引用不存在" />;
   if (result.key !== key) return <div>读取数据…</div>;
   if (result.error) return <Alert type="warning" message={result.error} />;
-  return <Table size="small" columns={table.fields.map(field => ({ title: field, dataIndex: field, key: field }))} dataSource={result.rows} rowKey={(row, index) => `${table.id}-${index}-${row[table.fields[0]] ?? ''}`} pagination={{ pageSize: 10, showSizeChanger: false }} scroll={{ x: 'max-content' }} />;
+  return <Table size="small" columns={table.fields.map(field => ({ title: field, dataIndex: field, key: field, width: 150 }))} dataSource={result.rows} rowKey={(row, index) => `${table.id}-${index}-${row[table.fields[0]] ?? ''}`} pagination={{ pageSize: 15, showSizeChanger: false }} scroll={{ x: 'max-content' }} />;
 }

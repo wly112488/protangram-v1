@@ -1,50 +1,64 @@
-import { Alert, Card, Empty, Space, Table, Tabs, Tag, Typography } from 'antd';
-import ReactECharts from 'echarts-for-react';
-import type { ReactNode } from 'react';
-import { artifactResultLabel, recordLabel } from './physicalBusinessContext';
-import { type ResultEntry } from './analysisResultModel';
-import TrialChart from './TrialChart';
-import TrialDataTable from './TrialDataTable';
-import { hasTrialChartNameConflict, type ConcreteTrial } from './physicalObjectStore';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Card, Empty, Input, Select, Space, Tag, Tree, Typography } from 'antd';
+import { BarChartOutlined, FileTextOutlined, NumberOutlined, SearchOutlined, TableOutlined } from '@ant-design/icons';
+import type { DataNode } from 'antd/es/tree';
+import type { ResultEntry } from './analysisResultModel';
+import type { ConcreteTrial } from './physicalObjectStore';
+import { buildResultCatalog, resultFeatures, type CatalogResult } from './resultCatalogModel';
+import { recordLabel } from './physicalBusinessContext';
+import CsvFilePreview from './CsvFilePreview';
+import ResultPreview from './ResultPreview';
+import './resultCatalog.css';
 
-const { Text } = Typography;
-
-export default function AnalysisResults({ entries, actions, extra, shared = false, trial, activeKind, onKindChange }: {
-  entries: ResultEntry[]; actions?: (entry: ResultEntry) => ReactNode; extra?: ReactNode; shared?: boolean; trial?: ConcreteTrial; activeKind?: string; onKindChange?: (kind: string) => void;
+const kindLabels = { chart: '图表', table: '数据表', metric: '指标', document: '文档' };
+const kindIcons = { chart: <BarChartOutlined />, table: <TableOutlined />, metric: <NumberOutlined />, document: <FileTextOutlined /> };
+export default function AnalysisResults({ entries, actions, extra, shared = false, trial, trials, recordId, activeKind, onKindChange }: {
+  entries: ResultEntry[]; actions?: (entry: ResultEntry) => ReactNode; extra?: ReactNode; shared?: boolean; trial?: ConcreteTrial; trials?: ConcreteTrial[]; recordId?: string; activeKind?: string; onKindChange?: (kind: string) => void;
 }) {
-  return <Card size="small" className="physical-analysis-results" title={shared ? '分析成果 · 本试验共享' : '分析成果'} extra={extra}>
-    <Tabs activeKey={activeKind} defaultActiveKey="chart" onChange={onKindChange} items={(['chart', 'table', 'metric'] as const).map(kind => {
-      const items = entries.filter(entry => entry.kind === kind);
-      const label = { chart: '图表', table: '数据表', metric: '指标' }[kind];
-      return { key: kind, label: `${label} · ${items.length}`, children: items.length ? <div className={kind === 'chart' ? 'physical-charts-grid' : 'physical-results-list'}>{items.map(entry => <Card size="small" key={entry.key} title={entry.name} extra={actions?.(entry)} className="physical-result-object" data-result-key={entry.key}>
-        <Space wrap><Tag>{entry.artifact?.source ?? 'CSV 数据处理'}</Tag>{entry.artifact && <Tag>{artifactResultLabel(entry.artifact)}</Tag>}</Space>
-        {trial && entry.chart && hasTrialChartNameConflict(trial, entry.name, entry.chart) && <Tag color="orange">历史重名，保存或导出前请改名</Tag>}
-        {entry.chart && <TrialChart chart={entry.chart} rawFile={entry.rawFile} />}
-        {entry.table && <TrialDataTable table={entry.table} rawFile={entry.rawFile} />}
-        {entry.result?.kind === 'chart' && <ReactECharts option={entry.result.option} style={{ height: 300 }} />}
-        {entry.result?.kind === 'table' && <Table size="small" rowKey={(_, index) => String(index)} scroll={{ x: true }} pagination={{ pageSize: 10 }} dataSource={entry.result.rows} columns={entry.result.columns.map(column => ({ title: `${column.label}${column.unit ? ` / ${column.unit}` : ''}`, dataIndex: column.key, render: value => value ?? '—' }))} />}
-        {entry.result?.kind === 'metric' && <Typography.Paragraph strong>{entry.result.value ?? '—'} {entry.result.unit}</Typography.Paragraph>}
-        <div className="physical-result-source">
-          <Text type="secondary">来源：{entry.record ? recordLabel(entry.record) : entry.artifact ? artifactSourceLabel(entry) : '来源记录已失效'}{entry.rawFile && ` · ${entry.rawFile.name}`}</Text>
-          {(entry.chart || entry.table) && <div><Text type="secondary">依据：{entry.chart ? `${entry.chart.xField} / ${entry.chart.yField}` : entry.table!.fields.join('、')} · 数据行 {(entry.chart ?? entry.table)!.startRow + 1}–{(entry.chart ?? entry.table)!.endRow || '末尾'}</Text></div>}
-          {entry.artifact && <ArtifactBasis entry={entry} />}
-        </div>
-      </Card>)}</div> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`暂无已保存${label}`} /> };
-    })} />
+  const [selection, setSelection] = useState<string>();
+  const [query, setQuery] = useState('');
+  const [localKind, setLocalKind] = useState('all');
+  const kind = activeKind ?? localKind;
+  const catalog = useMemo(() => buildResultCatalog(entries, trials ?? (trial ? [trial] : []), recordId), [entries, trials, trial, recordId]);
+  const choices = new Map<string, { title: string; body: ReactNode; entry?: ResultEntry; description?: string }>();
+  const matches = (text: string) => text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  const resultNode = ({ entry, sourceLabel }: CatalogResult, parentMatches: boolean): DataNode | null => {
+    const capability = entry.chart?.sourceCapability ?? entry.artifact?.payload.sourceCapability;
+    const origin = resultFeatures.find(item => item.key === capability)?.label;
+    if ((kind !== 'all' && entry.kind !== kind) || (!parentMatches && !matches(`${entry.name} ${origin ?? ''}`))) return null;
+    const key = `result:${entry.key}`;
+    choices.set(key, { title: entry.name, body: <ResultPreview key={entry.key} entry={entry} />, entry, description: entry.artifact?.summary });
+    return { key, isLeaf: true, icon: kindIcons[entry.kind], title: <span className="result-directory-title" title={[sourceLabel, origin, entry.artifact?.summary].filter(Boolean).join(' · ')}><span>{entry.name}</span><small>{kindLabels[entry.kind]}{entry.sourceAvailable === false ? ' · 来源失效' : ''}</small>{sourceLabel.startsWith('多文件') && <small>{sourceLabel}</small>}</span> };
+  };
+  const treeData: DataNode[] = catalog.flatMap(spectrum => {
+    const parentMatches = matches(`${spectrum.name} ${spectrum.trialName ?? ''}`);
+    const runs: DataNode[] = spectrum.records.flatMap(run => {
+      const runMatches = parentMatches || Boolean(run.record && matches(recordLabel(run.record)));
+      const children: DataNode[] = run.files.flatMap(file => {
+        const fileMatches = runMatches || matches(file.file.name);
+        const results = file.results.map(result => resultNode(result, fileMatches)).filter((node): node is DataNode => Boolean(node));
+        if (!results.length && ((!fileMatches && query.trim()) || kind !== 'all')) return [];
+        const key = `file:${file.key}`;
+        choices.set(key, { title: file.file.name, body: <CsvFilePreview key={file.file.id} file={file.file} /> });
+        return [{ key, icon: <FileTextOutlined />, title: <span className="result-directory-title"><span>{file.file.name}</span><small>{file.results.length} 项成果{file.file.status === 'removed' ? ' · 已移除' : ''}</small></span>, children: results }];
+      });
+      children.push(...run.results.map(result => resultNode(result, runMatches)).filter((node): node is DataNode => Boolean(node)));
+      return children.length ? [{ key: `run:${run.key}`, selectable: false, title: run.record ? recordLabel(run.record) : '保存时的来源', children }] : [];
+    });
+    runs.push(...spectrum.results.map(result => resultNode(result, parentMatches)).filter((node): node is DataNode => Boolean(node)));
+    return runs.length ? [{ key: `spectrum:${spectrum.key}`, selectable: false, title: <span className="result-directory-spectrum"><strong>{spectrum.name}</strong><small>{spectrum.trialName}</small></span>, children: runs }] : [];
+  });
+  const selected = selection ? choices.get(selection) : undefined;
+  return <Card size="small" className="physical-analysis-results" title={shared ? '共享数据与成果' : '已保存成果'} extra={extra}>
+    <div className="result-catalog-toolbar"><Input prefix={<SearchOutlined />} placeholder="搜索试验、载荷谱、CSV 或成果" aria-label="搜索成果目录" value={query} onChange={event => setQuery(event.target.value)} allowClear /><Select aria-label="成果类型" value={kind} onChange={value => { setLocalKind(value); onKindChange?.(value); }} options={[{ value: 'all', label: '全部类型' }, ...Object.entries(kindLabels).map(([value, label]) => ({ value, label }))]} /></div>
+    <div className="result-catalog-layout">
+      <aside className="result-catalog-directory" aria-label="试验、执行、CSV 与成果目录">
+        {treeData.length ? <Tree key={`${query}:${kind}`} showIcon blockNode defaultExpandAll selectedKeys={selection ? [selection] : []} treeData={treeData} onSelect={keys => { if (keys.length) setSelection(String(keys[0])); }} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={query ? '没有匹配的成果' : '暂无数据或已保存成果'} />}
+        {selected?.description && <Typography.Paragraph className="result-directory-description">{selected.description}</Typography.Paragraph>}
+      </aside>
+      <section className="result-catalog-preview" aria-label="选中内容预览">
+        {selected ? <><div className="result-preview-heading"><strong>{selected.title}</strong><Space>{selected.entry && <Tag>{kindLabels[selected.entry.kind]}</Tag>}{selected.entry && actions?.(selected.entry)}</Space></div>{selected.body}</> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="从左侧选择 CSV 查看表格，或选择成果查看预览" />}
+      </section>
+    </div>
   </Card>;
-}
-
-function artifactSourceLabel(entry: ResultEntry) {
-  const context = entry.artifact?.payload.sourceContext as { recordName?: string; trialName?: string; experimentName?: string } | undefined;
-  const scope = entry.artifact?.payload.sourceScope as { testRecordId?: string } | undefined;
-  return context?.recordName ?? (scope?.testRecordId ? `记录 ${scope.testRecordId}` : context?.trialName ?? context?.experimentName ?? '当前试验');
-}
-
-function ArtifactBasis({ entry }: { entry: ResultEntry }) {
-  const context = entry.artifact?.payload.sourceContext as { experimentName?: string; loadSpectrum?: string; rawFiles?: Array<{ name: string }> } | undefined;
-  return <>
-    {context && <div><Text type="secondary">依据：{[context.experimentName, context.loadSpectrum, context.rawFiles?.map(file => file.name).join('、')].filter(Boolean).join(' · ')}</Text></div>}
-    {entry.result?.basis?.map((text, index) => <div key={index}><Text type="secondary">{text}</Text></div>)}
-    {entry.artifact && artifactResultLabel(entry.artifact) === '演示成果' && <Alert type="info" showIcon message="此成果为演示分析，关联的记录和 CSV 仅表示业务上下文。" />}
-  </>;
 }

@@ -1,11 +1,17 @@
 import * as echarts from 'echarts';
 import type { DerivedChart, RawDataFile } from './physicalObjectStore';
+import { createWorksheetPlotOption, type PlotConfig } from './worksheetPlotModel';
 import { buildChartPoints, readTrialFile } from './trialDataFiles';
 
 // The preview, saved result and PNG use the same CSV reader and chart options.
 export async function loadTrialChartOption(chart: DerivedChart, rawFile: RawDataFile) {
-  if (rawFile.id !== chart.rawFileId || !rawFile.headers.includes(chart.xField) || !rawFile.headers.includes(chart.yField)) throw new Error('图表原始 CSV 字段引用已失效');
+  if (rawFile.id !== chart.rawFileId || [chart.xField, chart.yField, ...(chart.yFields ?? []), ...(chart.sizeField ? [chart.sizeField] : [])].some(field => !rawFile.headers.includes(field))) throw new Error('图表原始 CSV 字段引用已失效');
   const { rows } = await readTrialFile(rawFile.id);
+  return createTrialChartOption(chart, rows);
+}
+
+export function createTrialChartOption(chart: PlotConfig, rows: Record<string, string>[]) {
+  if (chart.plotKind || chart.yFields?.length) return createWorksheetPlotOption(chart, rows);
   const points = buildChartPoints(rows, chart.xField, chart.yField, chart);
   if (!points.length) throw new Error('当前字段范围内没有可绘制的数值');
   return {
@@ -22,7 +28,7 @@ export async function downloadTrialChart(chart: DerivedChart, rawFile: RawDataFi
   document.body.append(container);
   const instance = echarts.init(container, undefined, { renderer: 'canvas', width: 1000, height: 600 });
   try {
-    instance.setOption({ ...option, backgroundColor: '#fff', title: { text: chart.name, subtext: `${source} · ${rawFile.name}` }, grid: { ...option.grid, top: 80 } });
+    instance.setOption({ ...option, backgroundColor: '#fff', title: { text: chart.name, subtext: `${source} · ${rawFile.name}` }, grid: { ...(option.grid as object), top: 80 } });
     const link = document.createElement('a');
     link.href = instance.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' });
     const filename = [...chart.name].map(character => character.charCodeAt(0) < 32 || /[<>:"/\\|?*]/.test(character) ? '_' : character).join('');

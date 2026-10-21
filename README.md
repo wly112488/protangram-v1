@@ -7,7 +7,7 @@
 | 层级 | 技术 |
 |------|------|
 | 前端框架 | React 19 + TypeScript + Vite 7 |
-| UI组件库 | Ant Design 5 |
+| UI组件库 | Ant Design 6 |
 | 样式 | TailwindCSS |
 | 状态管理 | Zustand |
 | 画布/流程图 | React Flow |
@@ -60,6 +60,26 @@ node src/index.js
 ```
 
 ## 功能模块
+
+### 当前试验工作区
+
+- 从工作台、项目或正式任务创建具体试验，在同一流程中选择或新建物理对象和试验构型；从任务书创建时自动关联当前任务书。
+- 左侧物理对象树保留对象、构型和参数的浏览维护。已有试验和执行记录可通过“进入试验工作台”继续工作；未绑定具体试验的历史会话仍可查看原有成果。
+- 具体试验内提供智能试验设计、数据分析、数字孪生、虚拟工况和报告。最近独立会话与项目内会话按创建来源区分。
+- CSV 只在数据分析中导入和移除。一次执行可以包含多个 CSV；五个专业功能都可使用底部工作表查看、选列、编辑和绘图。默认展示全部列、每页 15 行；下拉到底可完全隐藏工作表和标签栏，再从底部把手恢复。
+- 编辑另存为同一次执行的工作副本，原始文件不覆盖。共享数据与成果按具体试验、载荷谱、执行记录和 CSV 组织，点击名称预览；保存图表可导出 PNG。移除来源 CSV 后保留历史成果并提示来源失效。
+
+当前上述试验对象、会话及成果沿用浏览器存储，CSV 和工作副本使用 IndexedDB。服务端文件上传、编辑版本、分页、领域换算公式及真实单 CSV 自动诊断尚未接入；界面会标明本机保存和服务缺口。演示结果不能代替当前文件的真实诊断。
+
+前端检查：
+
+```bash
+cd frontend
+node --test tests/*.test.mjs
+npm run build
+```
+
+工作区浏览器回归脚本位于 `frontend/scripts/`：`verify-bottom-worksheet.mjs`、`verify-worksheet-close.mjs`、`verify-historical-trial-access.mjs` 和 `verify-worksheet-save-snapshot.mjs`。运行时需准备 Playwright/Chromium，并通过 `PROTANGRAM_TEST_URL` 指定独立测试服务，通过 `PROTANGRAM_PLAYWRIGHT_ROOT` 指向已安装 Playwright 的 `package.json`。脚本使用隔离浏览器上下文与合成数据。
 
 ### 1. 试验管理
 - **信息管理**: 装备管理(BOM树)、试验科目、试验设计方法、采样要求(占位)

@@ -38,7 +38,6 @@ export default function TaskBookWorkspace({ taskId }: { taskId: string }) {
   const sources = getTaskTrialSources(entries);
   const [linkOpen, setLinkOpen] = useState(false);
   const [targetTrial, setTargetTrial] = useState<string>();
-  const [targetConfiguration, setTargetConfiguration] = useState<string>();
   const [preview, setPreview] = useState<ProjectArtifact>();
   const [pdfOpen, setPdfOpen] = useState(false);
   const [pdf, setPdf] = useState<{ loading: boolean; url?: string; error?: string }>({ loading: false });
@@ -91,8 +90,7 @@ export default function TaskBookWorkspace({ taskId }: { taskId: string }) {
     setTargetTrial(undefined); setLinkOpen(false);
   };
   const startTrial = () => {
-    const target = targets.find(item => item.configuration.id === targetConfiguration);
-    if (target) navigate(`/physical-objects?${new URLSearchParams({ objectId: target.category.id, configurationId: target.object.id, experimentId: target.configuration.id, create: 'trial', taskBookId: taskId })}`);
+    navigate(`/trials/new?${new URLSearchParams({ taskBookId: taskId })}`);
   };
 
   return <div className="taskbook-workspace physical-page">
@@ -100,7 +98,7 @@ export default function TaskBookWorkspace({ taskId }: { taskId: string }) {
     <div className="taskbook-summary"><Tag>{groups.length} 个物理对象</Tag><Tag>{groups.reduce((count, group) => count + group.configurations.length, 0)} 个试验构型</Tag><Tag>{entries.length} 项具体试验</Tag><Tag>{sources.records} 次执行</Tag><Tag>{sources.files} 个 CSV</Tag><Tag>{sources.charts.length} 张图表</Tag><Tag>{sources.artifacts.length} 项专业成果</Tag></div>
     <Tabs activeKey={view} onChange={key => navigate(taskBookPath(taskId, key === 'trials' ? undefined : key))} items={[
       { key: 'trials', label: '关联试验与成果', children: <>
-        <div className="taskbook-toolbar"><Text type="secondary">按物理对象与试验构型汇总</Text><Button onClick={() => setLinkOpen(true)}>添加关联试验</Button></div>
+        <div className="taskbook-toolbar"><Text type="secondary">按物理对象与试验构型汇总</Text><Space><Button onClick={() => setLinkOpen(true)}>关联已有试验</Button><Button type="primary" onClick={startTrial}>新建具体试验</Button></Space></div>
         <div className="physical-book-tests">{groups.length ? groups.map(group => <Card className="taskbook-object" key={group.object.id} title={group.object.name} extra={<Text type="secondary">{group.category.name}</Text>}>
           {group.configurations.map(({ configuration, entries: related }) => <section className="taskbook-configuration" key={configuration.id}><Title level={5}>{configuration.name}</Title>{related.map(entry => <Card className="taskbook-trial" size="small" key={entry.trial.id} title={entry.trial.name} extra={<Button type="link" onClick={() => openTrial(entry)}>管理具体试验</Button>}>
             <Text type="secondary">载荷谱：{entry.trial.loadSpectrum || '待补充'}</Text>
@@ -129,7 +127,7 @@ export default function TaskBookWorkspace({ taskId }: { taskId: string }) {
     <input ref={pdfInput} type="file" accept=".pdf,application/pdf" hidden onChange={choosePdf} />
     <Modal title="添加关联试验" open={linkOpen} onCancel={() => setLinkOpen(false)} footer={<Button onClick={() => setLinkOpen(false)}>关闭</Button>} destroyOnHidden>
       <Space direction="vertical" style={{ width: '100%' }}><Text strong>关联已有自主试验</Text><Select aria-label="选择尚未关联任务书的具体试验" style={{ width: '100%' }} value={targetTrial} options={autonomous.map(item => ({ value: item.trial.id, label: `${item.object.name} / ${item.configuration.name} / ${item.trial.name}` }))} onChange={setTargetTrial} /><Button disabled={!targetTrial} onClick={linkTrial}>关联已有试验</Button>
-        <Text strong>在已有试验构型下开展试验</Text><Select aria-label="选择开展试验的试验构型" style={{ width: '100%' }} value={targetConfiguration} options={targets.map(item => ({ value: item.configuration.id, label: `${item.object.name} / ${item.configuration.name}` }))} onChange={setTargetConfiguration} /><Button disabled={!targetConfiguration} onClick={startTrial}>发起具体试验</Button></Space>
+        <Text strong>从本任务书创建</Text><Text type="secondary">创建过程中可选择已有对象和构型，或即时新建。</Text><Button type="primary" onClick={startTrial}>新建并自动关联任务书</Button></Space>
     </Modal>
     <Drawer title="原始任务书 PDF" open={pdfOpen} onClose={() => setPdfOpen(false)} size={760} destroyOnHidden>{pdf.loading ? <Spin /> : pdf.url ? <iframe title="原始任务书 PDF" src={pdf.url} style={{ width: '100%', height: 'calc(100vh - 160px)', border: 0 }} /> : <Empty description={pdf.error}><Button onClick={() => pdfInput.current?.click()}>选择 PDF</Button></Empty>}</Drawer>
     <Modal title={preview?.title} open={Boolean(preview)} onCancel={() => setPreview(undefined)} footer={<Button onClick={() => setPreview(undefined)}>关闭</Button>}><Tag>{preview && artifactResultLabel(preview)}</Tag><Paragraph style={{ whiteSpace: 'pre-wrap' }}>{preview?.summary}</Paragraph><details><summary>结构化成果</summary><pre className="task-artifact-payload">{JSON.stringify(preview?.payload, null, 2)}</pre></details></Modal>

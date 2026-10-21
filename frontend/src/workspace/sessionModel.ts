@@ -3,12 +3,14 @@ import type { TaskRecord } from './taskTypes';
 import { samePhysicalSource } from './physicalBusinessContext';
 
 export type SessionCapability = 'overview' | 'doe' | 'doeMethods' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | 'resources' | 'task';
+export type SessionCreationSource = 'standalone' | 'project' | 'task';
 export interface PhysicalBusinessScope { physicalObjectId?: string; physicalObjectName?: string; experimentId?: string; experimentName?: string; trialId?: string; trialName?: string; testRecordId?: string; testRecordName?: string; modelId?: string; modelName?: string; taskBookId?: string; taskBookName?: string }
 export interface WorkSession {
   id: string;
   title: string;
   projectId?: string;
   taskId?: string;
+  creationSource: SessionCreationSource;
   storageProjectId: string;
   capability: SessionCapability;
   businessScope?: PhysicalBusinessScope;
@@ -78,7 +80,9 @@ export const getSessionResumePath = (session: WorkSession) => session.capability
 
 export const getSessionEntryPath = (session: WorkSession) => session.taskId
   ? `${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId)}`
-  : getSessionPath(session.id, 'doe');
+  : session.businessScope?.trialId
+    ? getSessionPath(session.id, 'doe')
+    : getSessionPath(session.id, 'resources');
 
 export const isCompatibleSessionHandoff = (context: WorkspaceSessionState, state?: BusinessRouteState | null) => !state?.workspaceSession
     || (!state.workspaceSession.sessionId || state.workspaceSession.sessionId === context.sessionId)

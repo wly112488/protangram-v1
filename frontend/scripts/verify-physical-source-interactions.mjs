@@ -27,8 +27,8 @@ const csv = (name, contents = 'speed,thrust\n1000,10\n2000,20\n3000,30\n') => ({
 let family, a, b, experiment, trial, first, second, sessionA, sessionB, taskId;
 const currentTrial = async () => (await state()).objects[0].configurations[0].experiments[0].trials[0];
 try {
-  await test('左侧常驻类别与对象，类别内创建 A/B 设备并继承父级', async () => {
-    await go('/');assert.equal(await page.locator('.business-sidebar').getByRole('button', { name: '专业功能', exact: true }).count(), 0);
+  await test('对象工作页内显示类别与对象树，类别内创建 A/B 设备并继承父级', async () => {
+    await go('/physical-objects');assert.equal(await page.locator('.business-sidebar').getByRole('button', { name: '专业功能', exact: true }).count(), 0);
     for (const category of ['涵道风扇', '电机', '电推进']) await page.getByRole('tree').getByText(category, {exact:true}).waitFor();
     family = { id: 'category-fan' };
     for (const name of ['验收风扇 A', '验收风扇 B']) {
@@ -92,9 +92,8 @@ try {
     const taskTrial = (await state()).objects[0].configurations[0].experiments[0].trials[1];assert.equal(taskTrial.taskBookId, taskId);assert.equal(taskTrial.loadSpectrum, '载荷谱 02');assert.equal(taskTrial.records.length, 0);
     await go('/physical-objects?view=taskbooks&taskId='+taskId);await page.locator('.physical-book-tests').getByRole('button', { name: '查看同一记录与成果' }).nth(1).click();assert.equal(new URL(page.url()).searchParams.get('recordId'), second.id);
   });
-  await test('独立工具入口可选来源，更换 B 构型不会沿用 A 的记录或参数', async () => {
-    await go('/physical-objects?view=tools');await page.locator('.physical-tool-grid .ant-card').filter({ hasText: '数据分析' }).getByRole('button', { name: /打\s*开/ }).click();await panel().getByRole('combobox', { name: '选择已有业务来源' }).waitFor();await choose(panel().getByRole('combobox', { name: '选择已有业务来源' }), '第 1 次试验记录');await panel().getByText(/当前来源：/).waitFor();assert.equal(new URL(page.url()).pathname.split('/')[2], sessionA);
-    await panel().getByRole('button', { name: '更换来源' }).click();await choose(panel().getByRole('combobox', { name: '选择已有业务来源' }), '验收风扇 B（技术参数）');await panel().getByRole('button', { name: '返回来源', exact: true }).click();await main().getByRole('heading', { name: b.name, exact: true }).waitFor();assert.equal(await main().getByText('转速', { exact: true }).count(), 0);assert.equal(await main().locator('.physical-record-heading').count(), 0);
+  await test('物理对象工作页只维护对象和试验构型，不提供独立专业功能入口', async () => {
+    await go(`${route(family.id, b.id)}&view=tools`);await main().getByRole('heading', { name: b.name, exact: true }).waitFor();assert.equal(await page.locator('.physical-tool-grid').count(), 0);assert.equal(await page.locator('.physical-workspace-card').getByText('专业功能', { exact: true }).count(), 0);
   });
   await test('v3 浏览器迁移保留旧记录、CSV、图表和原 URL，历史记录并入执行列表', async () => {
     const legacyContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } });

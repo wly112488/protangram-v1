@@ -47,6 +47,31 @@ test('write operations require the exact record and never route files or results
   assert.throws(() => store.addTrialRecord('missing-trial', {}), /所属具体试验不存在/);
   assert.deepEqual(trial(), snapshot);
 });
+
+test('shared table names are unique across executions and updating a table preserves its identity', () => {
+  const { store, trialId, trial } = fixture();
+  const first = store.addTrialRecord(trialId, {}), second = store.addTrialRecord(trialId, {});
+  store.addRawFile(trialId, first, file('csv-first')); store.addRawFile(trialId, second, file('csv-second'));
+  const input = { name: '选定工况', rawFileId: 'csv-first', fields: ['time'], startRow: 0, endRow: 0 };
+  const id = store.saveTable(trialId, first, input);
+  assert.throws(() => store.saveTable(trialId, second, { ...input, rawFileId: 'csv-second' }), /同名/);
+  assert.equal(store.saveTable(trialId, first, { ...input, fields: ['time', 'thrust'] }, id), id);
+  assert.equal(trial().records[0].tables.length, 1);
+  assert.deepEqual(trial().records[0].tables[0].fields, ['time', 'thrust']);
+});
+
+test('removing a CSV marks it unavailable but preserves its identity and existing result references', () => {
+  const { store, trialId, trial } = fixture();
+  const recordId = store.addTrialRecord(trialId, {});
+  store.addRawFile(trialId, recordId, file('csv-remove'));
+  const chartId = store.saveChart(trialId, recordId, chart('csv-remove'));
+
+  store.removeRawFile(trialId, recordId, 'csv-remove');
+
+  assert.equal(trial().records[0].rawFiles[0].status, 'removed');
+  assert.equal(trial().charts.find(item => item.id === chartId).rawFileId, 'csv-remove');
+  assert.throws(() => store.saveTable(trialId, recordId, { name: '新表', rawFileId: 'csv-remove', fields: ['time'], startRow: 0, endRow: 0 }), /已移除/);
+});
 test('load spectrum is only an identifier and different spectrum after execution requires a different trial', () => {
   const { store, trialId, experimentId, trial } = fixture();store.updateConcreteTrial(trialId, { loadSpectrum: '载荷谱 02' });store.addTrialRecord(trialId, {});
   assert.throws(() => store.updateConcreteTrial(trialId, { loadSpectrum: '载荷谱 03' }), /新建具体试验/);

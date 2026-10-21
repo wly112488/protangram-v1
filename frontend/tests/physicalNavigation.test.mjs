@@ -2,13 +2,24 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { build } from 'esbuild';
 
-const bundled = await build({ stdin: { contents: "export { resolvePhysicalNavigation } from './src/workspace/physicalNavigation';", resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent' });
-const { resolvePhysicalNavigation } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
+const bundled = await build({ stdin: { contents: "export * from './src/workspace/physicalNavigation';", resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent' });
+const api = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
+const { resolvePhysicalNavigation } = api;
 const objects = [{ id: 'category', name: '涵道风扇', legacyCategories: [{ id: 'old-category' }], configurations: [
   { id: 'device-a', experiments: [{ id: 'setup-a', trials: [{ id: 'trial-a', records: [{ id: 'record-a' }] }] }] },
   { id: 'device-b', experiments: [{ id: 'setup-b', trials: [{ id: 'trial-b', records: [{ id: 'record-b' }] }] }] },
 ] }];
 const query = (patch = {}) => new URLSearchParams({ objectId: 'category', configurationId: 'device-a', experimentId: 'setup-a', trialId: 'trial-a', recordId: 'record-a', ...patch });
+
+test('the physical browser tree retains category, object and test-configuration levels', () => {
+  assert.equal(typeof api.buildPhysicalTreeModel, 'function');
+  const tree = api.buildPhysicalTreeModel(objects);
+  assert.equal(tree[0].kind, 'category'); assert.equal(tree[0].id, 'category');
+  assert.equal(tree[0].children[0].kind, 'object'); assert.equal(tree[0].children[0].id, 'device-a');
+  assert.equal(tree[0].children[0].children[0].kind, 'configuration'); assert.equal(tree[0].children[0].children[0].id, 'setup-a');
+  assert.deepEqual(tree[0].children[0].children[0].children, []);
+  assert.equal(tree[0].children[1].id, 'device-b');
+});
 
 test('the workspace and tree resolve the full parent chain by stable IDs', () => {
   const source = resolvePhysicalNavigation(objects, query());

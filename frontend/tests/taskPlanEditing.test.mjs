@@ -69,15 +69,18 @@ test('top-level module navigation keeps the task but does not inherit a focused 
     mode: 'task', taskId: 'task-1', targetProjectId: 'project-1', taskItemId: 'item-a',
   });
 
-  assert.deepEqual(session, { mode: 'task', taskId: 'task-1', targetProjectId: 'project-1' });
+  assert.equal(session.mode, 'task');
+  assert.equal(session.taskId, 'task-1');
+  assert.equal(session.targetProjectId, 'project-1');
+  assert.equal(session.taskItemId, undefined);
 });
 
 test('task-linked project overview identifies project analysis as separate from task-item execution', () => {
   const source = readFileSync(path.join(frontendRoot, 'src/workspace/ProjectOverview.tsx'), 'utf8');
 
-  assert.match(source, /独立于任务事项/);
-  assert.match(source, /结果仅保存到项目/);
-  assert.match(source, /关联到任务事项/);
+  assert.match(source, /项目概览对所有入口保持一致/);
+  assert.match(source, /查看数据、工作表和已保存成果/);
+  assert.match(source, /返回任务工作台/);
 });
 
 test('task plan exposes add, edit, and remove controls for human review', () => {

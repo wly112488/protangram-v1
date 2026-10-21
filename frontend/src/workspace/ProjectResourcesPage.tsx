@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Drawer, Empty, List, Modal } from 'antd';
-import { DatabaseOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, ExperimentOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ProjectContent from './ProjectContent';
 import ProjectSidebar from './ProjectSidebar';
@@ -32,6 +32,7 @@ const ProjectResourcesPage: React.FC = () => {
     <p className="session-resource-description">{isSessionResources ? '这里展示当前会话保存的数据与成果。' : '这里只展示项目共享资源；各会话成果请在对应会话中查看。'}</p>
     <div className="session-shared-resource-actions">
       {!isSessionResources && <Button icon={<FolderOpenOutlined />} onClick={() => setImportOpen(true)}>导入旧版项目</Button>}
+      {!isSessionResources && projectId && <Button type="primary" icon={<ExperimentOutlined />} onClick={() => navigate(`/trials/new?projectId=${encodeURIComponent(projectId)}`)}>在此项目中新建具体试验</Button>}
       <Button icon={<DatabaseOutlined />} onClick={() => setOpen(true)}>{isSessionResources ? '查看成果目录' : '项目资源目录'}</Button>
     </div>
     <ProjectContent />

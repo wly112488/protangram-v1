@@ -1,3 +1,5 @@
+import TrialDataAnalysisWorkspace from '../../../workspace/TrialDataAnalysisWorkspace';
+import { useTrialWorksheet } from '../../../workspace/trialWorksheetContext';
 import { UNSELECTED_MODEL } from '@/types/businessContext';
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -21,6 +23,9 @@ import { createTaskContextSearch, createTaskReturnPath, createWorkspaceNavigatio
 import { useTaskStore } from '@/workspace/taskStore';
 import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
 import type { AnalysisResult } from '@/workspace/analysisResultModel';
+import TrialCsvAnalysis from '@/workspace/TrialCsvAnalysis';
+import { getTrialArtifacts } from '@/workspace/analysisResultModel';
+import { useSessionStore } from '@/workspace/sessionStore';
 import '@/workspace/visualIntegrations.css';
 
 const { Title, Text, Paragraph } = Typography;
@@ -90,11 +95,12 @@ const pointStatusColor = (status: string) => status === '异常' ? 'red' : statu
 
 type SaveKind = 'analysis' | 'rootCause';
 
-const AnalysisProjects: React.FC = () => {
+const LegacyAnalysisProjects: React.FC = () => {
   const navigate = useNavigate();
   const { setContext } = useTrialAIAssistant();
   const incoming = useSessionRouteState();
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem, physicalSource, addArtifact } = useWorkspaceBusinessSession(incoming);
+  const sourceSessions = useSessionStore(state => state.sessions);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
@@ -405,14 +411,15 @@ const AnalysisProjects: React.FC = () => {
 
   return (
     <div className="workspace-business-page">
-      <div className="workspace-business-heading workspace-page-heading">
-        <div><Title level={4} style={{ margin: 0 }}>试验数据分析</Title><Text type="secondary">加载试验关联数据，识别异常并形成根因、证据与分析结论</Text></div>
-        <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
-      </div>
       {incoming?.source && (incoming.task || incoming.data || incoming.model || incoming.result || incoming.validation) && (
         <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
       )}
-      <Alert showIcon type="info" title="当前使用演示计算" description="趋势图、异常识别和根因结论来自内置样例；当前试验上下文不会改变此演示计算。" style={{ marginBottom: 16 }} />
+      <Tabs className="workspace-subfunction-tabs" defaultActiveKey={physicalSource.trial ? 'csv' : 'diagnosis'} items={[
+        { key: 'csv', label: '数据浏览与可视化', children: physicalSource.trial
+          ? <TrialCsvAnalysis trialId={physicalSource.trial.id} initialRecordId={physicalSource.record?.id} artifacts={getTrialArtifacts(projects, sourceSessions, session, physicalSource.trial)} />
+          : <Alert type="info" showIcon message="CSV 数据分析需要当前具体试验上下文。" /> },
+        { key: 'diagnosis', label: '异常与根因分析', children: <>
+      <Alert showIcon type="info" title="演示样例" description="当前趋势、异常和根因视图使用内置演示数据，尚未接入基于 CSV 的诊断服务，不代表本次试验的实际结论。" style={{ marginBottom: 16 }} />
 
       <PreparationChecklist
         title="分析准备"
@@ -517,8 +524,16 @@ const AnalysisProjects: React.FC = () => {
           navigate('/report/create', { state: { ...createWorkspaceNavigationState(projectId), artifactIds: [artifactId] } });
         }
       }} />
+        </> },
+      ]} />
     </div>
   );
 };
 
+const AnalysisProjects: React.FC = () => {
+  const workspace = useTrialWorksheet();
+  const [showDemo, setShowDemo] = useState(false);
+  if (workspace && !showDemo) return <TrialDataAnalysisWorkspace onShowDemo={() => setShowDemo(true)} />;
+  return <>{workspace && <Alert type="warning" showIcon message="独立演示：不代表底部当前 CSV 的分析结论" action={<Button onClick={() => setShowDemo(false)}>返回当前 CSV 分析</Button>} />}<LegacyAnalysisProjects /></>;
+};
 export default AnalysisProjects;

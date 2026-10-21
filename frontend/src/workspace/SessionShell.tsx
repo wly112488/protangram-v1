@@ -32,7 +32,7 @@ const SessionShell: React.FC = () => {
   const projectLanding = location.pathname === '/projects' && !requestedId;
   useEffect(() => {
     setMobileOpen(false);
-    if (location.pathname === '/' || location.pathname === '/task-center') { useSessionStore.getState().openSession(null); return; }
+    if (location.pathname === '/' || location.pathname === '/task-center' || location.pathname === '/trials/new') { useSessionStore.getState().openSession(null); return; }
     if (projectLanding) return;
     if (needBridge) {
       if (bridgedLocation.current === location.key) return;
@@ -60,7 +60,7 @@ const SessionShell: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
   return <div className="workspace-shell session-shell"><BusinessSidebar mobileOpen={mobileOpen} onNavigate={() => setMobileOpen(false)} />{mobileOpen && <button className="session-sidebar-backdrop" aria-label="关闭业务导航" onClick={() => setMobileOpen(false)} />}
-    <div className="session-main"><div className="session-topbar"><Button className="session-mobile-toggle" icon={<MenuOutlined />} aria-label="打开业务导航" aria-expanded={mobileOpen} aria-controls="session-sidebar" onClick={() => setMobileOpen(!mobileOpen)} /><span>{routeId ? '专业功能' : location.pathname === '/task-center' ? '任务书' : '物理对象'}</span><div><ThemeToggle /><Button icon={<RobotOutlined />} onClick={() => setAssistantOpen(true)}>AI 助手</Button></div></div><main className="workspace-center session-main-content">{needBridge && !projectLanding ? <div className="session-loading">正在恢复会话…</div> : <Outlet />}</main></div>
+    <div className="session-main"><div className="session-topbar"><Button className="session-mobile-toggle" icon={<MenuOutlined />} aria-label="打开业务导航" aria-expanded={mobileOpen} aria-controls="session-sidebar" onClick={() => setMobileOpen(!mobileOpen)} /><span>{routeId ? '专业功能' : location.pathname === '/task-center' ? '正式任务' : location.pathname === '/trials/new' ? '创建具体试验' : location.pathname === '/projects' ? '项目' : '工作台'}</span><div><ThemeToggle /><Button icon={<RobotOutlined />} onClick={() => setAssistantOpen(true)}>AI 助手</Button></div></div><main className="workspace-center session-main-content">{needBridge && !projectLanding ? <div className="session-loading">正在恢复会话…</div> : <Outlet />}</main></div>
     <Drawer title="试验 AI 助手" open={assistantOpen} onClose={() => setAssistantOpen(false)} size={420} destroyOnHidden={false} className="session-assistant-drawer"><TrialAIAssistant key={`${routeId ?? 'workspace'}:${getCapabilityFromPath(location.pathname)}`} sessionId={routeId ?? undefined} embedded /></Drawer>
   </div>;
 };

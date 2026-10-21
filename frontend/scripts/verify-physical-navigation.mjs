@@ -40,13 +40,12 @@ const currentTrial = async () => (await saved()).find(item => item.id === catego
 
 try {
   await test('类别只展开收起；从类别旁入口创建物理对象，不产生类别列表页', async () => {
-    await page.goto(baseURL, { waitUntil: 'networkidle' });
-    const before = page.url();
-    await tree().getByRole('button', { name: '涵道风扇', exact: true }).click();
-    assert.equal(page.url(), before);
-    await page.reload({ waitUntil: 'networkidle' });
-    assert.equal(await tree().getByRole('button', { name: '涵道风扇', exact: true }).getAttribute('aria-expanded'), 'false');
-    await tree().getByRole('button', { name: '涵道风扇', exact: true }).click();
+    await page.goto(`${baseURL}/physical-objects`, { waitUntil: 'networkidle' });
+    const category = tree().getByRole('treeitem', { name: /涵道风扇/ }).first();
+    const childName = (await tree().getByRole('treeitem').nth(1).innerText()).trim();
+    await category.locator('.ant-tree-switcher').click();
+    await tree().getByText(childName, { exact: true }).waitFor({ state: 'hidden' });
+    await category.locator('.ant-tree-switcher').click();
     await tree().getByRole('button', { name: '在涵道风扇下新建具体物理对象' }).click();
     await page.waitForURL(url => url.pathname === '/physical-objects' && !url.searchParams.has('create'));
     await dialog().getByLabel('名称', { exact: true }).fill('电涵道风扇'); await save();

@@ -72,9 +72,6 @@
 .physical-task-record { display: flex; align-items: center; gap: 12px; padding-top: 12px; }
 .physical-design-case { display: grid; gap: 6px; margin-bottom: 12px; }
 .physical-taskbook-view { grid-template-columns: 280px minmax(0, 1fr); }
-.physical-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.physical-tool-grid > .ant-card { border-color: #e8edf4; border-radius: 9px; }
-.physical-tool-grid > .ant-card .ant-card-body { display: flex; flex-direction: column; gap: 12px; }
 .business-tree-add { display: inline-grid; width: 24px; height: 24px; place-items: center; border: 0; border-radius: 5px; background: transparent; color: #65758a; cursor: pointer; }
 .business-tree-add:hover, .business-tree-add:focus-visible { background: #e6edf6; color: #1677ff; }
 .physical-heading { align-items: flex-end; }
@@ -140,6 +137,33 @@
 .physical-chart-preview { margin-top: 12px; border-top: 1px solid #e8edf4; padding-top: 12px; }
 .physical-shared-charts, .physical-shared-chart-preview { min-width: 0; overflow-wrap: anywhere; }
 .physical-task-record { justify-content: space-between; align-items: flex-start; }
+.trial-csv-analysis { display: flex; flex-direction: column; gap: 12px; }
+.trial-csv-analysis > .ant-card { border-color: #e8edf4; border-radius: 10px; }
+.trial-csv-file-list { display: grid; gap: 8px; margin-top: 12px; }
+.trial-csv-file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid #edf0f4; border-radius: 8px; }
+.trial-csv-controls { margin-bottom: 12px; }
+.trial-csv-controls .ant-select { min-width: 150px; }
+.trial-csv-name { min-height: 32px; padding: 4px 10px; border: 1px solid #d9d9d9; border-radius: 6px; }
+.trial-csv-analysis .physical-analysis-results { margin-top: 0; }
+.csv-worksheet-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.csv-worksheet-status > .ant-btn { margin-left: auto; }
+.csv-worksheet-hint { margin-bottom: 12px; font-size: 12px; }
+.csv-worksheet-tools { margin-bottom: 16px; }
+.csv-worksheet-tools .ant-select { min-width: 145px; max-width: 240px; }
+.csv-worksheet-tools .ant-input { width: 180px; }
+.csv-column-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; user-select: none; cursor: pointer; }
+.csv-worksheet-grid .csv-column-selected { background: #eaf3ff !important; }
+.csv-worksheet-grid th { cursor: pointer; }
+.csv-selected-fields { margin: 0 0 12px; }
+html[data-theme="dark"] .csv-worksheet-grid .csv-column-selected { background: #213c5b !important; }
+.trial-csv-references { margin-top: 20px; }
+.csv-reference-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.csv-reference-cards > button { min-width: 190px; max-width: 320px; display: flex; gap: 10px; padding: 12px; border: 1px solid #e1e8f2; border-radius: 8px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.csv-reference-cards > button:hover { border-color: #3479e5; }
+.csv-reference-cards > button > .anticon { color: #3479e5; font-size: 18px; }
+.csv-reference-cards strong, .csv-reference-cards small { display: block; overflow-wrap: anywhere; }
+.csv-reference-cards strong { font-size: 12px; font-weight: 500; }
+.csv-reference-cards small { color: #8793a5; font-size: 11px; margin-top: 5px; }
 @media (max-width: 640px) {
   .physical-record-heading, .physical-charts-heading, .physical-task-record { flex-wrap: wrap; }
 }

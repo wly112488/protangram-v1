@@ -23,7 +23,7 @@ import { taskBookPath } from '@/workspace/taskTrialModel';
 import type { PhysicalBusinessScope } from '@/workspace/sessionModel';
 import TrialChart from '@/workspace/TrialChart';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 // 模拟报告模板标签（需求3.3.1）
 const TEMPLATE_TAGS = [
@@ -238,7 +238,6 @@ const ReportGenerate: React.FC = () => {
     <div className="workspace-simple-page workspace-report-generator-page">
       <div className="workspace-page-heading">
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(report?.taskId ? taskBookPath(report.taskId, 'report') : routeState?.workspaceSession?.sessionId ? `${getSessionPath(routeState.workspaceSession.sessionId, 'report')}/list` : '/report/list')}>返回</Button>
-        <Title level={4} style={{ margin: 0 }}>{task ? '任务报告编制' : '分析报告生成'}</Title>
         {report && <Tag color="purple">{report.name}</Tag>}
         {report?.dataSource === 'demo' && <Tag color="orange">演示报告 · 模拟成果</Tag>}
         <Tag color={boundCount === totalTags ? 'green' : 'orange'}>

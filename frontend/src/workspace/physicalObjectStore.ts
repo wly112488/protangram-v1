@@ -5,11 +5,13 @@ export type DataForm = '单值' | '分组' | '表格' | '序列' | '文件';
 export interface ValueField { id: string; name: string; description?: string; unit?: string; form: DataForm; value: string; source?: string }
 export interface DesignField extends ValueField { usage: '条件' | '参考' | '要求'; comparison?: '目标' | '下限' | '上限' | '区间' }
 export interface DesignCase { id: string; name: string; description?: string; fields: DesignField[] }
-export interface RawDataFile { id: string; name: string; mimeType: string; size: number; addedAt: string; headers: string[]; rowCount: number }
+export interface RawDataFile { id: string; name: string; mimeType: string; size: number; addedAt: string; headers: string[]; rowCount: number; status?: 'available' | 'removed'; sourceRawFileId?: string }
 export interface DerivedChart {
   id: string; name: string; rawFileId: string; xField: string; yField: string; chartType: 'line' | 'scatter' | 'bar';
   startRow: number; endRow: number; scale: number; offset: number; color: string; smooth: boolean;
   modelId?: string; modelInputs?: ValueField[]; createdAt: string; updatedAt: string;
+  plotKind?: 'line' | 'scatter' | 'bar' | 'histogram' | 'boxplot' | 'bubble';
+  yFields?: string[]; sizeField?: string; averageEvery?: number; sourceCapability?: string;
 }
 export interface TrialChartResult extends DerivedChart { sourceRecordId: string }
 export type ChartInput = Omit<DerivedChart, 'id' | 'createdAt' | 'updatedAt'>;
@@ -78,6 +80,7 @@ export interface PhysicalObjectState {
   addTrialRecord: (trialId: string, item: { name?: string; description?: string }) => string;
   updateTrialRecord: (trialId: string, recordId: string, patch: Partial<Pick<TestRecord, 'name' | 'description'>>) => void;
   addRawFile: (trialId: string, recordId: string, file: RawDataFile) => void;
+  removeRawFile: (trialId: string, recordId: string, fileId: string) => void;
   saveChart: (trialId: string, recordId: string, chart: ChartInput, chartId?: string) => string;
   saveTable: (trialId: string, recordId: string, table: Omit<DerivedTable, 'id' | 'createdAt' | 'updatedAt'>, tableId?: string) => string;
 }
@@ -131,10 +134,18 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
   },
   updateTrialRecord: (trialId, recordId, patch) => set(state => ({ objects: mapRecord(state.objects, trialId, recordId, record => ({ ...record, ...patch })) })),
   addRawFile: (trialId, recordId, file) => set(state => ({ objects: mapRecord(state.objects, trialId, recordId, record => ({ ...record, rawFiles: record.rawFiles.some(item => item.id === file.id) ? record.rawFiles : [...record.rawFiles, file] })) })),
+  removeRawFile: (trialId, recordId, fileId) => set(state => ({ objects: mapRecord(state.objects, trialId, recordId, record => {
+    if (!record.rawFiles.some(file => file.id === fileId)) throw new Error('此执行记录中找不到该 CSV 文件');
+    return { ...record, rawFiles: record.rawFiles.map(file => file.id === fileId ? { ...file, status: 'removed' } : file) };
+  }) })),
   saveChart: (trialId, recordId, chart, chartId) => {
     const record = requireRecord(get().objects, trialId, recordId);
     const trial = findTrial(get().objects, trialId)!;
-    if (!record.rawFiles.some(file => file.id === chart.rawFileId && file.headers.includes(chart.xField) && file.headers.includes(chart.yField))) throw new Error('图表必须引用本记录的原始 CSV 字段');
+    if (record.rawFiles.some(file => file.id === chart.rawFileId && file.status === 'removed')) throw new Error('原始 CSV 已移除，不能用于新图表');
+    const referencedFields = [chart.xField, chart.yField, ...(chart.yFields ?? []), ...(chart.sizeField ? [chart.sizeField] : [])];
+    if (!record.rawFiles.some(file => file.id === chart.rawFileId && referencedFields.every(field => file.headers.includes(field)))) throw new Error('图表必须引用本记录的原始 CSV 字段');
+    if (chart.plotKind === 'bubble' && !chart.sizeField) throw new Error('气泡图需要第三个大小字段');
+    if (chart.averageEvery !== undefined && (!Number.isInteger(chart.averageEvery) || chart.averageEvery < 1)) throw new Error('平均分组点数应为正整数');
     if (chartId && !trial.charts.some(item => item.id === chartId && item.sourceRecordId === recordId)) throw new Error('本记录中不存在该图表，不能变更图表的来源记录');
     assertTrialChartName(trial, chart.name, chartId ? { id: chartId, sourceRecordId: recordId } : undefined);
     const now = new Date().toISOString(), idToSave = chartId ?? id('chart');
@@ -142,7 +153,11 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
   },
   saveTable: (trialId, recordId, table, tableId) => {
     const record = requireRecord(get().objects, trialId, recordId);
+    const trial = findTrial(get().objects, trialId)!;
+    if (!table.name.trim()) throw new Error('请填写数据表名称');
+    if (trial.records.some(item => item.tables.some(existing => chartNameKey(existing.name) === chartNameKey(table.name) && !(existing.id === tableId && item.id === recordId)))) throw new Error('本具体试验已有同名数据表，请使用其他名称。');
     const file = record.rawFiles.find(item => item.id === table.rawFileId);
+    if (file?.status === 'removed') throw new Error('原始 CSV 已移除，不能用于新数据表');
     if (!file || !table.fields.length || table.fields.some(field => !file.headers.includes(field))) throw new Error('数据表必须引用本记录的原始 CSV 字段');
     if (tableId && !record.tables.some(item => item.id === tableId)) throw new Error('本记录中不存在该数据表');
     const now = new Date().toISOString(), idToSave = tableId ?? id('table');

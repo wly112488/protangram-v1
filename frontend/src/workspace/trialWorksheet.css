@@ -1,0 +1,41 @@
+.trial-worksheet-workspace { min-width: 0; }
+.trial-worksheet-dock { position: fixed; bottom: 0; z-index: 25; display: flex; flex-direction: column; background: #fff; border-top: 1px solid #cfddf0; box-shadow: 0 -5px 22px #234d7c12; min-width: 0; }
+.trial-worksheet-dock[hidden], .trial-worksheet-dock [hidden], .worksheet-preview-target[hidden] { display: none !important; }
+.trial-worksheet-dock.is-dragging { overflow: hidden; user-select: none; }
+.worksheet-reopen-handle { position: fixed; bottom: 0; z-index: 25; transform: translateX(-50%); width: 80px; height: 20px; display: grid; place-items: center; padding: 0; border: 1px solid #cfddf0; border-bottom: 0; border-radius: 8px 8px 0 0; background: #f5f8fd; color: #657790; box-shadow: 0 -2px 8px #234d7c12; cursor: ns-resize; touch-action: none; }
+.worksheet-reopen-handle[hidden] { display: none; }
+.worksheet-reopen-handle:hover, .worksheet-reopen-handle:focus-visible { color: #1677ff; background: #eaf3ff; }
+.worksheet-resize-handle { height: 10px; flex: 0 0 10px; display: grid; place-items: center; cursor: ns-resize; touch-action: none; background: #f5f8fd; }
+.worksheet-resize-handle span { width: 42px; height: 3px; background: #b6c8de; border-radius: 3px; }
+.worksheet-dock-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 16px; border-bottom: 1px solid #e7edf5; }
+.worksheet-dock-heading strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.worksheet-editor-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 8px 16px 0; }
+.worksheet-editor-scroll .csv-worksheet-status { margin-bottom: 5px; }
+.worksheet-editor-scroll .csv-worksheet-actions { margin-bottom: 8px; font-size: 12px; }
+.worksheet-editor-scroll .csv-worksheet-actions .ant-typography { font-size: 11px; }
+.worksheet-editor-scroll .ant-table-pagination { position: sticky; bottom: 0; background: #fff; margin-bottom: 0; padding: 8px 0; z-index: 3; }
+.worksheet-bottom-bar { display: flex; flex: 0 0 44px; min-width: 0; align-items: center; border-top: 1px solid #dce6f2; background: #f3f6fb; padding: 0 8px; gap: 4px; }
+.worksheet-file-tabs { position: relative; display: flex; flex: 1; min-width: 0; align-self: stretch; overflow-x: auto; }
+.worksheet-file-tabs [role=tab] { display: flex; align-items: center; gap: 12px; padding: 0 12px; cursor: pointer; white-space: nowrap; color: #657790; font-size: 12px; border-right: 1px solid #dce6f2; border-top: 2px solid transparent; }
+.worksheet-file-tabs [role=tab].is-active { background: #fff; color: #1667d9; border-top-color: #1677ff; }
+.worksheet-file-tabs [role=tab] > span { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.worksheet-file-tabs button { padding: 3px; color: #8b9aaf; border: 0; background: none; cursor: pointer; font-size: 10px; }
+.csv-worksheet-grid .csv-cell-selected { outline: 2px solid #1677ff; outline-offset: -2px; }
+.worksheet-preview-target { scroll-margin-top: 150px; padding: 0 28px 18px; }
+.worksheet-chart-preview { margin-top: 16px; }
+.csv-diagnosis-source { margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+@media (max-width: 760px) { .worksheet-editor-scroll { padding: 6px 8px 0; } .worksheet-dock-heading { padding: 6px 8px; } .worksheet-toggle { font-size: 11px; padding-inline: 5px; } .worksheet-file-tabs [role=tab] { padding: 0 8px; } .worksheet-file-tabs [role=tab] > span { max-width: 130px; } .worksheet-preview-target { padding: 0 14px 16px; } }
+html[data-theme=dark] .trial-worksheet-dock, html[data-theme=dark] .worksheet-editor-scroll .ant-table-pagination, html[data-theme=dark] .worksheet-file-tabs [role=tab].is-active { background: #1a2535; }
+html[data-theme=dark] .worksheet-bottom-bar, html[data-theme=dark] .worksheet-resize-handle { background: #162030; }
+html[data-theme=dark] .worksheet-reopen-handle { background: #162030; border-color: #344963; color: #adc0db; }
+.worksheet-editor-scroll .ant-table-tbody > tr > td { padding: 5px 8px; font-size: 12px; line-height: 20px; }
+.worksheet-editor-scroll .ant-table-thead > tr > th { padding: 5px 8px; font-size: 12px; }
+.csv-diagnosis-layout { display: grid; grid-template-columns: minmax(180px, 24%) minmax(0, 1fr); gap: 14px; }
+.csv-diagnosis-layout > aside { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.csv-diagnosis-layout > aside > button { padding: 12px; border: 1px solid #e0e8f4; border-radius: 7px; background: #fff; text-align: left; color: #40536e; cursor: pointer; overflow-wrap: anywhere; }
+.csv-diagnosis-layout > aside > button.is-active { color: #1677ff; border-color: #1677ff; background: #f2f7ff; }
+.csv-diagnosis-evidence { margin-top: 18px; border-top: 1px solid #e7edf5; padding-top: 14px; }
+@media (max-width: 760px) { .csv-diagnosis-layout { grid-template-columns: 1fr; } }
+/* Let the secondary navigation stick within the whole analysis workspace, including the chart preview. */
+.worksheet-analysis-page, .worksheet-analysis-nav.ant-tabs { display: contents; }
+.session-professional-content > .worksheet-preview-target { padding: 0 0 18px; }

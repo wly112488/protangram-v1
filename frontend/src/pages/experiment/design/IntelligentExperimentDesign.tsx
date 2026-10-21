@@ -329,7 +329,6 @@ const IntelligentExperimentDesign: React.FC = () => {
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading">
         <div className="workspace-top-choice-row">
-          <div><Title level={4} style={{ margin: 0 }}>智能实验设计</Title><Text type="secondary">确认试验目标与约束，形成试验方案</Text><Tag color="orange">演示计算</Tag></div>
           <FunctionBar
             displayMode="doe-design"
             researchObjects={[]}

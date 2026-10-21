@@ -1,0 +1,85 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { mkdir } from 'node:fs/promises';
+
+const require = createRequire(process.env.PROTANGRAM_PLAYWRIGHT_ROOT ?? '/tmp/protangram-ui-check/node_modules/playwright/package.json');
+const { chromium } = require('playwright');
+const base = process.env.PROTANGRAM_TEST_URL ?? 'http://127.0.0.1:5175';
+const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'], ...(process.env.PROTANGRAM_CHROMIUM_PATH ? { executablePath: process.env.PROTANGRAM_CHROMIUM_PATH } : {}) });
+const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
+const page = await context.newPage();
+page.setDefaultTimeout(15000);
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+await mkdir('node_modules/.tmp/csv-result-workspace', { recursive: true });
+try {
+  await page.goto(base, { waitUntil: 'networkidle' });
+  const fixture = await page.evaluate(async () => {
+    const { usePhysicalObjectStore: physical } = await import('/src/workspace/physicalObjectStore.ts');
+    const { useProjectStore: projects } = await import('/src/workspace/projectStore.ts');
+    const { useSessionStore: sessions } = await import('/src/workspace/sessionStore.ts');
+    const { saveTrialFile } = await import('/src/workspace/trialDataFiles.ts');
+    physical.setState({ objects: [] }); projects.setState({ projects: [], activeProjectId: null }); sessions.setState({ sessions: [], activeSessionId: null });
+    const s = physical.getState(), category = s.addRoot({ name: '浏览器验证涵道风扇', type: '涵道风扇' });
+    const object = s.addConfiguration(category, { name: '验证风扇' });
+    const config = s.addExperiment(object, { name: '验证构型', parameters: [] });
+    const trial = s.addConcreteTrial(config, { name: '额定载荷试验', loadSpectrum: '额定载荷' });
+    const record = s.addTrialRecord(trial, {});
+    const csv = 'time_s,speed_rpm,thrust_n,temperature_c,pressure_kpa,angle\n' + Array.from({ length: 34 }, (_, i) => `${i},${3000 + i * 10},${20 + i},${25 + i},101,15`).join('\n');
+    await saveTrialFile('browser-csv', new File([csv], '风扇数据.csv', { type: 'text/csv' }));
+    s.addRawFile(trial, record, { id: 'browser-csv', name: '风扇数据.csv', headers: csv.split('\n')[0].split(','), rowCount: 34, addedAt: '', mimeType: 'text/csv', size: csv.length });
+    s.saveChart(trial, record, { name: '已保存推力曲线', rawFileId: 'browser-csv', xField: 'time_s', yField: 'thrust_n', chartType: 'line', startRow: 0, endRow: 0, scale: 1, offset: 0, color: '#1677ff', smooth: false });
+    const scope = { physicalObjectId: object, experimentId: config, trialId: trial };
+    const session = sessions.getState().ensurePhysicalSession(scope, 'CSV 与成果浏览器验证');
+    return { session, trial, record, object, config };
+  });
+  const route = suffix => `${base}/sessions/${fixture.session}/${suffix}`;
+  await page.goto(route('analysis'), { waitUntil: 'networkidle' });
+
+
+  const dock = page.locator('.trial-worksheet-dock');
+  await dock.locator('.csv-worksheet-editor:visible').waitFor();
+  const resize = dock.getByRole('separator', { name: '调整工作表高度' });
+  const handle = await resize.boundingBox();
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2, 995, { steps: 12 });
+  await page.mouse.up();
+  assert.equal(await dock.isVisible(), false);
+  assert.equal(await page.locator('.trial-worksheet-workspace').evaluate(el => el.style.paddingBottom), '0px');
+  await page.getByRole('button', { name: '打开工作表区', exact: true }).waitFor();
+  await page.reload({ waitUntil: 'networkidle' });
+  assert.equal(await dock.isVisible(), false);
+  const reopen = page.getByRole('button', { name: '打开工作表区', exact: true });
+  const grip = await reopen.boundingBox();
+  assert.ok(grip.y > 970, 'reopen grip stays at the bottom');
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2, 650, { steps: 8 });
+  await page.mouse.up();
+  assert.equal(await dock.isVisible(), true);
+  const editor = dock.locator('.csv-worksheet-editor:visible');
+  await editor.locator('tr[data-row-key="0"] td').nth(2).dblclick();
+  await editor.getByRole('textbox', { name: '编辑第1行 speed_rpm' }).fill('3999');
+  await editor.getByRole('textbox', { name: '编辑第1行 speed_rpm' }).press('Enter');
+  await dock.getByRole('button', { name: '收起表格', exact: true }).click();
+  await dock.getByRole('button', { name: '关闭工作表区', exact: true }).last().click();
+  assert.equal(await dock.isVisible(), false);
+  await page.getByRole('button', { name: '打开工作表区', exact: true }).click();
+  assert.equal(await editor.locator('tr[data-row-key="0"] td').nth(2).innerText(), '3999');
+  await editor.getByText('有未保存修改', { exact: true }).waitFor();
+  const original = await page.evaluate(async () => {
+    const { readTrialFile } = await import('/src/workspace/trialDataFiles.ts');
+    return readTrialFile('browser-csv');
+  });
+  assert.equal(original.rows[0].speed_rpm, '3000');
+  await dock.getByRole('separator', { name: '调整工作表高度' }).focus();
+  await page.keyboard.press('End');
+  assert.equal(await dock.isVisible(), false);
+  await page.getByRole('button', { name: '打开工作表区', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await dock.isVisible(), true);
+  assert.equal(await editor.locator('tr[data-row-key="0"] td').nth(2).innerText(), '3999');
+  assert.deepEqual(errors, []);
+  console.log('PASS pull down fully hides worksheet and tabs; bottom grip pulls up and supports keyboard; hidden state persists; edits and original CSV are retained');
+} finally { await browser.close(); }

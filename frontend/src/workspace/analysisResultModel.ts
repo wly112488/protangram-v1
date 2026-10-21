@@ -2,7 +2,7 @@ import type { EChartsOption } from 'echarts';
 import type { PhysicalBusinessScope, WorkSession } from './sessionModel';
 import type { ConcreteTrial, DerivedTable, RawDataFile, TestRecord, TrialChartResult, PhysicalObject } from './physicalObjectStore';
 import type { Project, ProjectArtifact } from './types';
-import { resolvePhysicalSource, samePhysicalSource } from './physicalBusinessContext';
+import { resolvePhysicalSource, samePhysicalSource, isDemoArtifact } from './physicalBusinessContext';
 import type { PredictionResultTask } from './predictionContract';
 
 export function predictionArtifactInput(task: PredictionResultTask) {
@@ -37,7 +37,7 @@ export type AnalysisResult = { id: string; name: string; basis?: string[] } & (
 // A view over the original objects. Trial and record views never save a second copy.
 export interface ResultEntry {
   key: string;
-  kind: AnalysisResult['kind'];
+  kind: AnalysisResult['kind'] | 'document';
   name: string;
   record?: TestRecord;
   rawFile?: RawDataFile;
@@ -45,6 +45,9 @@ export interface ResultEntry {
   table?: DerivedTable;
   artifact?: ProjectArtifact;
   result?: AnalysisResult;
+  sourceAvailable?: boolean;
+  trialId?: string;
+  loadSpectrum?: string;
 }
 
 export function captureResultContext(objects: PhysicalObject[], scope: PhysicalBusinessScope) {
@@ -95,26 +98,53 @@ export function collectAnalysisResults(trial: ConcreteTrial | undefined, artifac
   for (const chart of trial?.charts ?? []) {
     if (recordId && chart.sourceRecordId !== recordId) continue;
     const record = trial?.records.find(item => item.id === chart.sourceRecordId);
-    entries.push({ key: `chart:${chart.sourceRecordId}:${chart.id}`, kind: 'chart', name: chart.name, chart, record, rawFile: record?.rawFiles.find(file => file.id === chart.rawFileId) });
+    const rawFile = record?.rawFiles.find(file => file.id === chart.rawFileId);
+    entries.push({ key: `chart:${chart.sourceRecordId}:${chart.id}`, kind: 'chart', name: chart.name, chart, record, rawFile, sourceAvailable: Boolean(rawFile && rawFile.status !== 'removed') });
   }
   for (const record of trial?.records ?? []) {
     if (recordId && record.id !== recordId) continue;
-    for (const table of record.tables) entries.push({ key: `table:${record.id}:${table.id}`, kind: 'table', name: table.name, table, record, rawFile: record.rawFiles.find(file => file.id === table.rawFileId) });
+    for (const table of record.tables) {
+      const rawFile = record.rawFiles.find(file => file.id === table.rawFileId);
+      entries.push({ key: `table:${record.id}:${table.id}`, kind: 'table', name: table.name, table, record, rawFile, sourceAvailable: Boolean(rawFile && rawFile.status !== 'removed') });
+    }
   }
   for (const artifact of artifacts) {
-    if (artifact.type === 'report') continue;
     const scope = artifact.payload.sourceScope as PhysicalBusinessScope | undefined;
-    for (const result of artifactResults(artifact)) entries.push({ key: `artifact:${artifact.projectId}:${artifact.id}:${result.id}`, kind: result.kind, name: result.name, artifact, result, record: trial?.records.find(item => item.id === scope?.testRecordId) });
+    if (recordId && scope?.testRecordId && scope.testRecordId !== recordId) continue;
+    const capturedFiles = (artifact.payload.sourceContext as { rawFiles?: RawDataFile[] } | undefined)?.rawFiles ?? [];
+    const removedFileIds = new Set(trial?.records.flatMap(item => item.rawFiles).filter(file => file.status === 'removed').map(file => file.id) ?? []);
+    const sourceAvailable = !capturedFiles.some(file => removedFileIds.has(file.id));
+    if (artifact.type === 'report') {
+      entries.push({ key: `report:${artifact.projectId}:${artifact.id}`, kind: 'document', name: artifact.title, artifact, sourceAvailable, record: trial?.records.find(item => item.id === scope?.testRecordId) });
+      continue;
+    }
+    for (const result of artifactResults(artifact)) entries.push({ key: `artifact:${artifact.projectId}:${artifact.id}:${result.id}`, kind: result.kind, name: result.name, artifact, result, record: trial?.records.find(item => item.id === scope?.testRecordId), sourceAvailable });
   }
-  return entries;
+  return entries.map(entry => ({ ...entry, trialId: trial?.id, loadSpectrum: trial?.loadSpectrum }));
 }
 
 export function getTrialArtifacts(projects: Project[], sessions: WorkSession[], scope: PhysicalBusinessScope, trial: ConcreteTrial) {
   return projects.flatMap(project => project.artifacts.filter(artifact => {
     const explicit = artifact.payload.sourceScope as PhysicalBusinessScope | undefined;
     const sources = explicit ? [explicit] : sessions.filter(session => session.storageProjectId === project.id).map(session => session.businessScope);
-    return sources.some(source => source && (scope.testRecordId ? samePhysicalSource(source, scope)
+    const matches = (source: PhysicalBusinessScope | undefined) => source && (scope.testRecordId ? samePhysicalSource(source, scope)
       : source.physicalObjectId === scope.physicalObjectId && source.experimentId === scope.experimentId
-        && (source.trialId === trial.id || !source.trialId && trial.records.some(record => record.id === source.testRecordId))));
+        && (source.trialId === trial.id || !source.trialId && trial.records.some(record => record.id === source.testRecordId)));
+    return explicit ? Boolean(matches(explicit)) : sources.length > 0 && sources.every(source => Boolean(matches(source)));
   }));
+}
+
+// A diagnosis belongs to one saved CSV, independent of the active session's original record.
+export function collectCsvDiagnosisResults(trial: ConcreteTrial, artifacts: ProjectArtifact[], rawFileId?: string): ResultEntry[] {
+  if (!rawFileId) return [];
+  const owner = trial.records.find(record => record.rawFiles.some(file => file.id === rawFileId && file.status !== 'removed'));
+  if (!owner) return [];
+  const diagnoses = artifacts.filter(artifact => {
+    const scope = artifact.payload.sourceScope as PhysicalBusinessScope | undefined;
+    const files = (artifact.payload.sourceContext as { rawFiles?: RawDataFile[] } | undefined)?.rawFiles;
+    return (artifact.type === 'analysis' || artifact.type === 'rootCause') && !isDemoArtifact(artifact)
+      && (!scope?.trialId || scope.trialId === trial.id) && (!scope?.testRecordId || scope.testRecordId === owner.id)
+      && files?.length === 1 && files[0].id === rawFileId;
+  });
+  return collectAnalysisResults(trial, diagnoses, owner.id).filter(entry => Boolean(entry.artifact));
 }

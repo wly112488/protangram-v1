@@ -1,0 +1,22 @@
+.result-catalog-toolbar { display: flex; gap: 10px; margin: 4px 0 16px; }
+.result-catalog-toolbar > .ant-input-affix-wrapper { max-width: 360px; }
+.result-catalog-toolbar > .ant-select { min-width: 120px; }
+.result-catalog-layout { display: grid; grid-template-columns: minmax(230px, 29%) minmax(0, 1fr); min-height: 460px; border: 1px solid #e5eaf1; border-radius: 8px; overflow: hidden; }
+.result-catalog-directory { min-width: 0; border-right: 1px solid #e5eaf1; padding: 14px 8px; max-height: 660px; overflow-y: auto; background: #fafbfd; }
+.result-catalog-directory .ant-tree { background: transparent; font-size: 12px; }
+.result-catalog-directory .ant-tree-node-content-wrapper { min-width: 0; padding-block: 5px; display: flex; align-items: flex-start; gap: 3px; }
+.result-catalog-directory .ant-tree-iconEle { flex: 0 0 20px; }
+.result-catalog-directory .ant-tree-title { display: block; flex: 1; min-width: 0; }
+.result-directory-title, .result-directory-spectrum { display: flex; flex-direction: column; line-height: 1.7; min-width: 0; }
+.result-directory-title > span { overflow-wrap: anywhere; }
+.result-directory-title small, .result-directory-spectrum small { font-size: 11px; color: #8793a5; }
+.result-directory-description { margin: 20px 10px 4px; font-size: 12px; color: #7d899b; line-height: 1.8; }
+.result-catalog-preview { min-width: 0; padding: 18px; overflow: hidden; }
+.result-catalog-preview > .ant-empty { margin-top: 120px; }
+.result-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; overflow-wrap: anywhere; }
+.result-preview .ant-alert { margin-bottom: 16px; }
+.result-metric-value { font-size: 24px; padding: 36px 16px; }
+@media (max-width: 850px) { .result-catalog-layout { grid-template-columns: minmax(180px, 34%) minmax(0, 1fr); } .result-catalog-preview { padding: 12px; } }
+@media (max-width: 600px) { .result-catalog-layout { grid-template-columns: 1fr; } .result-catalog-directory { max-height: 260px; border-right: 0; border-bottom: 1px solid #e5eaf1; } .result-catalog-preview { min-height: 300px; } .result-catalog-toolbar { flex-wrap: wrap; } }
+html[data-theme="dark"] .result-catalog-layout, html[data-theme="dark"] .result-catalog-directory { border-color: #2e3c53; }
+html[data-theme="dark"] .result-catalog-directory { background: #182232; }

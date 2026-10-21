@@ -6,7 +6,6 @@ import { useSessionRouteState, useSessionState } from './useSessionState';
 import { useWorkspaceBusinessSession } from './useWorkspaceBusinessSession';
 import { predictionInputs, predictionUserFields, type PredictionPreparation, type PredictionPreviewTask, type PredictionRequest, type PredictionService, type PredictionTarget, type PredictionValue } from './predictionContract';
 import type { ProfessionalDataContext } from './professionalContext';
-import WorkspacePageHeader from './WorkspacePageHeader';
 import PreparationChecklist from './PreparationChecklist';
 import { predictionArtifactInput } from './analysisResultModel';
 import { predictionParameterError, predictionPreparation } from './predictionParameters';
@@ -26,7 +25,6 @@ function PredictionForm({ service, target, context, archive }: {
   const [result, setResult] = useState<PredictionPreviewTask>();
   const [archivedTaskId, setArchivedTaskId] = useState<string>();
   const controller = useRef<AbortController | null>(null);
-  const name = service === 'virtualCondition' ? '虚拟工况扩展' : '实验数字孪生';
   const fields = predictionUserFields(preparation);
   const signature = (spec: PredictionPreparation, inputs: Record<string, PredictionValue>) => JSON.stringify([context.scope, spec.inputFields, spec.inheritedInputs, inputs]);
   const inputs = predictionInputs(preparation, draft.inputs);
@@ -80,7 +78,6 @@ function PredictionForm({ service, target, context, archive }: {
     setDraft({ inputs: next }); form.setFieldsValue({ inputs: next }); setResult(undefined); setError('');
   };
   return <div className="workspace-business-page">
-    <WorkspacePageHeader title={name} />
     {error && <Alert type="error" showIcon title={error} />}
     <PreparationChecklist title="计算准备" items={[
       { key: 'conditions', label: '计算条件', value: fields.length ? fields.map(field => `${field.label}：${inputs[field.key] ?? '待填写'} ${field.unit ?? ''}`).join('；') : '已继承当前试验条件', confirmed,

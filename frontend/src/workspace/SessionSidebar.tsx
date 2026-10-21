@@ -6,7 +6,7 @@ import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import { getProjectDeletionBlock, getSessionPath, getSessionResumePath, type WorkSession } from './sessionModel';
-import { getSessionSidebarContent, getTaskNavigationSession } from './sessionSidebarModel';
+import { getSessionCreationSource, getSessionSidebarContent, getTaskNavigationSession } from './sessionSidebarModel';
 import type { Project } from './types';
 import { createDoeTemplateSessionDraft, loadDoeTemplates, type DoeTemplate } from './experimentTemplateModel';
 
@@ -107,7 +107,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
         <div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.projects} onClick={() => toggleSection('projects')}><RightOutlined className={sectionExpanded.projects ? 'is-expanded' : ''} /><span>{showArchived ? '已归档项目与会话' : '项目'}</span></button>{!showArchived && <Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建项目" onClick={() => setProjectOpen(true)} />}</div>
         {sectionExpanded.projects && groups.map(project => {
           const archived = isArchivedProject(project);
-          const children = sorted.filter(session => session.projectId === project.id && matchesSearch(session)
+          const children = sorted.filter(session => getSessionCreationSource(session) === 'project' && session.projectId === project.id && matchesSearch(session)
             && (showArchived && archived || session.archived === showArchived));
           const deletionBlock = getProjectDeletionBlock(project.id, sessions, tasks);
           return <div key={project.id} className="session-project-group">

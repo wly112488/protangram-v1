@@ -1,16 +1,15 @@
 import React, { useMemo } from 'react';
-import { Button, Card, Empty, Popconfirm, Space, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Empty, Popconfirm, Space, Tag, Typography, message } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import ProjectOverview from './ProjectOverview';
 import { useProjectStore } from './projectStore';
 import type { ProjectArtifact, ProjectArtifactType, ProjectView } from './types';
 import { useSessionRouteState } from './useSessionState';
 import { useSessionStore } from './sessionStore';
-import { artifactResultLabel, physicalSourcePath } from './physicalBusinessContext';
+import { artifactResultLabel, resolvePhysicalSource } from './physicalBusinessContext';
 import { usePhysicalObjectStore } from './physicalObjectStore';
-import { Navigate } from 'react-router-dom';
 import AnalysisResults from './AnalysisResults';
-import { collectAnalysisResults } from './analysisResultModel';
+import { collectAnalysisResults, getTrialArtifacts } from './analysisResultModel';
 
 const { Text, Title } = Typography;
 
@@ -219,14 +218,24 @@ const ProjectContent: React.FC = () => {
   const incoming = useSessionRouteState();
   const sessionId = incoming?.workspaceSession?.sessionId;
   const objects = usePhysicalObjectStore(state => state.objects);
-  const physicalPath = physicalSourcePath(objects, incoming?.workspaceSession);
+  const sessions = useSessionStore(state => state.sessions);
+  const physicalSource = resolvePhysicalSource(objects, incoming?.workspaceSession);
   const sessionTitle = useSessionStore(state => state.sessions.find(item => item.id === sessionId)?.title);
   const storedActiveProjectId = useProjectStore((state) => state.activeProjectId);
   const activeProjectId = incoming?.workspaceSession?.targetProjectId ?? storedActiveProjectId;
   const activeView = useProjectStore((state) => state.activeView);
+  const projects = useProjectStore((state) => state.projects);
   const project = useProjectStore((state) => state.projects.find((item) => item.id === activeProjectId) ?? null);
 
-  if (physicalPath) return <Navigate to={physicalPath} replace />;
+  if (physicalSource.missing) return <Alert type="error" showIcon message="当前试验来源不可用，未切换到其他对象或执行记录。" />;
+  if (physicalSource.trial) {
+    const sourceScope = { physicalObjectId: physicalSource.configuration!.id, experimentId: physicalSource.experiment?.id, trialId: physicalSource.trial.id };
+    const entries = collectAnalysisResults(physicalSource.trial, getTrialArtifacts(projects, sessions, sourceScope, physicalSource.trial));
+    return <div className="workspace-content-stack">
+      <div className="workspace-content-heading"><div><div className="workspace-kicker">当前具体试验 · 共享成果</div><Title level={3}>数据与成果</Title><Text type="secondary">汇总五个专业功能及 CSV 分析保存的成果，并保留试验、执行记录和原始文件来源。</Text></div></div>
+      <AnalysisResults entries={entries} trial={physicalSource.trial} shared />
+    </div>;
+  }
 
   if (!project || !activeProjectId) {
     return (
@@ -239,7 +248,19 @@ const ProjectContent: React.FC = () => {
     );
   }
 
-  if (activeView === 'overview') return <ProjectOverview project={project} isSessionWorkspace={Boolean(sessionId)} sessionTitle={sessionTitle} />;
+  if (activeView === 'overview') {
+    const related = objects.flatMap(category => category.configurations.flatMap(object => object.experiments.flatMap(experiment => experiment.trials.map(trial => ({ object, experiment, trial }))))).filter(({ trial }) =>
+      sessions.some(session => (session.projectId === project.id || session.storageProjectId === project.id) && session.businessScope?.trialId === trial.id)
+      || project.artifacts.some(artifact => (artifact.payload.sourceScope as { trialId?: string } | undefined)?.trialId === trial.id));
+    if (related.length || project.artifacts.some(artifact => artifact.type !== 'report')) {
+      const entries = related.flatMap(({ object, experiment, trial }) => collectAnalysisResults(trial, getTrialArtifacts(projects, sessions, { physicalObjectId: object.id, experimentId: experiment.id, trialId: trial.id }, trial)));
+      const grouped = new Set(entries.flatMap(entry => entry.artifact ? [`${entry.artifact.projectId}/${entry.artifact.id}`] : []));
+      const unbound = project.artifacts.filter(artifact => !grouped.has(`${artifact.projectId}/${artifact.id}`));
+      entries.push(...collectAnalysisResults(undefined, unbound));
+      return <AnalysisResults entries={[...new Map(entries.map(entry => [entry.key, entry])).values()]} trials={related.map(item => item.trial)} shared />;
+    }
+    return <ProjectOverview project={project} isSessionWorkspace={Boolean(sessionId)} sessionTitle={sessionTitle} />;
+  }
   if (activeView === 'worksheet') return <WorksheetView projectId={activeProjectId} />;
   if (activeView === 'charts') return <ChartsView projectId={activeProjectId} />;
 

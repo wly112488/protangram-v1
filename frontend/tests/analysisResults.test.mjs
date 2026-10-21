@@ -43,6 +43,28 @@ test('record results and shared results reference the exact same charts, tables 
   assert.equal(f.trial().charts.length, 1);
   assert.equal(f.trial().records[0].charts, undefined);
 });
+
+test('removing a source CSV preserves its saved result and marks it unavailable in shared results', () => {
+  const f = fixture();
+  f.store.saveChart(f.scope.trialId, f.first, { name: '原始曲线', rawFileId: `csv-${f.first}`, xField: 'time', yField: 'speed', chartType: 'line', startRow: 0, endRow: 0, scale: 1, offset: 0, color: '#1677ff', smooth: false });
+  f.store.removeRawFile(f.scope.trialId, f.first, `csv-${f.first}`);
+  const results = api.collectAnalysisResults(f.trial(), [], f.first);
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].sourceAvailable, false);
+  assert.equal(results[0].chart.rawFileId, `csv-${f.first}`);
+});
+
+test('removing a CSV used by a professional result keeps the result but invalidates its source', () => {
+  const f = fixture();
+  const artifact = f.save(f.first, 'rootCause', [{ id: 'cause', kind: 'metric', name: '根因判断', value: '待确认' }]);
+  f.store.removeRawFile(f.scope.trialId, f.first, `csv-${f.first}`);
+  const results = api.collectAnalysisResults(f.trial(), [artifact], f.first);
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].sourceAvailable, false);
+  assert.equal(results[0].result.value, '待确认');
+});
 test('context is inherited, saved artifacts survive session deletion and refresh, and sources never cross trials or executions', async () => {
   const f = fixture();
   const result = f.save(f.first, 'analysis', [{ id: 'curve', kind: 'chart', name: '趋势', option: { series: [{ type: 'line', data: [1, 2, 3] }] } }]);
@@ -77,6 +99,17 @@ test('legacy results retain their data without displaying a title-only chart as 
   const design = api.artifactResults({ ...legacy, type: 'design', payload: { factors: [{ name: '转速', levels: [1000, 2000] }] } });
   assert.equal(design[0].kind, 'table');
   assert.equal(design[0].rows[0].levels, '[1000,2000]');
+});
+
+test('legacy artifacts without an explicit source are not assigned to two different trials in a shared project', () => {
+  const f = fixture();
+  const projectId = projects.getState().createProject({ name: '项目聚合' });
+  const first = sessions.getState().ensureProjectSession(projectId, f.scope);
+  sessions.getState().ensureProjectSession(projectId, { ...f.scope, trialId: f.otherTrialId });
+  projects.getState().addArtifact(projectId, { type: 'analysis', title: '来源未记录的旧成果', summary: '保留旧数据', source: '历史数据分析', payload: { results: [{ id: 'old', kind: 'metric', name: '旧指标', value: 42 }] } });
+  assert.ok(first);
+  assert.deepEqual(api.getTrialArtifacts(projects.getState().projects, sessions.getState().sessions, f.scope, f.trial()), []);
+  assert.equal(api.collectAnalysisResults(undefined, projects.getState().projects.find(item => item.id === projectId).artifacts)[0].result.value, 42);
 });
 test('prediction archive accepts only saved results and retains computed provenance in the common table structure', () => {
   const reference = { physicalObjectId: 'device', experimentId: 'setup', physicalObjectName: '风扇', experimentName: '构型' };
@@ -144,4 +177,24 @@ test('frontend preview persists in the existing shared structure with demo prove
   assert.equal(results.length, 1); assert.equal(results[0].id, artifact.id);
   assert.equal(results[0].payload.results[0].rows[0].thrust, 18.2);
   assert.equal(api.collectAnalysisResults(f.trial(), results)[0].kind, 'table');
+});
+
+test('single-CSV diagnoses exclude other files, multi-source contexts and demo artifacts', () => {
+  const f = fixture();
+  const a = f.trial().records[0].rawFiles[0], b = f.trial().records[1].rawFiles[0];
+  const result = { id: 'conclusion', kind: 'metric', name: '结论', value: '当前文件' };
+  const artifact = (id, files, mode = 'computed') => ({ id, projectId: 'p', type: 'rootCause', title: id, payload: { resultMode: mode, sourceScope: { ...f.scope, testRecordId: files[0].id === a.id ? f.first : f.second }, sourceContext: { rawFiles: files }, results: [result] } });
+  const list = [artifact('a', [a]), artifact('b', [b]), artifact('multi', [a, b]), artifact('demo', [a], 'demo')];
+  assert.deepEqual(api.collectCsvDiagnosisResults(f.trial(), list, a.id).map(entry => entry.artifact.id), ['a']);
+  assert.deepEqual(api.collectCsvDiagnosisResults(f.trial(), list, b.id).map(entry => entry.artifact.id), ['b']);
+  assert.deepEqual(api.collectCsvDiagnosisResults(f.trial(), list, undefined), []);
+});
+
+test('reports retain the same removed-source warning as charts and analysis results', () => {
+  const f = fixture(), file = f.trial().records[0].rawFiles[0];
+  const report = { id: 'report', projectId: 'p', type: 'report', title: '报告', payload: { sourceScope: f.scope, sourceContext: { rawFiles: [file] } } };
+  f.store.removeRawFile(f.scope.trialId, f.first, file.id);
+  const [entry] = api.collectAnalysisResults(f.trial(), [report]);
+  assert.equal(entry.kind, 'document');
+  assert.equal(entry.sourceAvailable, false);
 });

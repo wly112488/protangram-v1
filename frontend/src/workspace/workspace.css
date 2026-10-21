@@ -383,19 +383,12 @@
 
 .workspace-doe-choice-group {
   position: relative;
-  margin-left: 2px;
-  padding-left: 14px;
+  margin-left: 0;
+  padding-left: 0;
 }
 
 .workspace-doe-choice-group::before {
-  position: absolute;
-  top: 50%;
-  left: 2px;
-  width: 1px;
-  height: 12px;
-  background: #cfd8e5;
-  content: '';
-  transform: translateY(-50%);
+  display: none;
 }
 
 .workspace-top-choice-row {
@@ -422,6 +415,55 @@
   justify-content: flex-start;
   flex-wrap: nowrap;
   gap: 6px;
+}
+
+.workspace-subfunction-tabs .ant-tabs-nav {
+  position: sticky;
+  top: 80px;
+  z-index: 21;
+  margin: 0 0 14px;
+  padding: 8px 0;
+  background: #f8fafc;
+}
+
+.workspace-subfunction-tabs .ant-tabs-nav::before,
+.workspace-subfunction-tabs .ant-tabs-ink-bar {
+  display: none;
+}
+
+.workspace-subfunction-tabs .ant-tabs-nav-list {
+  gap: 8px;
+}
+
+.workspace-subfunction-tabs .ant-tabs-tab {
+  min-height: 40px;
+  margin: 0 !important;
+  padding: 8px 10px;
+  border: 1px solid #e1e8f2;
+  border-radius: 8px;
+  background: #fff;
+  color: #52657f;
+  font-size: 12px;
+  line-height: 1.5;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+.workspace-subfunction-tabs .ant-tabs-tab:hover {
+  border-color: #8db3ed;
+}
+
+.workspace-subfunction-tabs .ant-tabs-tab-active {
+  border-color: #3479e5;
+  background: #f1f7ff;
+  box-shadow: 0 0 0 2px #3479e51c;
+}
+
+.workspace-subfunction-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #155bb9;
+}
+
+.workspace-subfunction-tabs .ant-tabs-tab-btn {
+  color: inherit;
 }
 
 .workspace-top-choice {
@@ -1430,3 +1472,21 @@ html[data-theme="dark"] .workspace-doe-choice-group::before {
 html[data-theme="dark"] .workspace-top-choice:disabled {
   color: #65738a;
 }
+
+@media (max-width: 1200px) {
+  .workspace-subfunction-tabs .ant-tabs-nav { top: 146px; }
+}
+
+@media (max-width: 760px) {
+  .workspace-subfunction-tabs .ant-tabs-nav {
+    top: 186px;
+    overflow-x: auto;
+  }
+  .workspace-subfunction-tabs .ant-tabs-nav-list { min-width: max-content; }
+}
+
+html[data-theme="dark"] .workspace-subfunction-tabs .ant-tabs-nav { background: #141b28; }
+html[data-theme="dark"] .workspace-subfunction-tabs .ant-tabs-tab { background: #1a2535; border-color: #2e3c53; }
+html[data-theme="dark"] .workspace-subfunction-tabs .ant-tabs-tab-active { background: #1b3150; border-color: #4b8bea; }
+html[data-theme="dark"] .workspace-subfunction-tabs .ant-tabs-tab-btn { color: #d3dceb; }
+html[data-theme="dark"] .workspace-subfunction-tabs .ant-tabs-tab-active .ant-tabs-tab-btn { color: #8dbbff; }

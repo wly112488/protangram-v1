@@ -40,26 +40,54 @@ test('sidebar task entries respect search and the archive view', () => {
   assert.deepEqual(archivedContent.visibleTasks.map(task => task.id), ['task-archived']);
 });
 
-test('workbench recent activity omits the formal-task shell session', () => {
+test('session navigation follows creation source rather than a later project association', () => {
   const taskShell = { id: 'task-shell', taskId: 'task-1', capability: 'task', title: '正式任务', updatedAt: '2026-01-03', archived: false };
   const taskAnalysis = { ...taskShell, id: 'task-analysis', capability: 'analysis', title: '任务数据分析' };
-  const independent = { ...taskShell, id: 'independent', taskId: undefined, capability: 'overview', title: '独立研究' };
+  const projectSession = { id: 'project-session', projectId: 'project-1', creationSource: 'project', capability: 'analysis', title: '项目会话', updatedAt: '2026-01-04', archived: false };
+  const standalone = { id: 'standalone', projectId: 'project-1', creationSource: 'standalone', capability: 'analysis', title: '独立会话后来关联项目', updatedAt: '2026-01-05', archived: false };
 
-  assert.deepEqual(api.getRecentSessionsForHome([taskShell, taskAnalysis, independent]).map(session => session.id), ['task-analysis', 'independent']);
+  const sessions = [taskShell, taskAnalysis, projectSession, standalone];
+  const content = api.getSessionSidebarContent([{ id: 'project-1', name: '项目一' }], sessions, [], '', false);
+  assert.deepEqual(api.getRecentSessionsForHome(sessions).map(session => session.id), ['standalone']);
+  assert.deepEqual(content.independentSessions.map(session => session.id), ['standalone']);
+
+  const created = api.useSessionStore.getState().createSession({ title: '先独立创建' });
+  api.useSessionStore.getState().moveSession(created, 'project-1');
+  const moved = api.useSessionStore.getState().sessions.find(session => session.id === created);
+  assert.equal(moved.creationSource, 'standalone');
+  assert.ok(api.getRecentSessionsForHome([moved]).some(session => session.id === created));
+  const projectCreated = api.useSessionStore.getState().ensureProjectSession('project-2');
+  assert.equal(api.useSessionStore.getState().sessions.find(session => session.id === projectCreated).creationSource, 'project');
 });
 
 test('session entry skips the redundant overview and opens the proper workbench', () => {
-  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session/doe');
+  assert.equal(api.getSessionEntryPath({ id: 'new-session' }), '/sessions/new-session/resources');
+  assert.equal(api.getSessionEntryPath({ id: 'trial-session', businessScope: { trialId: 'trial-1' } }), '/sessions/trial-session/doe');
   assert.equal(api.getSessionEntryPath({ id: 'task-session', taskId: 'task / 1' }), '/sessions/task-session/tasks/task%20%2F%201');
 });
 
-test('blank experiment creation enters DOE without adding a template draft', () => {
+test('a legacy session without a concrete trial retains access to its saved resources', () => {
   const id = sessions.getState().createSession({ title: '全新实验' });
   const created = sessions.getState().sessions.find(session => session.id === id);
 
-  assert.equal(api.getSessionEntryPath(created), `/sessions/${id}/doe`);
+  assert.equal(api.getSessionEntryPath(created), `/sessions/${created.id}/resources`);
   assert.equal(created.drafts.doe, undefined);
   assert.notEqual(created.storageProjectId, created.projectId);
+});
+
+test('project and task sessions carry the concrete trial source created in context', () => {
+  const task = { id: 'task-context', title: '任务上下文试验', projectId: 'task-project' };
+  const scope = { physicalObjectId: 'fan-1', experimentId: 'setup-1', trialId: 'trial-1', taskBookId: task.id };
+  const taskSessionId = sessions.getState().ensureTaskSession(task, scope);
+  const taskSession = sessions.getState().sessions.find(item => item.id === taskSessionId);
+  assert.equal(taskSession.taskId, task.id);
+  assert.equal(taskSession.storageProjectId, task.projectId);
+  assert.deepEqual(taskSession.businessScope, scope);
+
+  const projectSessionId = sessions.getState().ensureProjectSession('project-1', { ...scope, taskBookId: undefined });
+  const projectSession = sessions.getState().sessions.find(item => item.id === projectSessionId);
+  assert.equal(projectSession.storageProjectId, 'project-1');
+  assert.deepEqual(projectSession.businessScope, { ...scope, taskBookId: undefined });
 });
 
 test('template experiment creation clones its starting DOE draft into a separate session', () => {
@@ -214,6 +242,18 @@ test('continuing an existing project reuses its artifact space without replacing
   assert.equal(sessions.getState().getWorkspaceSession(id).targetProjectId, projectId);
   assert.equal(sessions.getState().ensureProjectSession(projectId), id);
   assert.equal(projects.getState().projects.find(project => project.id === projectId).artifacts.length, 1);
+});
+
+test('different concrete trials in one project keep separate sessions and their original source scopes', () => {
+  const projectId = projects.getState().createProject({ name: '多个载荷谱的项目' });
+  const a = { physicalObjectId: 'fan', experimentId: 'setup', trialId: 'trial-a', trialName: '试验 A' };
+  const b = { ...a, trialId: 'trial-b', trialName: '试验 B' };
+  const first = sessions.getState().ensureProjectSession(projectId, a);
+  const second = sessions.getState().ensureProjectSession(projectId, b);
+  assert.notEqual(first, second);
+  assert.equal(sessions.getState().sessions.find(session => session.id === first).businessScope.trialId, 'trial-a');
+  assert.equal(sessions.getState().ensureProjectSession(projectId, a), first);
+  assert.equal(sessions.getState().getWorkspaceSession(second).targetProjectId, projectId);
 });
 
 test('session navigation preserves all legacy task item context', () => {

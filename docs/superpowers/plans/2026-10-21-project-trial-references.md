@@ -196,12 +196,8 @@ Add to frontend/src/workspace/types.ts:
       createdAt: string;
     }
 
-    export interface Project {
-      // Keep all existing fields.
-      trialRefs?: ProjectTrialReference[];
-    }
-
-The existing Project interface must be extended in place; do not declare a second Project interface. Create frontend/src/workspace/projectTrialReferenceModel.ts with these functions and behavior:
+    // Add this property to the existing Project interface; do not create a second interface.
+    trialRefs?: ProjectTrialReference[]; Create frontend/src/workspace/projectTrialReferenceModel.ts with these functions and behavior:
 
     import type { Project, ProjectTrialReference } from './types.ts';
 
@@ -261,9 +257,55 @@ Extend ProjectWorkspaceState with:
     addTrialReference: (projectId: string, source: ProjectTrialSource) => string | null;
     removeTrialReference: (projectId: string, referenceId: string) => void;
 
-Implement addTrialReference by finding the project, returning null if it no longer exists, calling addProjectTrialReference with newId('project-trial-ref') and the current ISO timestamp, returning the existing reference ID for duplicates, and persisting the updated Project only when added. Implement removeTrialReference with removeProjectTrialReference; when removed is false, leave state unchanged. Import the helpers from projectTrialReferenceModel.ts. Do not change deleteProject or physicalObjectStore behavior.
+Implement the actions with the following logic inside the existing Zustand store object:
 
-Create frontend/tests/projectTrialReferenceStore.test.mjs using the existing in-memory localStorage plus esbuild pattern from frontend/tests/sessionWorkbench.test.mjs. Bundle projectStore.ts and export useProjectStore. Create two projects, add the same source to each, and assert both projects retain one reference. Read localStorage key protangram-project-workspace-v1 and assert the saved state contains the reference. Remove the reference from project A and assert project A has no reference, project B still has one, and neither project was deleted.
+    addTrialReference: (projectId, source) => {
+      const project = get().projects.find(item => item.id === projectId);
+      if (!project) return null;
+      const now = new Date().toISOString();
+      const result = addProjectTrialReference(project, source, newId('project-trial-ref'), now);
+      if (!result.added) return result.reference.id;
+      set(state => ({
+        projects: state.projects.map(item => item.id === projectId ? result.project : item),
+      }));
+      return result.reference.id;
+    },
+    removeTrialReference: (projectId, referenceId) => {
+      const project = get().projects.find(item => item.id === projectId);
+      if (!project) return;
+      const result = removeProjectTrialReference(project, referenceId, new Date().toISOString());
+      if (!result.removed) return;
+      set(state => ({
+        projects: state.projects.map(item => item.id === projectId ? result.project : item),
+      }));
+    },
+
+Import the helpers and ProjectTrialSource type from projectTrialReferenceModel.ts. Do not change deleteProject or physicalObjectStore behavior.
+
+Create frontend/tests/projectTrialReferenceStore.test.mjs. Set globalThis.localStorage and globalThis.window.localStorage to an in-memory Map, bundle projectStore.ts with esbuild, and export useProjectStore and WORKSPACE_STORAGE_KEY. Then run this test body against the bundled store:
+
+    test('project reference actions persist and stay scoped to each project', () => {
+      const store = useProjectStore.getState();
+      const projectA = store.createProject({ name: '项目 A' });
+      const projectB = store.createProject({ name: '项目 B' });
+      const source = { physicalObjectId: 'object-1', experimentId: 'setup-1', trialId: 'trial-1' };
+
+      const referenceA = useProjectStore.getState().addTrialReference(projectA, source);
+      const referenceAAgain = useProjectStore.getState().addTrialReference(projectA, source);
+      const referenceB = useProjectStore.getState().addTrialReference(projectB, source);
+
+      assert.equal(referenceAAgain, referenceA);
+      assert.equal(useProjectStore.getState().projects.find(item => item.id === projectA).trialRefs.length, 1);
+      assert.equal(useProjectStore.getState().projects.find(item => item.id === projectB).trialRefs.length, 1);
+      const saved = JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY));
+      assert.ok(saved.state.projects.find(item => item.id === projectA).trialRefs.length === 1);
+
+      useProjectStore.getState().removeTrialReference(projectA, referenceA);
+      assert.equal(useProjectStore.getState().projects.find(item => item.id === projectA).trialRefs.length, 0);
+      assert.equal(useProjectStore.getState().projects.find(item => item.id === projectB).trialRefs[0].id, referenceB);
+    });
+
+Also verify a legacy Project object with no trialRefs remains readable after the store is initialized. The test must not depend on the user's browser storage.
 
 Run:
 
@@ -356,7 +398,37 @@ Expected: candidate and stale-reference tests fail until listProjectTrialCandida
 
 - [ ] **Step 3: Add the project picker**
 
-First add resolveProjectTrialReference and listProjectTrialCandidates to projectTrialReferenceModel.ts. Import PhysicalObject as a type. The candidate function must traverse category.configurations, physicalObject.experiments and experiment.trials; exclude candidates when sameProjectTrialSource matches a reference; return the three IDs, four display names, recordCount and taskBookId. The resolver must return { reference, missing: true } if any ID in the tuple cannot be resolved and otherwise return the resolved category, physical object, experiment and trial. Do not fall back to names.
+First add resolveProjectTrialReference and listProjectTrialCandidates to projectTrialReferenceModel.ts. Import PhysicalObject as a type and use these implementations:
+
+    export function resolveProjectTrialReference(objects: PhysicalObject[], reference: ProjectTrialReference) {
+      const category = objects.find(item => item.configurations.some(config => config.id === reference.physicalObjectId));
+      const physicalObject = category?.configurations.find(config => config.id === reference.physicalObjectId);
+      const experiment = physicalObject?.experiments.find(item => item.id === reference.experimentId);
+      const trial = experiment?.trials.find(item => item.id === reference.trialId);
+      if (!category || !physicalObject || !experiment || !trial) return { reference, missing: true as const };
+      return { reference, missing: false as const, category, physicalObject, experiment, trial };
+    }
+
+    export function listProjectTrialCandidates(objects: PhysicalObject[], references: ProjectTrialReference[] = []) {
+      return objects.flatMap(category => category.configurations.flatMap(physicalObject =>
+        physicalObject.experiments.flatMap(experiment => experiment.trials
+          .filter(trial => !references.some(reference => sameProjectTrialSource(reference, {
+            physicalObjectId: physicalObject.id, experimentId: experiment.id, trialId: trial.id,
+          })))
+          .map(trial => ({
+            physicalObjectId: physicalObject.id,
+            experimentId: experiment.id,
+            trialId: trial.id,
+            categoryName: category.name,
+            physicalObjectName: physicalObject.name,
+            experimentName: experiment.name,
+            trialName: trial.name,
+            recordCount: trial.records.length,
+            taskBookId: trial.taskBookId,
+          })))));
+    }
+
+The candidate function traverses category.configurations, physicalObject.experiments and experiment.trials; excludes candidates when sameProjectTrialSource matches a reference; returns the three IDs, four display names, recordCount and taskBookId. Do not fall back to names.
 
 Create ProjectTrialReferencePicker.tsx as a controlled modal with props open, project, objects, onAdd(source), onCancel. Use listProjectTrialCandidates(objects, project.trialRefs) as the source list. Render each candidate's path as “categoryName / physicalObjectName / experimentName / trialName”; include recordCount and task-book association as secondary information. Search must filter only display fields and must never participate in identity matching. The add action calls onAdd with only physicalObjectId, experimentId and trialId, then leaves the candidate unavailable in the current picker because it is now referenced.
 
@@ -372,7 +444,11 @@ The picker must not accept an arbitrary name as a reference and must not create 
 
 - [ ] **Step 4: Add a reference view and project navigation**
 
-Extend ProjectView with 'trials'. In buildProjectNavigation, add “关联具体试验” only when a non-session-owned project has at least one reference. Create ProjectTrialReferencesView.tsx to resolve each reference through resolveProjectTrialReference and render:
+Extend ProjectView in frontend/src/workspace/types.ts with 'trials'. In buildProjectNavigation, add “关联具体试验” only when a non-session-owned project has at least one reference:
+
+    if (!project.sessionOwnerId && (project.trialRefs ?? []).length > 0) {
+      items.push({ key: project.id + ':trials', title: '关联具体试验', view: 'trials' });
+    } Create ProjectTrialReferencesView.tsx to resolve each reference through resolveProjectTrialReference and render:
 - available source: hierarchy path, number of execution records, optional task-book name, open action and remove action;
 - unavailable source: “来源不可用”, the referenced IDs for diagnosis, disabled open action and remove action.
 
@@ -380,7 +456,13 @@ The remove action must call removeTrialReference(project.id, reference.id) after
 
 - [ ] **Step 5: Wire the picker and project view**
 
-In ProjectResourcesPage.tsx, add “添加已有具体试验” beside the existing “在此项目中新建具体试验” action. Render it only when the route is an organizational project resource view, not when pathname starts with /sessions/. Resolve the selected project from the current project ID before adding a reference; if it disappeared, close the picker and show an error rather than writing to another project.
+In ProjectResourcesPage.tsx, add state for the picker and render the action only for a selected organizational project:
+
+    {!isSessionResources && projectId && (
+      <Button onClick={() => setAddTrialOpen(true)}>添加已有具体试验</Button>
+    )}
+
+Mount ProjectTrialReferencePicker with open={addTrialOpen}, the currently resolved project and canonical objects. Its onAdd handler must re-read useProjectStore.getState().projects before calling addTrialReference; if the project no longer exists, close the picker and show an error rather than writing to another project. Render the picker only when pathname does not start with /sessions/.
 
 In ProjectContent.tsx, render ProjectTrialReferencesView for the 'trials' view only when the current workspace is not session-owned. In ProjectOverview.tsx, show the referenced-trial count and a button that selects the 'trials' view when the count is nonzero. Keep all existing ProjectArtifact and worksheet rendering behavior unchanged.
 

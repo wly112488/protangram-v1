@@ -529,7 +529,7 @@ Coverage result: **COVERAGE_COMPLETE**.
 
 - [ ] **Step 1: Write failing session isolation tests**
 
-Create frontend/tests/projectTrialReferenceSessions.test.mjs. Initialize an in-memory localStorage, bundle sessionStore.ts, projectStore.ts and physicalObjectStore.ts with esbuild, and export the three stores. Create a category, physical object, trial configuration and concrete trial using the physical-object store, then create project A and project B. Use a scope with the IDs returned by the store methods.
+Create frontend/tests/projectTrialReferenceSessions.test.mjs. Initialize an in-memory localStorage, bundle sessionStore.ts, projectStore.ts, physicalObjectStore.ts and physicalBusinessContext.ts with esbuild, and export useSessionStore, useProjectStore, usePhysicalObjectStore and resolvePhysicalSource. Create a category, physical object, trial configuration and concrete trial using the physical-object store, then create project A and project B. Use a scope with the IDs returned by the store methods.
 
 Add these assertions:
 
@@ -556,9 +556,9 @@ Add these assertions:
     });
 
     test('opening a referenced trial does not change its task-book association', () => {
-      const before = findConcreteTrial(usePhysicalObjectStore.getState().objects, scope.trialId).taskBookId;
+      const before = resolvePhysicalSource(usePhysicalObjectStore.getState().objects, scope).trial.taskBookId;
       useSessionStore.getState().ensureProjectTrialSession(projectA, scope);
-      const after = findConcreteTrial(usePhysicalObjectStore.getState().objects, scope.trialId).taskBookId;
+      const after = resolvePhysicalSource(usePhysicalObjectStore.getState().objects, scope).trial.taskBookId;
       assert.equal(after, before);
     });
 

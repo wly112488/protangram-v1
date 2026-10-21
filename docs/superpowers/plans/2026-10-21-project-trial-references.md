@@ -282,7 +282,19 @@ Implement the actions with the following logic inside the existing Zustand store
 
 Import the helpers and ProjectTrialSource type from projectTrialReferenceModel.ts. Do not change deleteProject or physicalObjectStore behavior.
 
-Create frontend/tests/projectTrialReferenceStore.test.mjs. Set globalThis.localStorage and globalThis.window.localStorage to an in-memory Map, bundle projectStore.ts with esbuild, and export useProjectStore and WORKSPACE_STORAGE_KEY. Then run this test body against the bundled store:
+Create frontend/tests/projectTrialReferenceStore.test.mjs. Set globalThis.localStorage and globalThis.window.localStorage to an in-memory Map before importing the store. Seed the key protangram-project-workspace-v1 with a Zustand persist payload whose projects array contains a legacy project without trialRefs, then bundle projectStore.ts with esbuild using this entry:
+
+    stdin: {
+      contents: "export { useProjectStore, WORKSPACE_STORAGE_KEY } from './src/workspace/projectStore';",
+      resolveDir: process.cwd(),
+    },
+    bundle: true,
+    write: false,
+    format: 'esm',
+    platform: 'node',
+    logLevel: 'silent',
+
+Import the bundle from a data URL and export useProjectStore and WORKSPACE_STORAGE_KEY. Then run this test body against the bundled store:
 
     test('project reference actions persist and stay scoped to each project', () => {
       const store = useProjectStore.getState();
@@ -428,11 +440,13 @@ First add resolveProjectTrialReference and listProjectTrialCandidates to project
           })))));
     }
 
+    export type ProjectTrialCandidate = ReturnType<typeof listProjectTrialCandidates>[number];
+
 The candidate function traverses category.configurations, physicalObject.experiments and experiment.trials; excludes candidates when sameProjectTrialSource matches a reference; returns the three IDs, four display names, recordCount and taskBookId. Do not fall back to names.
 
 Create ProjectTrialReferencePicker.tsx as a controlled modal with props open, project, objects, onAdd(source), onCancel. Use listProjectTrialCandidates(objects, project.trialRefs) as the source list. Render each candidate's path as “categoryName / physicalObjectName / experimentName / trialName”; include recordCount and task-book association as secondary information. Search must filter only display fields and must never participate in identity matching. The add action calls onAdd with only physicalObjectId, experimentId and trialId, then leaves the candidate unavailable in the current picker because it is now referenced.
 
-The picker must not accept an arbitrary name as a reference and must not create a concrete trial. A representative selection handler is:
+The picker must not accept an arbitrary name as a reference and must not create a concrete trial. Add a local search string and filter candidates by the hierarchy labels plus load-spectrum name and task-book ID/name; the filter changes only the displayed candidate list, not identity. A representative selection handler is:
 
     const addSelectedTrial = (candidate: ProjectTrialCandidate) => {
       onAdd({
@@ -464,7 +478,7 @@ In ProjectResourcesPage.tsx, add state for the picker and render the action only
 
 Mount ProjectTrialReferencePicker with open={addTrialOpen}, the currently resolved project and canonical objects. Its onAdd handler must re-read useProjectStore.getState().projects before calling addTrialReference; if the project no longer exists, close the picker and show an error rather than writing to another project. Render the picker only when pathname does not start with /sessions/.
 
-In ProjectContent.tsx, render ProjectTrialReferencesView for the 'trials' view only when the current workspace is not session-owned. In ProjectOverview.tsx, show the referenced-trial count and a button that selects the 'trials' view when the count is nonzero. Keep all existing ProjectArtifact and worksheet rendering behavior unchanged.
+In ProjectContent.tsx, add the '关联具体试验' label to the existing viewLabels record and render ProjectTrialReferencesView for the 'trials' view only when the current workspace is not session-owned. In ProjectOverview.tsx, show the referenced-trial count and a button that selects the 'trials' view when the count is nonzero. Keep all existing ProjectArtifact and worksheet rendering behavior unchanged.
 
 - [ ] **Step 6: Run the focused tests and inspect the UI diff**
 
@@ -515,14 +529,38 @@ Coverage result: **COVERAGE_COMPLETE**.
 
 - [ ] **Step 1: Write failing session isolation tests**
 
-Create frontend/tests/projectTrialReferenceSessions.test.mjs using the existing sessionWorkbench.test.mjs setup pattern: initialize an in-memory localStorage, bundle sessionStore.ts and its imported TypeScript modules with esbuild, and create a physical-object fixture with one valid concrete trial.
+Create frontend/tests/projectTrialReferenceSessions.test.mjs. Initialize an in-memory localStorage, bundle sessionStore.ts, projectStore.ts and physicalObjectStore.ts with esbuild, and export the three stores. Create a category, physical object, trial configuration and concrete trial using the physical-object store, then create project A and project B. Use a scope with the IDs returned by the store methods.
 
-Test these cases:
-1. Opening the same source twice for project A returns the same active, source-specific session ID.
-2. Opening the same source for project B returns a different session ID whose storageProjectId is project B.
-3. A pre-existing project-A session with no businessScope is not reused for the referenced trial.
-4. A stale physicalObjectId, experimentId or trialId is rejected without creating a session.
-5. The trial's taskBookId remains unchanged after opening a project reference.
+Add these assertions:
+
+    test('project trial sessions reuse only the same source within the same project', () => {
+      const first = useSessionStore.getState().ensureProjectTrialSession(projectA, scope);
+      const repeated = useSessionStore.getState().ensureProjectTrialSession(projectA, scope);
+      const otherProject = useSessionStore.getState().ensureProjectTrialSession(projectB, scope);
+
+      assert.equal(first, repeated);
+      assert.notEqual(first, otherProject);
+      assert.equal(useSessionStore.getState().sessions.find(item => item.id === first).storageProjectId, projectA);
+      assert.equal(useSessionStore.getState().sessions.find(item => item.id === otherProject).storageProjectId, projectB);
+      assert.deepEqual(
+        ['physicalObjectId', 'experimentId', 'trialId'].map(key => useSessionStore.getState().sessions.find(item => item.id === first).businessScope[key]),
+        ['physicalObjectId', 'experimentId', 'trialId'].map(key => scope[key]),
+      );
+    });
+
+    test('a scope-less project session is not repurposed and invalid sources are rejected', () => {
+      const blank = useSessionStore.getState().ensureProjectSession(projectA);
+      const opened = useSessionStore.getState().ensureProjectTrialSession(projectA, scope);
+      assert.notEqual(blank, opened);
+      assert.throws(() => useSessionStore.getState().ensureProjectTrialSession(projectA, { ...scope, trialId: 'deleted-trial' }));
+    });
+
+    test('opening a referenced trial does not change its task-book association', () => {
+      const before = findConcreteTrial(usePhysicalObjectStore.getState().objects, scope.trialId).taskBookId;
+      useSessionStore.getState().ensureProjectTrialSession(projectA, scope);
+      const after = findConcreteTrial(usePhysicalObjectStore.getState().objects, scope.trialId).taskBookId;
+      assert.equal(after, before);
+    });
 
 - [ ] **Step 2: Run the session tests and confirm the new action is missing**
 
@@ -540,7 +578,41 @@ Add this signature to SessionStore in sessionStore.ts:
 
 Implement it using the existing create and update helpers. Before session lookup, verify that projectId identifies an existing organizational project, that businessScope contains physicalObjectId, experimentId and trialId, and that resolvePhysicalSource(usePhysicalObjectStore.getState().objects, businessScope) resolves a non-missing concrete trial. Throw a clear error if any validation fails.
 
-Reuse only a non-task, non-archived session where storageProjectId equals projectId and samePhysicalSource(session.businessScope, businessScope) is true and session.businessScope.trialId equals businessScope.trialId. Update that session's display names from the resolved canonical source and return its ID. Otherwise create a new session with title equal to the canonical trial name plus “· 试验工作”, projectId and storageProjectId both set to the requested project, and businessScope containing the source IDs and current display names. Do not change ensureProjectSession, which remains the creation path for a new trial launched from a project.
+Use this implementation shape:
+
+    ensureProjectTrialSession: (projectId, businessScope) => {
+      if (!businessScope.physicalObjectId || !businessScope.experimentId || !businessScope.trialId) {
+        throw new Error('项目引用缺少完整的具体试验来源');
+      }
+      const project = useProjectStore.getState().projects.find(item => item.id === projectId && !item.sessionOwnerId);
+      if (!project) throw new Error('目标项目不存在或不是组织项目');
+      const source = resolvePhysicalSource(usePhysicalObjectStore.getState().objects, businessScope);
+      if (source.missing || !source.configuration || !source.experiment || !source.trial) {
+        throw new Error('关联的具体试验不存在');
+      }
+      const scope = {
+        ...businessScope,
+        physicalObjectName: source.configuration.name,
+        experimentName: source.experiment.name,
+        trialName: source.trial.name,
+      };
+      const existing = get().sessions.find(session => !session.taskId && !session.archived
+        && session.storageProjectId === projectId
+        && session.businessScope?.trialId === source.trial.id
+        && samePhysicalSource(session.businessScope, scope));
+      if (existing) {
+        update(existing.id, session => ({ ...session, businessScope: scope }));
+        return existing.id;
+      }
+      return create({
+        title: source.trial.name + ' · 试验工作',
+        projectId,
+        storageProjectId: projectId,
+        businessScope: scope,
+      });
+    },
+
+Reuse only a non-task, non-archived session where storageProjectId equals projectId and samePhysicalSource(session.businessScope, scope) is true and the trialId is equal. Update display names from the canonical source. Otherwise create a new session with the canonical trial name, projectId and storageProjectId both set to the requested project, and businessScope containing the source IDs and current display names. Do not change ensureProjectSession, which remains the creation path for a new trial launched from a project.
 
 - [ ] **Step 4: Open references through the new action**
 
@@ -556,7 +628,22 @@ Expected: all reference and session-isolation tests PASS.
 
 - [ ] **Step 6: Add browser acceptance scenarios**
 
-Create verify-project-trial-references.mjs using the existing Playwright scripts' isolated browser-context pattern. Use synthetic localStorage data and block POST, PUT, PATCH and DELETE requests. Verify these user-visible flows:
+Create verify-project-trial-references.mjs using the existing Playwright scripts' isolated browser-context pattern. Begin with this setup and use only a fresh browser context:
+
+    import assert from 'node:assert/strict';
+    import { createRequire } from 'node:module';
+    const require = createRequire(process.env.PROTANGRAM_PLAYWRIGHT_ROOT ?? '/tmp/protangram-browser-check/node_modules/playwright/package.json');
+    const { chromium } = require('playwright');
+    const baseURL = process.env.PROTANGRAM_TEST_URL ?? 'http://127.0.0.1:5175';
+    const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    await context.route('**/*', route =>
+      ['POST', 'PUT', 'PATCH', 'DELETE'].includes(route.request().method()) ? route.abort() : route.continue());
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+
+Seed the canonical physical-object, project and session storage keys with synthetic fixture data in this context. Use real visible controls for selection, addition, opening and removal; do not call component handlers directly. Verify these user-visible flows:
 1. Create project A and project B, then add the same existing concrete trial to each.
 2. Verify both projects show the same canonical hierarchy and record count.
 3. Open the reference in project A; assert the session route and stored businessScope contain the original source IDs.

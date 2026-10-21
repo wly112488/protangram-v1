@@ -85,8 +85,8 @@ No downstream plan is required for this feature.
 
 ## File Structure
 
-- **Modify — frontend/src/workspace/types.ts:** Add ProjectTrialReference and an optional trialRefs array on Project for compatibility with existing persisted projects.
-- **Create — frontend/src/workspace/projectTrialReferenceModel.ts:** Own stable-ID matching, reference add/remove helpers, candidate enumeration and canonical-source resolution.
+- **Modify — frontend/src/workspace/types.ts:** Add ProjectTrialReference, an optional trialRefs array on Project, and the 'trials' ProjectView value.
+- **Create — frontend/src/workspace/projectTrialReferenceModel.ts:** Own stable-ID matching and reference add/remove helpers.
 - **Modify — frontend/src/workspace/projectStore.ts:** Persist reference additions/removals alongside the existing Project object; do not introduce a second persistence store.
 - **Modify — frontend/src/workspace/projectModel.ts:** Add the “关联具体试验” project navigation item only when references exist.
 - **Create — frontend/src/workspace/ProjectTrialReferencePicker.tsx:** Search the canonical hierarchy and add an existing trial to the active organizational project.
@@ -95,7 +95,8 @@ No downstream plan is required for this feature.
 - **Modify — frontend/src/workspace/ProjectContent.tsx:** Render the referenced-trial view and keep it unavailable in session-only resource views.
 - **Modify — frontend/src/workspace/ProjectOverview.tsx:** Show the reference count and link to the reference view when the project has references.
 - **Modify — frontend/src/workspace/sessionStore.ts:** Add a source-specific project-session helper that reuses only a session already bound to the same trial source.
-- **Create — frontend/tests/projectTrialReferences.test.mjs:** Test reference model, persistence operations, duplicate prevention, many-project references and missing-source resolution.
+- **Create — frontend/tests/projectTrialReferences.test.mjs:** Test reference model, duplicate prevention, candidate enumeration and missing-source resolution.
+- **Create — frontend/tests/projectTrialReferenceStore.test.mjs:** Test persisted project reference actions and legacy-project compatibility.
 - **Create — frontend/tests/projectTrialReferenceSessions.test.mjs:** Test project-scoped session reuse and isolation.
 - **Create — frontend/scripts/verify-project-trial-references.mjs:** Verify the complete user flow in an isolated browser context.
 
@@ -167,6 +168,14 @@ Create frontend/tests/projectTrialReferences.test.mjs with these tests against p
       assert.deepEqual(source, { physicalObjectId: 'object-1', experimentId: 'setup-1', trialId: 'trial-1' });
     });
 
+    test('legacy projects without trialRefs can receive their first reference', () => {
+      const legacyProject = project('legacy-project');
+      assert.equal(legacyProject.trialRefs, undefined);
+      const added = addProjectTrialReference(legacyProject, source, 'legacy-ref', '2026-10-21T05:00:00.000Z');
+      assert.equal(added.added, true);
+      assert.equal(added.project.trialRefs.length, 1);
+    });
+
 - [ ] **Step 2: Run the tests and confirm the missing model fails**
 
 Run from frontend:
@@ -195,7 +204,6 @@ Add to frontend/src/workspace/types.ts:
 The existing Project interface must be extended in place; do not declare a second Project interface. Create frontend/src/workspace/projectTrialReferenceModel.ts with these functions and behavior:
 
     import type { Project, ProjectTrialReference } from './types.ts';
-    import type { PhysicalObject } from './physicalObjectStore.ts';
 
     export type ProjectTrialSource = Pick<
       ProjectTrialReference,
@@ -244,39 +252,6 @@ The existing Project interface must be extended in place; do not declare a secon
       };
     };
 
-    export function resolveProjectTrialReference(objects: PhysicalObject[], reference: ProjectTrialReference) {
-      const category = objects.find(item => item.configurations.some(config => config.id === reference.physicalObjectId));
-      const physicalObject = category?.configurations.find(config => config.id === reference.physicalObjectId);
-      const experiment = physicalObject?.experiments.find(item => item.id === reference.experimentId);
-      const trial = experiment?.trials.find(item => item.id === reference.trialId);
-      const missing = !category || !physicalObject || !experiment || !trial;
-      return missing
-        ? { reference, missing: true as const }
-        : { reference, missing: false as const, category, physicalObject, experiment, trial };
-    }
-
-    export function listProjectTrialCandidates(
-      objects: PhysicalObject[],
-      references: ProjectTrialReference[] = [],
-    ) {
-      return objects.flatMap(category => category.configurations.flatMap(physicalObject =>
-        physicalObject.experiments.flatMap(experiment => experiment.trials
-          .filter(trial => !references.some(reference => sameProjectTrialSource(reference, {
-            physicalObjectId: physicalObject.id, experimentId: experiment.id, trialId: trial.id,
-          })))
-          .map(trial => ({
-            physicalObjectId: physicalObject.id,
-            experimentId: experiment.id,
-            trialId: trial.id,
-            categoryName: category.name,
-            physicalObjectName: physicalObject.name,
-            experimentName: experiment.name,
-            trialName: trial.name,
-            recordCount: trial.records.length,
-            taskBookId: trial.taskBookId,
-          })))));
-    }
-
 Keep IDs as the sole relationship key. Display names are resolved from the current source; do not persist copied names in the reference.
 
 - [ ] **Step 4: Add projectStore actions and persistence tests**
@@ -298,7 +273,7 @@ Expected: all model and persistence tests PASS.
 
 - [ ] **Step 5: Commit the independently tested model**
 
-    git add src/workspace/types.ts src/workspace/projectTrialReferenceModel.ts src/workspace/projectStore.ts tests/projectTrialReferences.test.mjs
+    git add src/workspace/types.ts src/workspace/projectTrialReferenceModel.ts src/workspace/projectStore.ts tests/projectTrialReferences.test.mjs tests/projectTrialReferenceStore.test.mjs
     git commit -m "feat: add project trial reference model"
 
 **Per-Task Coverage Review**
@@ -339,7 +314,37 @@ Coverage result: **COVERAGE_COMPLETE**.
 
 - [ ] **Step 1: Add model tests for candidates and stale references**
 
-Extend frontend/tests/projectTrialReferences.test.mjs with a canonical hierarchy fixture containing one category, one physical object, one trial configuration and two concrete trials. Assert that listProjectTrialCandidates returns both trials when no references exist, returns only the unreferenced trial when one is already referenced, and resolveProjectTrialReference returns missing: true after any referenced ID is absent. The fixture must use distinct IDs and may use duplicate display names to prove matching does not depend on names.
+Extend the imports in frontend/tests/projectTrialReferences.test.mjs with listProjectTrialCandidates and resolveProjectTrialReference. Add this fixture and assertions:
+
+    const objects = [{
+      id: 'category-1', name: '涵道风扇',
+      configurations: [{
+        id: 'object-1', name: '电涵道风扇',
+        experiments: [{
+          id: 'setup-1', name: '静推构型',
+          trials: [
+            { id: 'trial-1', name: '静推力试验', loadSpectrum: 'LS-1', records: [], charts: [] },
+            { id: 'trial-2', name: '静推力试验', loadSpectrum: 'LS-2', records: [], charts: [] },
+          ],
+        }],
+      }],
+    }];
+    const reference = {
+      id: 'ref-1', physicalObjectId: 'object-1', experimentId: 'setup-1',
+      trialId: 'trial-1', createdAt: '2026-10-21T01:00:00.000Z',
+    };
+
+    test('candidate list excludes only the exact referenced source tuple', () => {
+      assert.deepEqual(listProjectTrialCandidates(objects).map(item => item.trialId), ['trial-1', 'trial-2']);
+      assert.deepEqual(listProjectTrialCandidates(objects, [reference]).map(item => item.trialId), ['trial-2']);
+    });
+
+    test('missing source IDs are not replaced by a same-named trial', () => {
+      assert.equal(resolveProjectTrialReference(objects, reference).missing, false);
+      assert.equal(resolveProjectTrialReference(objects, { ...reference, trialId: 'deleted-trial' }).missing, true);
+    });
+
+The duplicate trial names are intentional: they prove source matching is based on IDs, not names.
 
 - [ ] **Step 2: Run the focused test before UI implementation**
 
@@ -351,9 +356,19 @@ Expected: candidate and stale-reference tests fail until listProjectTrialCandida
 
 - [ ] **Step 3: Add the project picker**
 
+First add resolveProjectTrialReference and listProjectTrialCandidates to projectTrialReferenceModel.ts. Import PhysicalObject as a type. The candidate function must traverse category.configurations, physicalObject.experiments and experiment.trials; exclude candidates when sameProjectTrialSource matches a reference; return the three IDs, four display names, recordCount and taskBookId. The resolver must return { reference, missing: true } if any ID in the tuple cannot be resolved and otherwise return the resolved category, physical object, experiment and trial. Do not fall back to names.
+
 Create ProjectTrialReferencePicker.tsx as a controlled modal with props open, project, objects, onAdd(source), onCancel. Use listProjectTrialCandidates(objects, project.trialRefs) as the source list. Render each candidate's path as “categoryName / physicalObjectName / experimentName / trialName”; include recordCount and task-book association as secondary information. Search must filter only display fields and must never participate in identity matching. The add action calls onAdd with only physicalObjectId, experimentId and trialId, then leaves the candidate unavailable in the current picker because it is now referenced.
 
-The picker must not accept an arbitrary name as a reference and must not create a concrete trial.
+The picker must not accept an arbitrary name as a reference and must not create a concrete trial. A representative selection handler is:
+
+    const addSelectedTrial = (candidate: ProjectTrialCandidate) => {
+      onAdd({
+        physicalObjectId: candidate.physicalObjectId,
+        experimentId: candidate.experimentId,
+        trialId: candidate.trialId,
+      });
+    };
 
 - [ ] **Step 4: Add a reference view and project navigation**
 

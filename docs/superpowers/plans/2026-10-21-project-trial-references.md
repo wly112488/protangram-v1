@@ -383,7 +383,7 @@ Coverage result: **COVERAGE_COMPLETE**.
 **Interfaces:**
 
 - **Consumes:** Project.trialRefs; listProjectTrialCandidates; resolveProjectTrialReference; projectStore add/remove actions.
-- **Produces:** ProjectView value 'trials'; a project navigation item labelled “关联具体试验”; a project-only picker; a list with open/remove actions.
+- **Produces:** ProjectView value 'trials'; a project navigation item labelled “关联具体试验”; a project-only picker; a list that resolves current source data and supports reference removal. Task 3 adds source-bound opening after the session API exists.
 
 **Acceptance:**
 
@@ -396,7 +396,7 @@ Coverage result: **COVERAGE_COMPLETE**.
 
 - [ ] **Step 1: Add model tests for candidates and stale references**
 
-Extend the imports in frontend/tests/projectTrialReferences.test.mjs with listProjectTrialCandidates, resolveProjectTrialReference and buildProjectNavigation. Add this fixture and assertions:
+Extend the imports in frontend/tests/projectTrialReferences.test.mjs with listProjectTrialCandidates, resolveProjectTrialReference and buildProjectNavigation. Add `import { readFileSync } from 'node:fs';` and this fixture and assertions:
 
     const objects = [{
       id: 'category-1', name: '涵道风扇',
@@ -433,6 +433,12 @@ The duplicate trial names are intentional: they prove source matching is based o
       const withReference = { id: 'ref-nav', physicalObjectId: 'object-1', experimentId: 'setup-1', trialId: 'trial-1', createdAt: '2026-10-21T01:00:00.000Z' };
       assert.ok(buildProjectNavigation({ ...base, trialRefs: [withReference] }).some(item => item.view === 'trials'));
       assert.equal(buildProjectNavigation({ ...base, sessionOwnerId: 'session-1', trialRefs: [withReference] }).some(item => item.view === 'trials'), false);
+    });
+
+    test('the organizational-project picker is not mounted on session resource routes', () => {
+      const source = readFileSync(new URL('../src/workspace/ProjectResourcesPage.tsx', import.meta.url), 'utf8');
+      assert.match(source, /!isSessionResources && activeProject/);
+      assert.match(source, /ProjectTrialReferencePicker/);
     });
 
 - [ ] **Step 2: Run the focused test before UI implementation**
@@ -538,73 +544,40 @@ Extend ProjectView in frontend/src/workspace/types.ts with 'trials'. In buildPro
       items.push({ key: project.id + ':trials', title: '关联具体试验', view: 'trials' });
     }
 
-Create `frontend/src/workspace/ProjectTrialReferencesView.tsx` with this implementation. It resolves every render from the latest canonical store; stale references can be removed but cannot open. The confirmation button text is “确认移除”.
+Create `frontend/src/workspace/ProjectTrialReferencesView.tsx` with this implementation. This task renders canonical source details and remove-only behavior; Task 3 adds the open action after the source-specific session API is implemented.
 
     import React from 'react';
-    import { Button, Empty, List, message, Popconfirm, Space, Tag, Typography } from 'antd';
-    import { useNavigate } from 'react-router-dom';
+    import { Button, Empty, List, Popconfirm, Space, Tag, Typography } from 'antd';
     import type { Project } from './types';
-    import { getSessionPath } from './sessionModel';
     import { resolveProjectTrialReference } from './projectTrialReferenceModel';
     import { usePhysicalObjectStore } from './physicalObjectStore';
     import { useProjectStore } from './projectStore';
-    import { useSessionStore } from './sessionStore';
     import { useTaskStore } from './taskStore';
 
     const { Text, Title } = Typography;
     const ProjectTrialReferencesView: React.FC<{ project: Project }> = ({ project }) => {
-      const navigate = useNavigate();
       const objects = usePhysicalObjectStore(state => state.objects);
       const tasks = useTaskStore(state => state.tasks);
       const removeTrialReference = useProjectStore(state => state.removeTrialReference);
-      const ensureProjectTrialSession = useSessionStore(state => state.ensureProjectTrialSession);
-      const openSession = useSessionStore(state => state.openSession);
       const references = project.trialRefs ?? [];
-
-      const openReference = (reference: NonNullable<Project['trialRefs']>[number]) => {
-        const resolved = resolveProjectTrialReference(usePhysicalObjectStore.getState().objects, reference);
-        if (resolved.missing) {
-          message.error('关联的具体试验已不存在，请移除失效引用后重试');
-          return;
-        }
-        try {
-          const scope = {
-            physicalObjectId: resolved.physicalObject.id,
-            physicalObjectName: resolved.physicalObject.name,
-            experimentId: resolved.experiment.id,
-            experimentName: resolved.experiment.name,
-            trialId: resolved.trial.id,
-            trialName: resolved.trial.name,
-          };
-          const sessionId = ensureProjectTrialSession(project.id, scope);
-          openSession(sessionId, 'doe');
-          navigate(getSessionPath(sessionId, 'doe'));
-        } catch (error) {
-          message.error(error instanceof Error ? error.message : '无法打开关联的具体试验');
-        }
-      };
 
       return <div className="workspace-content-stack">
         <div className="workspace-content-heading"><div><Title level={3}>关联具体试验</Title>
           <Text type="secondary">项目只保存关联关系，试验数据仍归属于原物理对象。</Text></div></div>
         {references.length ? <List rowKey="id" dataSource={references} renderItem={reference => {
           const resolved = resolveProjectTrialReference(objects, reference);
-          const removeButton = <Popconfirm title="确认移除该关联？" okText="确认移除" cancelText="取消"
+          const removeButton = <Popconfirm key="remove" title="确认移除该关联？" okText="确认移除" cancelText="取消"
             onConfirm={() => removeTrialReference(project.id, reference.id)}>
             <Button danger type="link">移除关联</Button>
           </Popconfirm>;
-          if (resolved.missing) return <List.Item actions={[
-            <Button key="open" disabled>打开工作台</Button>, removeButton,
-          ]}>
+          if (resolved.missing) return <List.Item actions={[removeButton]}>
             <List.Item.Meta title={<Space><Tag>来源不可用</Tag><Text type="secondary">具体试验 ID：{reference.trialId}</Text></Space>}
               description={'来源 ID：' + reference.physicalObjectId + ' / ' + reference.experimentId + ' / ' + reference.trialId} />
           </List.Item>;
           const { category, physicalObject, experiment, trial } = resolved;
           const taskBookName = tasks.find(task => task.id === trial.taskBookId)?.title;
           const path = [category.name, physicalObject.name, experiment.name, trial.name].join(' / ');
-          return <List.Item actions={[
-            <Button key="open" type="primary" onClick={() => openReference(reference)}>打开工作台</Button>, removeButton,
-          ]}>
+          return <List.Item actions={[removeButton]}>
             <List.Item.Meta title={trial.name} description={<div><div>{path}</div>
               <Text type="secondary">载荷谱：{trial.loadSpectrum || '—'} · 执行记录：{trial.records.length} · 任务书：{taskBookName || trial.taskBookId || '未关联'}</Text>
             </div>} />
@@ -696,7 +669,7 @@ Expected: all project-reference model tests PASS; git diff --check emits no outp
 
 - Candidate enumeration and exclusion → model tests verify complete hierarchy and duplicate exclusion.
 - Stable-ID resolution → stale-source test removes a source ID and verifies no name-based replacement.
-- Project-only navigation → browser acceptance verifies the picker is absent from /sessions/ resource pages.
+- Project-only navigation → model tests prove session-owned spaces do not receive the 'trials' navigation item; a source-level regression assertion checks that ProjectResourcesPage mounts the picker only when `!isSessionResources && activeProject`.
 - Remove-only semantics → test and browser verification compare source records/files/charts before and after removing a reference.
 - Project discoverability → project navigation and overview expose the view when references exist.
 
@@ -857,7 +830,32 @@ Reuse only a non-task, non-archived session where session.projectId equals the r
 
 - [ ] **Step 4: Open references through the new action**
 
-In ProjectTrialReferencesView.tsx, the open handler must first resolve the reference against the latest physical-object store. If it is missing, show “关联的具体试验已不存在，请移除失效引用后重试” and do not navigate. Otherwise build a PhysicalBusinessScope from the resolved IDs and current names, call ensureProjectTrialSession(project.id, scope), call openSession(sessionId, 'doe'), then navigate to getSessionPath(sessionId, 'doe'). Do not change the canonical trial's taskBookId or write the reference project ID into the trial.
+Modify `frontend/src/workspace/ProjectTrialReferencesView.tsx` to add `useNavigate`, `message`, `getSessionPath` and `useSessionStore` imports. Inside the component, add `navigate`, `ensureProjectTrialSession` and `openSession` hooks, then add this handler:
+
+    const openReference = (reference: NonNullable<Project['trialRefs']>[number]) => {
+      const resolved = resolveProjectTrialReference(usePhysicalObjectStore.getState().objects, reference);
+      if (resolved.missing) {
+        message.error('关联的具体试验已不存在，请移除失效引用后重试');
+        return;
+      }
+      try {
+        const scope = {
+          physicalObjectId: resolved.physicalObject.id,
+          physicalObjectName: resolved.physicalObject.name,
+          experimentId: resolved.experiment.id,
+          experimentName: resolved.experiment.name,
+          trialId: resolved.trial.id,
+          trialName: resolved.trial.name,
+        };
+        const sessionId = ensureProjectTrialSession(project.id, scope);
+        openSession(sessionId, 'doe');
+        navigate(getSessionPath(sessionId, 'doe'));
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '无法打开关联的具体试验');
+      }
+    };
+
+For the available-source row, add `<Button key="open" type="primary" onClick={() => openReference(reference)}>打开工作台</Button>` before the remove button. For the unavailable-source row, add `<Button key="open" disabled>打开工作台</Button>` before the remove button. Keep the existing remove-only confirmation unchanged. Do not change the canonical trial's taskBookId or write the reference project ID into the trial.
 
 - [ ] **Step 5: Run model and session tests**
 
@@ -918,7 +916,7 @@ Create `frontend/scripts/verify-project-trial-references.mjs` with this executab
     const openReferenceList = async projectId => {
       await setActiveProject(projectId);
       await page.goto(baseURL + '/projects');
-      await page.locator('.ant-tree-node-content-wrapper').filter({ hasText: '关联具体试验' }).click();
+      await page.locator('.ant-tree-treenode[data-node-key="' + projectId + ':trials"] .ant-tree-node-content-wrapper').click();
       await page.getByRole('heading', { name: '关联具体试验', exact: true }).waitFor();
     };
     const addReference = async projectId => {
@@ -928,7 +926,7 @@ Create `frontend/scripts/verify-project-trial-references.mjs` with this executab
       const dialog = page.getByRole('dialog');
       await dialog.getByRole('button', { name: '关联此试验', exact: true }).click();
       await dialog.waitFor({ state: 'hidden' });
-      await page.locator('.ant-tree-node-content-wrapper').filter({ hasText: '关联具体试验' }).click();
+      await page.locator('.ant-tree-treenode[data-node-key="' + projectId + ':trials"] .ant-tree-node-content-wrapper').click();
       await page.getByRole('heading', { name: '关联具体试验', exact: true }).waitFor();
       await page.getByText('测试对象类别 / 具体对象 A / 试验构型 A / 具体试验 A', { exact: true }).waitFor();
     };
@@ -987,7 +985,12 @@ Create `frontend/scripts/verify-project-trial-references.mjs` with this executab
       });
 
       await addReference(fixture.projectA);
-      console.log('PASS add and display an existing concrete trial in project A');
+      await setActiveProject(fixture.projectA);
+      await page.goto(baseURL + '/projects');
+      await page.getByText('已关联具体试验：1', { exact: true }).waitFor();
+      await page.getByRole('button', { name: '查看关联试验', exact: true }).click();
+      await page.getByRole('heading', { name: '关联具体试验', exact: true }).waitFor();
+      console.log('PASS add, display and discover a concrete trial in project A');
       const projectAId = fixture.projectA;
       let saved = await state();
       assert.equal(saved.projects.find(item => item.id === projectAId).trialRefs.length, 1);
@@ -1089,7 +1092,7 @@ Run with an existing Vite server:
 
     PROTANGRAM_TEST_URL=http://127.0.0.1:5175 node scripts/verify-project-trial-references.mjs
 
-Expected: all eight scenarios print PASS and the script exits with status 0.
+Expected: all nine PASS messages print and the script exits with status 0.
 
 Then run:
 

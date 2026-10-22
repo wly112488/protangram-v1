@@ -23,9 +23,9 @@ function createApp(options = {}) {
   app.use(express.urlencoded({ extended: true, limit: process.env.JSON_BODY_LIMIT || '50mb' }));
 
   app.use('/api/domain', createDomainRouter({ db: dbHandle.db, dataDir }));
-  app.use(createLegacyCrudRouter({ projectRoot, dataDir }));
+  app.use(createLegacyCrudRouter({ db: dbHandle.db, dataDir }));
   app.use(createLegacyResourcesRouter({ projectRoot, dataDir }));
-  app.use(createComputeRouter({ dataDir }));
+  app.use(createComputeRouter({ db: dbHandle.db, dataDir }));
 
   app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) return res.status(404).json({ success: false, error: 'API 路径不存在' });

@@ -113,16 +113,16 @@ function createEntryService({ db }) {
     if (patch.secondaryPart !== undefined) allowed.secondary_part = patch.secondaryPart ? 1 : 0;
     if (patch.status !== undefined) {
       if (!['draft', 'active', 'archived'].includes(patch.status)) fail(400, '实例状态不合法');
-      if (patch.status === 'active') {
-        const validation = validateEntry(db, id);
-        if (!validation.valid) fail(422, validation.errors.join('；'));
-      }
       allowed.status = patch.status;
     }
     if (!Object.keys(allowed).length) return get(id);
     const assignments = Object.keys(allowed).map(key => key + ' = ?').join(', ');
     db.exec('BEGIN IMMEDIATE');
     try {
+      if (allowed.status === 'active') {
+        const validation = validateEntry(db, id);
+        if (!validation.valid) fail(422, validation.errors.join('；'));
+      }
       db.prepare('UPDATE entries SET ' + assignments + ', revision = revision + 1, updated_at = ? WHERE id = ?')
         .run(...Object.values(allowed), now(), id);
       recordRevision(db, id);

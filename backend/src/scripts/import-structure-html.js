@@ -71,10 +71,14 @@ function importStructureHtml({ inputPath, dataDir }) {
     db.close();
     return { skipped: true, reason: '该 HTML 已导入', batchId: existingImport.id, counts: JSON.parse(existingImport.counts_json) };
   }
-  const existingEntries = db.prepare('SELECT COUNT(*) AS n FROM entries').get().n;
-  if (existingEntries > 0) {
+  const existingRows = [
+    db.prepare('SELECT COUNT(*) AS n FROM classes').get().n,
+    db.prepare('SELECT COUNT(*) AS n FROM field_dictionary').get().n,
+    db.prepare('SELECT COUNT(*) AS n FROM entries').get().n
+  ].reduce((sum, count) => sum + count, 0);
+  if (existingRows > 0) {
     db.close();
-    throw new Error('数据库已包含实例；为避免覆盖现有业务数据，HTML 导入仅允许在空实例库中首次执行');
+    throw new Error('数据库已包含领域元数据或实例；为避免覆盖现有业务数据，HTML 导入仅允许在空领域库中首次执行');
   }
   const classes = parsed['结构/类.csv'];
   const classFields = parsed['结构/类字段.csv'];
@@ -142,7 +146,25 @@ function importStructureHtml({ inputPath, dataDir }) {
       }
     }
     const fieldTypes = new Map(dictionary.map(row => [row['名称'], row['值类型']]));
-    const insertValue = db.prepare('INSERT INTO entry_field_values(id, entry_id, field_name, value_json, raw_value, unit, group_name, limit_value, source_entry_id, asset_id, note, source_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)');
+    const entryClassById = new Map(sourceEntries.map(row => [row['ID'], row['类ID']]));
+    const classFieldSet = new Map();
+    for (const row of classFields) {
+      if (!classFieldSet.has(row['类ID'])) classFieldSet.set(row['类ID'], new Set());
+      classFieldSet.get(row['类ID']).add(row['字段']);
+    }
+    const parentClassById = new Map(classes.map(row => [row['类ID'], row['上级类'] || '']));
+    const fieldApplies = (classId, fieldName) => {
+      let current = classId;
+      const seen = new Set();
+      while (current && !seen.has(current)) {
+        seen.add(current);
+        if (classFieldSet.get(current)?.has(fieldName)) return true;
+        current = parentClassById.get(current) || '';
+      }
+      return false;
+    };
+    const insertValue = db.prepare('INSERT INTO entry_field_values(id, entry_id, field_name, value_json, raw_value, unit, group_name, limit_value, source_entry_id, asset_id, note, source_order, created_at, updated_at, schema_override) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)');
+    let fieldSchemaOverrides = 0;
     for (let i = 0; i < sourceValues.length; i += 1) {
       const row = sourceValues[i];
       const raw = String(row['值'] || '');
@@ -155,8 +177,10 @@ function importStructureHtml({ inputPath, dataDir }) {
         } else value = raw;
       }
       if (row['取自ID'] && !entryIds.has(row['取自ID'])) throw new Error('字段来源实例不存在: ' + row['取自ID']);
+      const schemaOverride = !fieldApplies(entryClassById.get(row['条目ID']), row['字段']);
+      if (schemaOverride) fieldSchemaOverrides += 1;
       insertValue.run(crypto.randomUUID(), row['条目ID'], row['字段'], value === null ? null : JSON.stringify(value), raw === '' ? null : raw,
-        row['单位'] || '', row['分组'] || '', row['上下限'] || '', row['取自ID'] || null, row['说明'] || '', i, timestamp, timestamp);
+        row['单位'] || '', row['分组'] || '', row['上下限'] || '', row['取自ID'] || null, row['说明'] || '', i, timestamp, timestamp, schemaOverride ? 1 : 0);
     }
     const insertRelation = db.prepare('INSERT INTO entry_relations(id, source_entry_id, relation_name, target_entry_id, created_at) VALUES (?, ?, ?, ?, ?)');
     for (const row of sourceRelations) {
@@ -173,6 +197,7 @@ function importStructureHtml({ inputPath, dataDir }) {
     counts.classRelationRules = classRelations.length;
     counts.entries = sourceEntries.length;
     counts.fieldValues = sourceValues.length;
+    counts.fieldSchemaOverrides = fieldSchemaOverrides;
     counts.relations = sourceRelations.length;
     db.prepare('INSERT INTO import_batches(id, source_name, source_sha256, imported_at, counts_json) VALUES (?, ?, ?, ?, ?)')
       .run(batchId, path.basename(inputPath), sourceSha, timestamp, JSON.stringify(counts));

@@ -33,6 +33,16 @@ router.post('/api/compute/:moduleId/:algId', (req, res) => {
             x, y, x_new, method, base } = req.body;
 
     const algorithmKey = moduleId + '/' + algId;
+    const supportedAlgorithms = new Set([
+      'statistical/mean', 'statistical/median', 'statistical/range', 'statistical/variance', 'statistical/std',
+      'normalization/min-max', 'normalization/standard', 'normalization/centralize', 'normalization/regularize',
+      'normalization/interval-map', 'normalization/feature-scale',
+      'extreme-value/max', 'extreme-value/min', 'extreme-value/threshold-filter', 'extreme-value/outlier-remove',
+      'extreme-value/peak-detect', 'extreme-value/valley-detect',
+      'math/weighted-sum', 'math/weighted-average', 'math/log-transform', 'math/exp-transform',
+      'aggregation/aggregate', 'aggregation/feature-extract', 'aggregation/smooth', 'aggregation/interpolate'
+    ]);
+    if (!supportedAlgorithms.has(algorithmKey)) return res.status(404).json({ success: false, error: '算法 ' + algorithmKey + ' 不存在' });
     const numericArray = (value, name, minimumLength = 1) => {
       if (!Array.isArray(value) || value.length < minimumLength || !value.every(item => typeof item === 'number' && Number.isFinite(item))) {
         throw Object.assign(new Error(name + ' 必须是至少 ' + minimumLength + ' 个有限数值组成的数组'), { status: 400 });

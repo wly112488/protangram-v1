@@ -19,11 +19,11 @@ function createRelationService({ db }) {
     const target = entryRow(db, targetEntryId);
     if (!target) fail(404, '终点实例不存在: ' + targetEntryId);
     const relationName = String(input.relationName || '').trim();
-    const check = validateRelation(db, source, relationName, target);
-    if (!check.valid) fail(422, check.error);
     const id = randomUUID();
     db.exec('BEGIN IMMEDIATE');
     try {
+      const check = validateRelation(db, source, relationName, target);
+      if (!check.valid) fail(422, check.error);
       db.prepare('INSERT INTO entry_relations(id, source_entry_id, relation_name, target_entry_id, created_at) VALUES (?, ?, ?, ?, ?)')
         .run(id, sourceEntryId, relationName, targetEntryId, now());
       touchEntry(db, sourceEntryId);

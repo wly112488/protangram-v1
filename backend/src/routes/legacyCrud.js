@@ -1,222 +1,77 @@
 'use strict';
+
 const express = require('express');
-const fs = require('node:fs');
 const path = require('node:path');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('node:crypto');
+const { importJsonDirectoryOnce } = require('../db/legacyImport');
 
-function createLegacyCrudRouter({ projectRoot, dataDir }) {
+function fail(status, message) { throw Object.assign(new Error(message), { status }); }
+function validId(value) {
+  const id = String(value == null ? '' : value).trim();
+  if (!id || id.length > 160 || id === '.' || id === '..' || /[\/\\\u0000-\u001f]/.test(id)) {
+    fail(400, '记录 ID 格式不合法');
+  }
+  return id;
+}
+function createLegacyCrudRouter({ db, dataDir }) {
   const router = express.Router();
-  const PROJECT_ROOT = projectRoot;
-  const DATA_DIR = dataDir;
-  const EXPERIMENTS_DIR = path.join(DATA_DIR, 'experiments');
-  const TEMPLATES_DIR = path.join(DATA_DIR, 'templates');
-  const PROJECTS_DIR = path.join(DATA_DIR, 'projects');
-  const REPORTS_DIR = path.join(DATA_DIR, 'reports');
-  for (const dir of [EXPERIMENTS_DIR, TEMPLATES_DIR, PROJECTS_DIR, REPORTS_DIR]) fs.mkdirSync(dir, { recursive: true });
-  function safeRecordPath(dir, id) {
-    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) {
-      throw Object.assign(new Error('记录 ID 格式不合法'), { status: 400 });
-    }
-    return path.join(dir, id + '.json');
-  }
+  const resources = {
+    experiments: path.join(dataDir, 'experiments'),
+    templates: path.join(dataDir, 'templates'),
+    projects: path.join(dataDir, 'projects'),
+    reports: path.join(dataDir, 'reports')
+  };
+  const timestamp = () => new Date().toISOString();
 
-// ==================== 试验卡片CRUD API ====================
-
-/**
- * GET /api/experiments
- * 获取所有试验卡片
- */
-router.get('/api/experiments', (req, res) => {
-  try {
-    const files = fs.readdirSync(EXPERIMENTS_DIR).filter(f => f.endsWith('.json'));
-    const experiments = files.map(f => {
-      const content = fs.readFileSync(path.join(EXPERIMENTS_DIR, f), 'utf-8');
-      return JSON.parse(content);
+  for (const [resourceType, directory] of Object.entries(resources)) {
+    importJsonDirectoryOnce({
+      db, resourceType, directory,
+      importRecord(payload, filename) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+          throw new Error('旧数据迁移失败，记录必须是 JSON 对象: ' + path.join(directory, filename));
+        }
+        const id = validId(payload.id || path.basename(filename, '.json'));
+        db.prepare('INSERT OR IGNORE INTO legacy_records(resource_type, id, payload_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
+          .run(resourceType, id, JSON.stringify({ ...payload, id }), timestamp(), timestamp());
+      }
     });
-    res.json({ success: true, data: experiments });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
   }
-});
 
-/**
- * POST /api/experiments
- * 新建/更新试验卡片
- */
-router.post('/api/experiments', (req, res) => {
-  try {
-    const experiment = req.body;
-    if (!experiment.id) experiment.id = uuidv4();
-    const filePath = safeRecordPath(EXPERIMENTS_DIR, experiment.id);
-    fs.writeFileSync(filePath, JSON.stringify(experiment, null, 2), 'utf-8');
-    res.json({ success: true, data: experiment });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
+  function list(resourceType) {
+    return db.prepare('SELECT payload_json FROM legacy_records WHERE resource_type = ? ORDER BY updated_at DESC, id')
+      .all(resourceType).map(row => JSON.parse(row.payload_json));
   }
-});
-
-/**
- * DELETE /api/experiments/:id
- * 删除试验卡片
- */
-router.delete('/api/experiments/:id', (req, res) => {
-  try {
-    const filePath = safeRecordPath(EXPERIMENTS_DIR, req.params.id);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
+  function save(resourceType, payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) fail(400, '请求正文必须是 JSON 对象');
+    const id = validId(payload.id || randomUUID());
+    const value = { ...payload, id };
+    const time = timestamp();
+    db.prepare('INSERT INTO legacy_records(resource_type, id, payload_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(resource_type, id) DO UPDATE SET payload_json = excluded.payload_json, updated_at = excluded.updated_at')
+      .run(resourceType, id, JSON.stringify(value), time, time);
+    return value;
   }
-});
-
-// ==================== 数据分析模板CRUD API ====================
-
-/**
- * GET /api/templates
- * 获取所有分析模板
- */
-router.get('/api/templates', (req, res) => {
-  try {
-    const files = fs.readdirSync(TEMPLATES_DIR).filter(f => f.endsWith('.json'));
-    const templates = files.map(f => {
-      const content = fs.readFileSync(path.join(TEMPLATES_DIR, f), 'utf-8');
-      return JSON.parse(content);
-    });
-    res.json({ success: true, data: templates });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
+  function remove(resourceType, id) {
+    db.prepare('DELETE FROM legacy_records WHERE resource_type = ? AND id = ?').run(resourceType, validId(id));
+    return { success: true };
   }
-});
 
-/**
- * POST /api/templates
- * 新建/更新分析模板
- */
-router.post('/api/templates', (req, res) => {
-  try {
-    const template = req.body;
-    if (!template.id) template.id = uuidv4();
-    const filePath = safeRecordPath(TEMPLATES_DIR, template.id);
-    fs.writeFileSync(filePath, JSON.stringify(template, null, 2), 'utf-8');
-    res.json({ success: true, data: template });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-});
+  router.get('/api/experiments', (req, res) => res.json({ success: true, data: list('experiments') }));
+  router.post('/api/experiments', (req, res) => res.json({ success: true, data: save('experiments', req.body) }));
+  router.delete('/api/experiments/:id', (req, res) => res.json(remove('experiments', req.params.id)));
 
-/**
- * DELETE /api/templates/:id
- * 删除分析模板
- */
-router.delete('/api/templates/:id', (req, res) => {
-  try {
-    const filePath = safeRecordPath(TEMPLATES_DIR, req.params.id);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-});
+  router.get('/api/templates', (req, res) => res.json({ success: true, data: list('templates') }));
+  router.post('/api/templates', (req, res) => res.json({ success: true, data: save('templates', req.body) }));
+  router.delete('/api/templates/:id', (req, res) => res.json(remove('templates', req.params.id)));
 
-// ==================== 数据分析项目CRUD API ====================
+  router.get('/api/projects', (req, res) => res.json({ success: true, data: list('projects') }));
+  router.post('/api/projects', (req, res) => res.json({ success: true, data: save('projects', req.body) }));
+  router.delete('/api/projects/:id', (req, res) => res.json(remove('projects', req.params.id)));
 
-/**
- * GET /api/projects
- * 获取所有分析项目
- */
-router.get('/api/projects', (req, res) => {
-  try {
-    const files = fs.readdirSync(PROJECTS_DIR).filter(f => f.endsWith('.json'));
-    const projects = files.map(f => {
-      const content = fs.readFileSync(path.join(PROJECTS_DIR, f), 'utf-8');
-      return JSON.parse(content);
-    });
-    res.json({ success: true, data: projects });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-});
-
-/**
- * POST /api/projects
- * 新建/更新分析项目
- */
-router.post('/api/projects', (req, res) => {
-  try {
-    const project = req.body;
-    if (!project.id) project.id = uuidv4();
-    const filePath = safeRecordPath(PROJECTS_DIR, project.id);
-    fs.writeFileSync(filePath, JSON.stringify(project, null, 2), 'utf-8');
-    res.json({ success: true, data: project });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-});
-
-/**
- * DELETE /api/projects/:id
- * 删除分析项目
- */
-router.delete('/api/projects/:id', (req, res) => {
-  try {
-    const filePath = safeRecordPath(PROJECTS_DIR, req.params.id);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-});
-
-// ==================== 分析报告CRUD API ====================
-
-/**
- * GET /api/reports
- * 获取所有报告
- */
-router.get('/api/reports', (req, res) => {
-  try {
-    const files = fs.readdirSync(REPORTS_DIR).filter(f => f.endsWith('.json'));
-    const reports = files.map(f => {
-      const content = fs.readFileSync(path.join(REPORTS_DIR, f), 'utf-8');
-      return JSON.parse(content);
-    });
-    res.json({ success: true, data: reports });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-});
-
-/**
- * POST /api/reports
- * 新建/更新报告
- */
-router.post('/api/reports', (req, res) => {
-  try {
-    const report = req.body;
-    if (!report.id) report.id = uuidv4();
-    const filePath = safeRecordPath(REPORTS_DIR, report.id);
-    fs.writeFileSync(filePath, JSON.stringify(report, null, 2), 'utf-8');
-    res.json({ success: true, data: report });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-});
-
-/**
- * DELETE /api/reports/:id
- * 删除分析报告
- */
-router.delete('/api/reports/:id', (req, res) => {
-  try {
-    const filePath = safeRecordPath(REPORTS_DIR, req.params.id);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-});
-
+  router.get('/api/reports', (req, res) => res.json({ success: true, data: list('reports') }));
+  router.post('/api/reports', (req, res) => res.json({ success: true, data: save('reports', req.body) }));
+  router.delete('/api/reports/:id', (req, res) => res.json(remove('reports', req.params.id)));
 
   return router;
 }
+
 module.exports = { createLegacyCrudRouter };

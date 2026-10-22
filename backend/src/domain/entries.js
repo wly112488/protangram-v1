@@ -232,7 +232,7 @@ function createEntryService({ db }) {
     return db.prepare('SELECT id, entry_id, revision_no, snapshot_json, created_at FROM entry_revisions WHERE entry_id = ? ORDER BY revision_no').all(entryId)
       .map(row => ({ ...row, snapshot: parseJson(row.snapshot_json, {}) }));
   }
-  return { get, list, create, update, archive, addFieldValue, updateFieldValue, deleteFieldValue, history, snapshot, recordRevision, touchEntry, entryRow, fieldValues, entryRelations };
+  return { get, list, create, update, archive, addFieldValue, updateFieldValue, deleteFieldValue, history, snapshot: entryId => snapshot(db, entryId), recordRevision: entryId => recordRevision(db, entryId), touchEntry: entryId => touchEntry(db, entryId), entryRow: id => entryRow(db, id), fieldValues: entryId => fieldValues(db, entryId), entryRelations: entryId => entryRelations(db, entryId) };
 }
 
 module.exports = { createEntryService, entryRow, fieldValues, entryRelations, snapshot, recordRevision, touchEntry };

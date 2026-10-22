@@ -1,0 +1,38 @@
+name: Backend Domain API
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "docs/backend-data-model-and-flow.md"
+      - ".github/workflows/backend-domain.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "docs/backend-data-model-and-flow.md"
+      - ".github/workflows/backend-domain.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Check backend syntax
+        run: |
+          node --check src/index.js
+          node --check src/domainApi.js
+          node --check tests/domain-api.test.js
+      - name: Run domain API tests
+        run: npm test

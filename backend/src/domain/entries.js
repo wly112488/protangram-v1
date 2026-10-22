@@ -101,7 +101,13 @@ function createEntryService({ db }) {
     if (patch.parentEntryId !== undefined) {
       const parentId = patch.parentEntryId || null;
       if (parentId === id) fail(400, '实例不能以自身为上级');
-      if (parentId && !entryRow(db, parentId)) fail(404, '上级实例不存在: ' + parentId);
+      let ancestorId = parentId;
+      while (ancestorId) {
+        if (ancestorId === id) fail(409, '调整上级关系会形成循环');
+        const ancestor = entryRow(db, ancestorId);
+        if (!ancestor) fail(404, '上级实例不存在: ' + ancestorId);
+        ancestorId = ancestor.parent_entry_id;
+      }
       allowed.parent_entry_id = parentId;
     }
     if (patch.secondaryPart !== undefined) allowed.secondary_part = patch.secondaryPart ? 1 : 0;
@@ -145,6 +151,7 @@ function createEntryService({ db }) {
     if (schemaOverride && input.allowSchemaOverride !== true) fail(422, '字段未列入当前类字段清单；确认需要保留该扩展字段时设置 allowSchemaOverride=true');
     const assetId = input.assetId || null;
     if (assetId && !db.prepare('SELECT id FROM assets WHERE id = ?').get(assetId)) fail(404, '数据资产不存在: ' + assetId);
+    if (assetId && !['文件', '表格'].includes(field.value_type)) fail(422, '只有文件/表格字段可以引用数据资产: ' + fieldName);
     const value = input.value === undefined ? null : input.value;
     if (value !== null) {
       if (field.value_type === '数值' && !(typeof value === 'number' && Number.isFinite(value))) fail(422, '数值字段必须使用有限数值: ' + fieldName);
@@ -202,8 +209,9 @@ function createEntryService({ db }) {
     if (['文件', '表格'].includes(field.value_type) && next.asset_id == null && typeof nextValue !== 'string') fail(422, '文件/表格字段需要数据资产 ID 或来源路径: ' + value.field_name);
     db.exec('BEGIN IMMEDIATE');
     try {
-      db.prepare('UPDATE entry_field_values SET value_json=?, raw_value=?, unit=?, group_name=?, limit_value=?, source_entry_id=?, asset_id=?, note=?, source_order=?, updated_at=? WHERE id=? AND entry_id=?')
-        .run(next.value_json, next.raw_value, next.unit, next.group_name, next.limit_value, next.source_entry_id, next.asset_id, next.note, next.source_order, now(), valueId, entryId);
+      if (next.asset_id && !['文件', '表格'].includes(field.value_type)) fail(422, '只有文件/表格字段可以引用数据资产: ' + value.field_name);
+      db.prepare('UPDATE entry_field_values SET value_json=?, raw_value=?, unit=?, group_name=?, limit_value=?, source_entry_id=?, asset_id=?, note=?, source_order=?, updated_at=?, schema_override=? WHERE id=? AND entry_id=?')
+        .run(next.value_json, next.raw_value, next.unit, next.group_name, next.limit_value, next.source_entry_id, next.asset_id, next.note, next.source_order, now(), next.schema_override ? 1 : 0, valueId, entryId);
       touchEntry(db, entryId);
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }

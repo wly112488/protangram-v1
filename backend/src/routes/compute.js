@@ -71,6 +71,10 @@ router.post('/api/compute/:moduleId/:algId', (req, res) => {
     }
     if (['math/log-transform', 'math/exp-transform'].includes(algorithmKey) && base !== undefined && (typeof base !== 'number' || !Number.isFinite(base) || base <= 0 || (algorithmKey === 'math/log-transform' && base === 1))) throw Object.assign(new Error('base 取值不合法'), { status: 400 });
     if (algorithmKey === 'math/log-transform' && data.some(value => value <= 0)) throw Object.assign(new Error('对数变换要求 data 中所有值均大于 0'), { status: 400 });
+    if (algorithmKey === 'math/weighted-average' && weights.reduce((sum, weight) => sum + weight, 0) === 0) throw Object.assign(new Error('加权平均的权重总和不能为 0'), { status: 400 });
+    if (algorithmKey === 'extreme-value/threshold-filter' && condition !== undefined && !['>', '<', '>=', '<=', '==', '!='].includes(condition)) throw Object.assign(new Error('condition 运算符不合法'), { status: 400 });
+    if (algorithmKey === 'extreme-value/outlier-remove' && iqr_factor !== undefined && (typeof iqr_factor !== 'number' || !Number.isFinite(iqr_factor) || iqr_factor <= 0)) throw Object.assign(new Error('iqr_factor 必须是正的有限数值'), { status: 400 });
+    if (algorithmKey === 'aggregation/feature-extract' && features !== undefined && (!Array.isArray(features) || !features.every(feature => ['mean', 'std', 'max', 'min'].includes(feature)))) throw Object.assign(new Error('features 仅支持 mean、std、max、min 数组'), { status: 400 });
 
     let result;
 
@@ -256,6 +260,12 @@ router.post('/api/compute/:moduleId/:algId', (req, res) => {
         return res.status(404).json({ success: false, error: `算法 ${moduleId}/${algId} 不存在` });
     }
 
+    const assertFiniteOutput = (value, location = 'result') => {
+      if (typeof value === 'number' && !Number.isFinite(value)) throw Object.assign(new Error(location + ' 包含非有限数值'), { status: 422 });
+      if (Array.isArray(value)) value.forEach((item, index) => assertFiniteOutput(item, location + '[' + index + ']'));
+      else if (value && typeof value === 'object') Object.entries(value).forEach(([key, item]) => assertFiniteOutput(item, location + '.' + key));
+    };
+    assertFiniteOutput(result);
     const processId = uuidv4();
     db.prepare('INSERT INTO processing_runs(id, module, algorithm, input_json, output_json, created_at) VALUES (?, ?, ?, ?, ?, ?)')
       .run(processId, moduleId, algId, JSON.stringify(req.body || {}), JSON.stringify(result), new Date().toISOString());

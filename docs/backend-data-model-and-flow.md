@@ -8,7 +8,7 @@ HTML 的模型是“元数据定义 + 实例数据”，不是每个业务类一
 
 ## 数据模型
 
-\`\`\`mermaid
+```mermaid
 flowchart TD
   subgraph META[元数据定义]
     C[类与类继承]
@@ -53,7 +53,7 @@ flowchart TD
   E --> RS
   A --> RS
   RUN --> AR
-\`\`\`
+```
 
 | 表 / 数据集 | 保存内容 | 约束与用途 |
 |---|---|---|

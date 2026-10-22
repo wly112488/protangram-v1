@@ -211,6 +211,13 @@ function createDomainApi({ dataDir }) {
       return ok(res, row, 201);
     } catch (e) { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); throw e; }
   }));
+  router.get('/data-assets/:id/content', (req, res) => {
+    const asset = need('data_assets', req.params.id, '数据资产');
+    if (!asset.storage_uri || !asset.storage_uri.startsWith('domain-files/')) throw err(404, '该数据资产没有本地上传文件');
+    const target = path.resolve(dataDir, asset.storage_uri);
+    if (!target.startsWith(path.resolve(filesDir) + path.sep) || !fs.existsSync(target)) throw err(404, '数据文件不存在');
+    return res.download(target, asset.name);
+  });
   router.get('/data-assets/:id', (req, res) => { const a = need('data_assets', req.params.id, '数据资产'); a.links = all('SELECT * FROM asset_links WHERE asset_id = ?', [a.id]); a.relations = all('SELECT * FROM asset_relations WHERE source_asset_id = ? OR target_asset_id = ?', [a.id, a.id]); return ok(res, a); });
   router.post('/data-assets/:id/links', wrap((req, res) => { const b = req.body || {}; need('data_assets', req.params.id, '数据资产'); needEntity(required(b.ownerType, 'ownerType'), required(b.ownerId, 'ownerId')); return ok(res, tx(() => linkAsset(req.params.id, b.ownerType, b.ownerId, b.role, b.metadata)), 201); }));
   router.post('/data-assets/:id/relations', wrap((req, res) => { const b = req.body || {}; need('data_assets', req.params.id, '数据资产'); need('data_assets', required(b.targetAssetId, 'targetAssetId'), '目标数据资产'); if (b.targetAssetId === req.params.id) throw err(400, '数据资产不能关联自身'); return ok(res, make('asset_relations', { source_asset_id: req.params.id, target_asset_id: b.targetAssetId, relation_type: required(b.relationType, 'relationType'), metadata_json: json(b.metadata, {}) }), 201); }));

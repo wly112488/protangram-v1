@@ -86,8 +86,10 @@ function validateEntry(db, entryId) {
   for (const value of fields) {
     if (!fieldForClass(db, entry.class_id, value.field_name)) {
       if (value.schema_override) warnings.push('字段未列入当前类的字段清单，已按来源数据保留: ' + value.field_name);
-      else errors.push('字段不适用于当前类: ' + value.field_name);
-      continue;
+      else {
+        errors.push('字段不适用于当前类: ' + value.field_name);
+        continue;
+      }
     }
     if (value.value_json == null) continue;
     const parsed = parseJson(value.value_json);

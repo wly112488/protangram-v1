@@ -138,8 +138,11 @@ function createEntryService({ db }) {
     const entry = entryRow(db, entryId);
     if (!entry) fail(404, '实例不存在: ' + entryId);
     const fieldName = String(input.fieldName || '').trim();
-    const field = fieldForClass(db, entry.class_id, fieldName);
-    if (!field) fail(422, '字段不适用于当前类: ' + fieldName);
+    const declaredField = fieldForClass(db, entry.class_id, fieldName);
+    const field = declaredField || db.prepare('SELECT * FROM field_dictionary WHERE name = ?').get(fieldName);
+    if (!field) fail(404, '字段字典中不存在: ' + fieldName);
+    const schemaOverride = !declaredField;
+    if (schemaOverride && input.allowSchemaOverride !== true) fail(422, '字段未列入当前类字段清单；确认需要保留该扩展字段时设置 allowSchemaOverride=true');
     const assetId = input.assetId || null;
     if (assetId && !db.prepare('SELECT id FROM assets WHERE id = ?').get(assetId)) fail(404, '数据资产不存在: ' + assetId);
     const value = input.value === undefined ? null : input.value;
@@ -153,12 +156,12 @@ function createEntryService({ db }) {
     const id = randomUUID(), timestamp = now();
     db.exec('BEGIN IMMEDIATE');
     try {
-      db.prepare('INSERT INTO entry_field_values(id, entry_id, field_name, value_json, raw_value, unit, group_name, limit_value, source_entry_id, asset_id, note, source_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      db.prepare('INSERT INTO entry_field_values(id, entry_id, field_name, value_json, raw_value, unit, group_name, limit_value, source_entry_id, asset_id, note, source_order, created_at, updated_at, schema_override) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
         .run(id, entryId, fieldName, value === null ? null : JSON.stringify(value),
           input.rawValue == null ? (value === null ? null : String(value)) : String(input.rawValue),
           input.unit == null ? '' : String(input.unit), input.groupName == null ? '' : String(input.groupName),
           input.limitValue == null ? '' : String(input.limitValue), input.sourceEntryId || null, assetId,
-          input.note == null ? '' : String(input.note), Number.isInteger(input.order) ? input.order : 0, timestamp, timestamp);
+          input.note == null ? '' : String(input.note), Number.isInteger(input.order) ? input.order : 0, timestamp, timestamp, schemaOverride ? 1 : 0);
       touchEntry(db, entryId);
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }
@@ -168,8 +171,12 @@ function createEntryService({ db }) {
     const value = db.prepare('SELECT * FROM entry_field_values WHERE id = ? AND entry_id = ?').get(valueId, entryId);
     if (!value) fail(404, '字段值不存在');
     const entry = entryRow(db, entryId);
-    const field = fieldForClass(db, entry.class_id, value.field_name);
+    const declaredField = fieldForClass(db, entry.class_id, value.field_name);
+    const field = declaredField || db.prepare('SELECT * FROM field_dictionary WHERE name = ?').get(value.field_name);
+    if (!field) fail(404, '字段字典中不存在: ' + value.field_name);
+    if (!declaredField && !value.schema_override && patch.allowSchemaOverride !== true) fail(422, '字段未列入当前类字段清单；确认需要保留该扩展字段时设置 allowSchemaOverride=true');
     const next = { ...value };
+    if (patch.allowSchemaOverride === true) next.schema_override = 1;
     if (patch.value !== undefined) {
       if (patch.value === null) next.value_json = null;
       else {
@@ -180,9 +187,19 @@ function createEntryService({ db }) {
       }
     }
     const mapping = { unit: 'unit', groupName: 'group_name', limitValue: 'limit_value', sourceEntryId: 'source_entry_id', assetId: 'asset_id', note: 'note', order: 'source_order', rawValue: 'raw_value' };
-    for (const [inputKey, column] of Object.entries(mapping)) if (patch[inputKey] !== undefined) next[column] = patch[inputKey] == null ? null : (column === 'source_order' ? Number(patch[inputKey]) : String(patch[inputKey]));
+    for (const [inputKey, column] of Object.entries(mapping)) {
+      if (patch[inputKey] === undefined) continue;
+      if (column === 'source_order') {
+        const order = Number(patch[inputKey]);
+        if (!Number.isInteger(order)) fail(400, 'order 必须是整数');
+        next[column] = order;
+      } else if (['unit', 'group_name', 'limit_value', 'note'].includes(column)) next[column] = patch[inputKey] == null ? '' : String(patch[inputKey]);
+      else next[column] = patch[inputKey] == null || patch[inputKey] === '' ? null : String(patch[inputKey]);
+    }
     if (next.source_entry_id && !entryRow(db, next.source_entry_id)) fail(404, '字段来源实例不存在: ' + next.source_entry_id);
     if (next.asset_id && !db.prepare('SELECT id FROM assets WHERE id = ?').get(next.asset_id)) fail(404, '数据资产不存在: ' + next.asset_id);
+    const nextValue = parseJson(next.value_json);
+    if (['文件', '表格'].includes(field.value_type) && next.asset_id == null && typeof nextValue !== 'string') fail(422, '文件/表格字段需要数据资产 ID 或来源路径: ' + value.field_name);
     db.exec('BEGIN IMMEDIATE');
     try {
       db.prepare('UPDATE entry_field_values SET value_json=?, raw_value=?, unit=?, group_name=?, limit_value=?, source_entry_id=?, asset_id=?, note=?, source_order=?, updated_at=? WHERE id=? AND entry_id=?')

@@ -193,7 +193,7 @@ test('uploads and previews source files, registers model runs, and protects file
   assert.equal(blockedId.status, 400);
 
   const form = new FormData();
-  form.append('file', new Blob(['time,rpm\\n0,100\\n1,200\\n'], { type: 'text/csv' }), 'rpm.csv');
+  form.append('file', new Blob(['time,rpm\n0,100\n1,200\n'], { type: 'text/csv' }), 'rpm.csv');
   form.append('formatEntryId', 'FMT-001');
   form.append('ownerEntryId', 'REC-001');
   form.append('fieldName', '原始数据表');

@@ -235,3 +235,46 @@ test('uploads and previews source files, registers model runs, and protects file
   assert.equal(persisted.status, 200);
   assert.equal(persisted.payload.data.sha256, uploaded.payload.data.sha256);
 });
+
+
+test('migrates legacy JSON records once and persists computation history in SQLite', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'protangram-legacy-'));
+  const dataDir = path.join(root, 'data');
+  fs.mkdirSync(path.join(dataDir, 'experiments'), { recursive: true });
+  fs.mkdirSync(path.join(dataDir, 'process_data'), { recursive: true });
+  fs.writeFileSync(path.join(dataDir, 'experiments', 'legacy-1.json'), JSON.stringify({ id: 'legacy-1', name: '旧试验卡片' }), 'utf8');
+  fs.writeFileSync(path.join(dataDir, 'process_data', 'run-old.json'), JSON.stringify({
+    id: 'run-old', module: 'statistical', algorithm: 'mean', input: { data: [1, 2] }, output: { mean_value: 1.5 }, timestamp: '2026-01-01T00:00:00.000Z'
+  }), 'utf8');
+  let api = await startApp(dataDir, root);
+  t.after(async () => {
+    if (api) await api.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  const initial = await api.request('GET', '/api/experiments');
+  assert.equal(initial.status, 200);
+  assert.equal(initial.payload.data.length, 1);
+  assert.equal(initial.payload.data[0].name, '旧试验卡片');
+  assert.equal(api.dbHandle.db.prepare('SELECT COUNT(*) AS n FROM processing_runs WHERE id = ?').get('run-old').n, 1);
+
+  const computed = await api.request('POST', '/api/compute/statistical/mean', { data: [1, 2, 3] });
+  assert.equal(computed.status, 200, JSON.stringify(computed.payload));
+  assert.equal(computed.payload.data.mean_value, 2);
+  assert.equal(api.dbHandle.db.prepare('SELECT COUNT(*) AS n FROM processing_runs WHERE id = ?').get(computed.payload.processId).n, 1);
+
+  const invalid = await api.request('POST', '/api/compute/statistical/mean', { data: ['bad'] });
+  assert.equal(invalid.status, 400);
+  const unknown = await api.request('POST', '/api/compute/no-such-module/no-such-algorithm', {});
+  assert.equal(unknown.status, 404);
+
+  const updated = await api.request('POST', '/api/experiments', { id: 'legacy-1', name: '更新后的试验卡片' });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.payload.data.name, '更新后的试验卡片');
+  await api.request('DELETE', '/api/experiments/legacy-1');
+  await api.close();
+  api = await startApp(dataDir, root);
+  const afterRestart = await api.request('GET', '/api/experiments');
+  assert.equal(afterRestart.status, 200);
+  assert.deepEqual(afterRestart.payload.data, []);
+});

@@ -2,7 +2,7 @@
 
 const { randomUUID } = require('node:crypto');
 const { now, parseJson, isSubclass } = require('./schema');
-const { entryRow } = require('./entries');
+const { entryRow, snapshot: entrySnapshot } = require('./entries');
 
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
 function objectValue(value, name) {
@@ -40,29 +40,91 @@ function createModelRunService({ db }) {
     const revision = db.prepare('SELECT * FROM model_revisions WHERE id = ?').get(input.modelRevisionId);
     if (!revision) fail(404, '模型版本不存在: ' + input.modelRevisionId);
     if (revision.status !== 'registered') fail(409, '只有已注册的模型版本可以用于运行');
+    const modelEntry = entryRow(db, revision.model_entry_id);
+    if (!modelEntry) fail(404, '模型定义实例不存在: ' + revision.model_entry_id);
     const basedOn = db.prepare("SELECT 1 FROM entry_relations WHERE source_entry_id = ? AND relation_name = '基于' AND target_entry_id = ?").get(objectModelEntryId, revision.model_entry_id);
     if (!basedOn) fail(422, '对象模型的“基于”关系与指定模型版本不一致');
-    const entrySources = Array.isArray(input.entrySources) ? input.entrySources : [];
-    const assetSources = Array.isArray(input.assetSources) ? input.assetSources : [];
-    for (const source of entrySources) {
+    if (input.entrySources != null && !Array.isArray(input.entrySources)) fail(400, 'entrySources 必须是数组');
+    if (input.assetSources != null && !Array.isArray(input.assetSources)) fail(400, 'assetSources 必须是数组');
+
+    const entrySourceMap = new Map();
+    const addEntrySource = (entryId, role) => entrySourceMap.set(entryId + '|' + role, { entryId, role });
+    const declaredModelRelations = db.prepare("SELECT relation_name, target_entry_id FROM entry_relations WHERE source_entry_id = ? AND relation_name IN ('仿真对象', '标定数据')").all(objectModelEntryId);
+    for (const relation of declaredModelRelations) {
+      addEntrySource(relation.target_entry_id, relation.relation_name === '仿真对象' ? 'target_object' : 'calibration_record');
+    }
+    for (const source of input.entrySources || []) {
       const entry = entryRow(db, source.entryId);
       if (!entry) fail(404, '模型输入实例不存在: ' + source.entryId);
-      if (source.role === 'target_object' && !isSubclass(db, entry.class_id, 'OBJ')) fail(422, 'target_object 来源必须是 OBJ 的具体子类');
-      if (source.role === 'target_object') {
+      const role = String(source.role || 'input');
+      if (role === 'target_object') {
+        if (!isSubclass(db, entry.class_id, 'OBJ')) fail(422, 'target_object 来源必须是 OBJ 的具体子类');
         const targetRelation = db.prepare("SELECT 1 FROM entry_relations WHERE source_entry_id = ? AND relation_name = '仿真对象' AND target_entry_id = ?").get(objectModelEntryId, source.entryId);
         if (!targetRelation) fail(422, '运行目标对象不在对象模型的“仿真对象”范围内: ' + source.entryId);
       }
+      addEntrySource(source.entryId, role);
     }
-    for (const source of assetSources) if (!db.prepare('SELECT id FROM assets WHERE id = ?').get(source.assetId)) fail(404, '模型输入数据资产不存在: ' + source.assetId);
+    const assetSourceMap = new Map();
+    const addAssetSource = (assetId, role) => assetSourceMap.set(assetId + '|' + role, { assetId, role });
+    for (const source of input.assetSources || []) {
+      const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(source.assetId);
+      if (!asset) fail(404, '模型输入数据资产不存在: ' + source.assetId);
+      addAssetSource(source.assetId, String(source.role || 'input'));
+    }
+    for (const source of entrySourceMap.values()) {
+      if (source.role !== 'calibration_record') continue;
+      const linkedAssets = db.prepare('SELECT asset_id FROM entry_field_values WHERE entry_id = ? AND asset_id IS NOT NULL').all(source.entryId);
+      for (const asset of linkedAssets) addAssetSource(asset.asset_id, 'calibration_data');
+    }
+
+    const objectModelSnapshot = entrySnapshot(db, objectModelEntryId);
+    const modelSnapshot = entrySnapshot(db, revision.model_entry_id);
+    const revisionSnapshot = {
+      id: revision.id,
+      modelEntryId: revision.model_entry_id,
+      version: revision.version,
+      methodAssetId: revision.method_asset_id,
+      inputSchema: parseJson(revision.input_schema_json, {}),
+      outputSchema: parseJson(revision.output_schema_json, {}),
+      scope: parseJson(revision.scope_json, {}),
+      validation: parseJson(revision.validation_json, {})
+    };
+    const sourceEntrySnapshots = Array.from(entrySourceMap.values()).map(source => {
+      const entry = entryRow(db, source.entryId);
+      return { entryId: source.entryId, role: source.role, revisionNo: entry.revision };
+    });
+    const sourceAssetSnapshots = Array.from(assetSourceMap.values()).map(source => {
+      const asset = db.prepare('SELECT id, original_name, media_type, size_bytes, sha256, format_entry_id FROM assets WHERE id = ?').get(source.assetId);
+      return { ...source, originalName: asset.original_name, mediaType: asset.media_type, sizeBytes: asset.size_bytes, sha256: asset.sha256, formatEntryId: asset.format_entry_id };
+    });
+    const inputSnapshot = {
+      provided: objectValue(input.inputSnapshot, 'inputSnapshot'),
+      modelRevision: revisionSnapshot,
+      modelEntryRevisionNo: modelEntry.revision,
+      objectModelRevisionNo: objectModel.revision,
+      objectModel: objectModelSnapshot,
+      sourceEntries: sourceEntrySnapshots,
+      sourceAssets: sourceAssetSnapshots
+    };
+    const parameterSnapshot = {
+      provided: objectValue(input.parameters, 'parameters'),
+      objectModelFields: objectModelSnapshot.fields.filter(field => ['参数', '模型参数'].includes(field.group_name))
+    };
     const id = input.id || randomUUID();
     db.exec('BEGIN IMMEDIATE');
     try {
-      db.prepare('INSERT INTO model_runs(id, object_model_entry_id, model_revision_id, status, input_snapshot_json, parameter_snapshot_json, output_snapshot_json, error, started_at, completed_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?)')
-        .run(id, objectModelEntryId, revision.id, 'created',
-          JSON.stringify(objectValue(input.inputSnapshot, 'inputSnapshot')),
-          JSON.stringify(objectValue(input.parameters, 'parameters')), '{}', now());
-      for (const source of entrySources) db.prepare('INSERT INTO model_run_entry_sources(model_run_id, entry_id, role) VALUES (?, ?, ?)').run(id, source.entryId, source.role || 'input');
-      for (const source of assetSources) db.prepare('INSERT INTO model_run_asset_sources(model_run_id, asset_id, role) VALUES (?, ?, ?)').run(id, source.assetId, source.role || 'input');
+      db.prepare('INSERT INTO model_runs(id, object_model_entry_id, model_revision_id, status, input_snapshot_json, parameter_snapshot_json, output_snapshot_json, error, started_at, completed_at, created_at, object_model_revision_no, model_entry_revision_no) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)')
+        .run(id, objectModelEntryId, revision.id, 'created', JSON.stringify(inputSnapshot), JSON.stringify(parameterSnapshot), '{}', now(), objectModel.revision, modelEntry.revision);
+      for (const source of entrySourceMap.values()) {
+        const entry = entryRow(db, source.entryId);
+        db.prepare('INSERT INTO model_run_entry_sources(model_run_id, entry_id, role, source_revision_no) VALUES (?, ?, ?, ?)')
+          .run(id, source.entryId, source.role, entry.revision);
+      }
+      for (const source of assetSourceMap.values()) {
+        const asset = db.prepare('SELECT sha256 FROM assets WHERE id = ?').get(source.assetId);
+        db.prepare('INSERT INTO model_run_asset_sources(model_run_id, asset_id, role, source_sha256) VALUES (?, ?, ?, ?)')
+          .run(id, source.assetId, source.role, asset.sha256);
+      }
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }
     return get(id);
@@ -88,8 +150,10 @@ function createModelRunService({ db }) {
   }
   function attachArtifact(runId, input) {
     if (!db.prepare('SELECT id FROM model_runs WHERE id = ?').get(runId)) fail(404, '模型运行不存在: ' + runId);
-    if (!db.prepare('SELECT id FROM artifacts WHERE id = ?').get(input.artifactId)) fail(404, '分析成果不存在: ' + input.artifactId);
-    db.prepare('INSERT INTO model_run_artifacts(model_run_id, artifact_id, role) VALUES (?, ?, ?)').run(runId, input.artifactId, input.role || 'output');
+    const artifact = db.prepare('SELECT id, revision_no FROM artifacts WHERE id = ?').get(input.artifactId);
+    if (!artifact) fail(404, '分析成果不存在: ' + input.artifactId);
+    db.prepare('INSERT INTO model_run_artifacts(model_run_id, artifact_id, role, artifact_revision_no) VALUES (?, ?, ?, ?)')
+      .run(runId, input.artifactId, input.role || 'output', artifact.revision_no);
     return get(runId);
   }
   return { get, list, create, update, attachArtifact };

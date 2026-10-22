@@ -97,3 +97,20 @@ flowchart TD
 2. HTML 的关系定义没有完整表达 REC 与 SET 的必需性。本基础模型允许 REC 暂不关联 SET，后续可按正式试验流程设置验收规则。
 3. CFG-07 中试验台等设备究竟属于固定构型成员，还是每次执行的实际设备，应按实际业务确定。
 4. 当前没有足够依据规定所有关系类型的全局枚举；基础 API 保留关系类型字符串，但应在业务规则成熟后补充可配置的端点类型与数量约束。
+
+
+## 基础 API 入口
+
+所有新接口统一挂载在 `/api/domain` 下。核心分组如下：
+
+| 路径 | 用途 |
+|---|---|
+| `/object-types`、`/designs`、`/designs/:id/versions` | 对象类型、设计定义和版本 |
+| `/objects`、`/objects/:id/relations` | 实物实例和显式对象关系 |
+| `/trial-configurations`、`/trial-configurations/:id/members` | 试验构型及成员角色 |
+| `/trials`、`/trials/:id/settings`、`/execution-records` | 具体试验、设置和执行记录 |
+| `/data-formats`、`/data-assets` | 采集格式、数据资产元数据、上传和来源关系 |
+| `/models`、`/models/:id/versions`、`/object-models` | 通用模型版本与对象适配 |
+| `/model-runs` | 模型运行的输入、输出、状态和数据引用 |
+
+创建接口使用 POST；基础列表/详情接口使用 GET；已实现的对象属性更新使用 PATCH。上传文件使用 `POST /data-assets/upload`（multipart 字段 `file`），本地上传文件可通过 `GET /data-assets/:id/content` 下载。该 API 当前是后端基础能力，尚未接入现有前端。

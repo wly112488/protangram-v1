@@ -165,6 +165,13 @@ function createDomainApi({ dataDir }) {
     if (!['subject_candidate','power_source','companion','equipment','other'].includes(role)) throw err(400, '不支持的构型成员角色'); if (!['candidate','required','optional'].includes(mode)) throw err(400, 'selectionMode 不合法');
     return ok(res, make('configuration_members', { configuration_id: req.params.id, entity_type: type, entity_id: b.entityId, role, selection_mode: mode, ordinal: Number.isInteger(b.ordinal) ? b.ordinal : 0, metadata_json: json(b.metadata, {}) }), 201);
   }));
+  router.delete('/trial-configurations/:id/members/:memberId', wrap((req, res) => {
+    need('trial_configurations', req.params.id, '试验构型');
+    const member = one('SELECT * FROM configuration_members WHERE id = ? AND configuration_id = ?', [req.params.memberId, req.params.id]);
+    if (!member) throw err(404, '构型成员不存在');
+    tx(() => db.run('DELETE FROM configuration_members WHERE id = ?', [member.id]));
+    return ok(res, { deleted: true, id: member.id });
+  }));
   router.get('/programs', (req, res) => ok(res, all('SELECT * FROM programs ORDER BY name')));
   router.post('/programs', wrap((req, res) => { const b = req.body || {}; return ok(res, make('programs', { code: required(b.code, 'code'), name: required(b.name, 'name'), version: optional(b.version), content_uri: optional(b.contentUri), metadata_json: json(b.metadata, {}), status: optional(b.status) || 'active' }), 201); }));
   router.get('/trials', (req, res) => ok(res, all('SELECT * FROM trials ORDER BY updated_at DESC')));

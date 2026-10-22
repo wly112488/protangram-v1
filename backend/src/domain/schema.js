@@ -64,6 +64,7 @@ function allowedRelation(db, sourceClassId, relationName, targetClassId) {
   return null;
 }
 function validateRelation(db, sourceEntry, relationName, targetEntry, { ignoreRelationId = null } = {}) {
+  if (sourceEntry.id === targetEntry.id) return { valid: false, error: '实例不能与自身建立关联' };
   const type = db.prepare('SELECT name FROM relationship_types WHERE name = ?').get(relationName);
   if (!type) return { valid: false, error: '关系类型未注册: ' + relationName };
   const rule = allowedRelation(db, sourceEntry.class_id, relationName, targetEntry.class_id);

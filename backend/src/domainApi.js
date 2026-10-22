@@ -229,6 +229,20 @@ function createDomainApi({ dataDir }) {
   router.post('/data-assets/:id/links', wrap((req, res) => { const b = req.body || {}; need('data_assets', req.params.id, '数据资产'); needEntity(required(b.ownerType, 'ownerType'), required(b.ownerId, 'ownerId')); return ok(res, tx(() => linkAsset(req.params.id, b.ownerType, b.ownerId, b.role, b.metadata)), 201); }));
   router.post('/data-assets/:id/relations', wrap((req, res) => { const b = req.body || {}; need('data_assets', req.params.id, '数据资产'); need('data_assets', required(b.targetAssetId, 'targetAssetId'), '目标数据资产'); if (b.targetAssetId === req.params.id) throw err(400, '数据资产不能关联自身'); return ok(res, make('asset_relations', { source_asset_id: req.params.id, target_asset_id: b.targetAssetId, relation_type: required(b.relationType, 'relationType'), metadata_json: json(b.metadata, {}) }), 201); }));
 
+  router.delete('/data-assets/:id/links/:linkId', wrap((req, res) => {
+    need('data_assets', req.params.id, '数据资产');
+    const link = one('SELECT * FROM asset_links WHERE id = ? AND asset_id = ?', [req.params.linkId, req.params.id]);
+    if (!link) throw err(404, '数据资产关联不存在');
+    tx(() => db.run('DELETE FROM asset_links WHERE id = ?', [link.id]));
+    return ok(res, { deleted: true, id: link.id });
+  }));
+  router.delete('/data-assets/:id/relations/:relationId', wrap((req, res) => {
+    need('data_assets', req.params.id, '数据资产');
+    const relation = one('SELECT * FROM asset_relations WHERE id = ? AND (source_asset_id = ? OR target_asset_id = ?)', [req.params.relationId, req.params.id, req.params.id]);
+    if (!relation) throw err(404, '数据资产关系不存在');
+    tx(() => db.run('DELETE FROM asset_relations WHERE id = ?', [relation.id]));
+    return ok(res, { deleted: true, id: relation.id });
+  }));
   router.get('/models', (req, res) => ok(res, all('SELECT * FROM models ORDER BY name')));
   router.post('/models', wrap((req, res) => { const b = req.body || {}; return ok(res, make('models', { code: required(b.code, 'code'), name: required(b.name, 'name'), model_type: required(b.modelType, 'modelType'), description: optional(b.description) }), 201); }));
   router.get('/models/:id/versions', (req, res) => { need('models', req.params.id, '通用模型'); return ok(res, all('SELECT * FROM model_versions WHERE model_id = ? ORDER BY created_at DESC', [req.params.id])); });

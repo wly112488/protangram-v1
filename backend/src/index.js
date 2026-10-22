@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { createDomainApi } = require('./domainApi');
 
 const app = express();
 const PORT = process.env.PORT || 9016;
@@ -43,6 +44,10 @@ if (!fs.existsSync(REPORTS_DIR)) fs.mkdirSync(REPORTS_DIR, { recursive: true });
 
 const PROCESS_DATA_DIR = path.join(DATA_DIR, 'process_data');
 if (!fs.existsSync(PROCESS_DATA_DIR)) fs.mkdirSync(PROCESS_DATA_DIR, { recursive: true });
+
+// Persistent domain data API (separate from legacy JSON CRUD).
+const domainApi = createDomainApi({ dataDir: DATA_DIR });
+app.use('/api/domain', domainApi.router);
 
 // ==================== CSV文件读取API ====================
 
@@ -597,8 +602,14 @@ app.post('/api/ai/generate', (req, res) => {
 });
 
 // 启动服务器
-app.listen(PORT, () => {
-  console.log(`ProTangram 后端服务已启动: http://localhost:${PORT}`);
-  console.log(`项目根目录: ${PROJECT_ROOT}`);
-  console.log(`数据存储目录: ${DATA_DIR}`);
+domainApi.initialize().then(() => {
+  app.listen(PORT, () => {
+    console.log(`ProTangram 后端服务已启动: http://localhost:${PORT}`);
+    console.log(`项目根目录: ${PROJECT_ROOT}`);
+    console.log(`数据存储目录: ${DATA_DIR}`);
+    console.log(`领域数据数据库: ${domainApi.dbPath}`);
+  });
+}).catch(error => {
+  console.error('领域数据数据库初始化失败:', error);
+  process.exit(1);
 });

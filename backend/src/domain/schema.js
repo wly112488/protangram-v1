@@ -69,12 +69,9 @@ function validateRelation(db, sourceEntry, relationName, targetEntry, { ignoreRe
   const rule = allowedRelation(db, sourceEntry.class_id, relationName, targetEntry.class_id);
   if (!rule) return { valid: false, error: '该类组合不允许此关系: ' + sourceEntry.class_id + ' —' + relationName + '→ ' + targetEntry.class_id };
   if (rule.max_count != null) {
-    let count;
-    if (relationName === '组成') {
-      count = db.prepare('SELECT COUNT(*) AS n FROM entry_relations r JOIN entries target ON target.id = r.target_entry_id WHERE r.source_entry_id = ? AND r.relation_name = ? AND target.class_id = ? AND (? IS NULL OR r.id <> ?)').get(sourceEntry.id, relationName, rule.child_class_id, ignoreRelationId, ignoreRelationId).n;
-    } else {
-      count = db.prepare('SELECT COUNT(*) AS n FROM entry_relations r WHERE r.source_entry_id = ? AND r.relation_name = ? AND (? IS NULL OR r.id <> ?)').get(sourceEntry.id, relationName, ignoreRelationId, ignoreRelationId).n;
-    }
+    const targetClassId = relationName === '组成' ? rule.child_class_id : rule.target_class_id;
+    const count = db.prepare("SELECT COUNT(*) AS n FROM entry_relations r JOIN entries target ON target.id = r.target_entry_id WHERE r.source_entry_id = ? AND r.relation_name = ? AND target.class_id IN (WITH RECURSIVE descendants(id) AS (SELECT id FROM classes WHERE id = ? UNION ALL SELECT c.id FROM classes c JOIN descendants d ON c.parent_class_id = d.id) SELECT id FROM descendants) AND (? IS NULL OR r.id <> ?)")
+      .get(sourceEntry.id, relationName, targetClassId, ignoreRelationId, ignoreRelationId).n;
     if (count >= rule.max_count) return { valid: false, error: '关系数量超过约束: ' + relationName + '（' + rule.cardinality_label + '）' };
   }
   return { valid: true, rule };
@@ -83,10 +80,12 @@ function validateEntry(db, entryId) {
   const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(entryId);
   if (!entry) throw Object.assign(new Error('实例不存在: ' + entryId), { status: 404 });
   const errors = [];
+  const warnings = [];
   const fields = db.prepare('SELECT v.*, d.value_type FROM entry_field_values v JOIN field_dictionary d ON d.name = v.field_name WHERE v.entry_id = ?').all(entryId);
   for (const value of fields) {
     if (!fieldForClass(db, entry.class_id, value.field_name)) {
-      errors.push('字段不适用于当前类: ' + value.field_name);
+      if (value.schema_override) warnings.push('字段未列入当前类的字段清单，已按来源数据保留: ' + value.field_name);
+      else errors.push('字段不适用于当前类: ' + value.field_name);
       continue;
     }
     if (value.value_json == null) continue;
@@ -110,7 +109,7 @@ function validateEntry(db, entryId) {
       if (count < rule.min_count) errors.push('组成关系数量不足: ' + rule.child_class_id + '（' + rule.cardinality_label + '）');
     }
   }
-  return { valid: errors.length === 0, entryId, errors };
+  return { valid: errors.length === 0, entryId, errors, warnings };
 }
 function listSchema(db) {
   const classes = db.prepare('SELECT * FROM classes ORDER BY source_order, id').all();

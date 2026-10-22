@@ -30,9 +30,12 @@ function createArtifactService({ db }) {
     if (!type || !name) fail(400, 'artifactType 和 name 必填');
     const ownerEntryId = input.ownerEntryId || null;
     if (ownerEntryId && !entryRow(db, ownerEntryId)) fail(404, '成果所属实例不存在: ' + ownerEntryId);
-    const entrySources = Array.isArray(input.entrySources) ? input.entrySources : [];
-    const assetSources = Array.isArray(input.assetSources) ? input.assetSources : [];
-    const dependencies = Array.isArray(input.dependencies) ? input.dependencies : [];
+    if (input.entrySources != null && !Array.isArray(input.entrySources)) fail(400, 'entrySources 必须是数组');
+    if (input.assetSources != null && !Array.isArray(input.assetSources)) fail(400, 'assetSources 必须是数组');
+    if (input.dependencies != null && !Array.isArray(input.dependencies)) fail(400, 'dependencies 必须是数组');
+    const entrySources = input.entrySources || [];
+    const assetSources = input.assetSources || [];
+    const dependencies = input.dependencies || [];
     for (const source of entrySources) if (!entryRow(db, source.entryId)) fail(404, '成果来源实例不存在: ' + source.entryId);
     for (const source of assetSources) if (!db.prepare('SELECT id FROM assets WHERE id = ?').get(source.assetId)) fail(404, '成果来源数据资产不存在: ' + source.assetId);
     for (const sourceId of dependencies) if (!db.prepare('SELECT id FROM artifacts WHERE id = ?').get(sourceId)) fail(404, '依赖成果不存在: ' + sourceId);
@@ -43,11 +46,21 @@ function createArtifactService({ db }) {
         .run(id, type, name, ownerEntryId, JSON.stringify(payload), input.status === 'draft' ? 'draft' : 'saved', timestamp, timestamp);
       db.prepare('INSERT INTO artifact_revisions(id, artifact_id, revision_no, payload_json, name, created_at) VALUES (?, ?, 1, ?, ?, ?)')
         .run(randomUUID(), id, JSON.stringify(payload), name, timestamp);
-      for (const source of entrySources) db.prepare('INSERT INTO artifact_entry_sources(artifact_id, entry_id, role) VALUES (?, ?, ?)').run(id, source.entryId, source.role || 'source');
-      for (const source of assetSources) db.prepare('INSERT INTO artifact_asset_sources(artifact_id, asset_id, role) VALUES (?, ?, ?)').run(id, source.assetId, source.role || 'source');
+      for (const source of entrySources) {
+        const entry = entryRow(db, source.entryId);
+        db.prepare('INSERT INTO artifact_entry_sources(artifact_id, entry_id, role, source_revision_no) VALUES (?, ?, ?, ?)')
+          .run(id, source.entryId, source.role || 'source', entry.revision);
+      }
+      for (const source of assetSources) {
+        const asset = db.prepare('SELECT sha256 FROM assets WHERE id = ?').get(source.assetId);
+        db.prepare('INSERT INTO artifact_asset_sources(artifact_id, asset_id, role, source_sha256) VALUES (?, ?, ?, ?)')
+          .run(id, source.assetId, source.role || 'source', asset.sha256);
+      }
       for (const sourceId of dependencies) {
         if (sourceId === id) fail(400, '成果不能依赖自身');
-        db.prepare('INSERT INTO artifact_dependencies(artifact_id, source_artifact_id, role) VALUES (?, ?, ?)').run(id, sourceId, 'derived_from');
+        const sourceArtifact = db.prepare('SELECT revision_no FROM artifacts WHERE id = ?').get(sourceId);
+        db.prepare('INSERT INTO artifact_dependencies(artifact_id, source_artifact_id, role, source_revision_no) VALUES (?, ?, ?, ?)')
+          .run(id, sourceId, 'derived_from', sourceArtifact.revision_no);
       }
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }

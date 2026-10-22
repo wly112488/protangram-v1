@@ -1,0 +1,36 @@
+name: Backend Refactor
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "docs/backend-data-model-and-flow.md"
+      - ".github/workflows/backend-refactor.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "docs/backend-data-model-and-flow.md"
+      - ".github/workflows/backend-refactor.yml"
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Syntax checks
+        run: |
+          find src tests -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Backend integration tests
+        run: npm test

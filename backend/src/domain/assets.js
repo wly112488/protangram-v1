@@ -130,6 +130,9 @@ function createAssetService({ db, dataDir, entryService }) {
     const derived = row(input.derivedAssetId);
     if (!source || !derived) fail(404, '源资产或派生资产不存在');
     if (sourceAssetId === input.derivedAssetId) fail(400, '资产不能派生自自身');
+    const createsCycle = db.prepare('WITH RECURSIVE descendants(id) AS (SELECT derived_asset_id FROM asset_derivations WHERE source_asset_id = ? UNION ALL SELECT d.derived_asset_id FROM asset_derivations d JOIN descendants x ON d.source_asset_id = x.id) SELECT 1 FROM descendants WHERE id = ? LIMIT 1')
+      .get(input.derivedAssetId, sourceAssetId);
+    if (createsCycle) fail(409, '该派生关系会形成循环');
     const id = randomUUID();
     try {
       db.prepare('INSERT INTO asset_derivations(id, source_asset_id, derived_asset_id, relation_type, transformation_json, created_at) VALUES (?, ?, ?, ?, ?, ?)')

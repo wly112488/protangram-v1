@@ -1,13 +1,22 @@
 'use strict';
 const express = require('express');
-const fs = require('node:fs');
 const path = require('node:path');
 const { v4: uuidv4 } = require('uuid');
+const { importJsonDirectoryOnce } = require('../db/legacyImport');
 
-function createComputeRouter({ dataDir }) {
+function createComputeRouter({ db, dataDir }) {
   const router = express.Router();
   const PROCESS_DATA_DIR = path.join(dataDir, 'process_data');
-  fs.mkdirSync(PROCESS_DATA_DIR, { recursive: true });
+  importJsonDirectoryOnce({
+    db, resourceType: 'process_data', directory: PROCESS_DATA_DIR,
+    importRecord(payload, filename) {
+      if (!payload || typeof payload !== 'object' || !payload.id || !payload.module || !payload.algorithm) {
+        throw new Error('旧计算记录缺少必要字段: ' + path.join(PROCESS_DATA_DIR, filename));
+      }
+      db.prepare('INSERT OR IGNORE INTO processing_runs(id, module, algorithm, input_json, output_json, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(String(payload.id), String(payload.module), String(payload.algorithm), JSON.stringify(payload.input || {}), JSON.stringify(payload.output || {}), payload.timestamp || new Date().toISOString());
+    }
+  });
 
 // ==================== 计算模块WebService代理 ====================
 
@@ -22,6 +31,36 @@ router.post('/api/compute/:moduleId/:algId', (req, res) => {
     const { data, weights, ddof, norm, source_range, target_range, scale_factor,
             threshold, condition, iqr_factor, window_size, agg_func, features,
             x, y, x_new, method, base } = req.body;
+
+    const algorithmKey = moduleId + '/' + algId;
+    const numericArray = (value, name, minimumLength = 1) => {
+      if (!Array.isArray(value) || value.length < minimumLength || !value.every(item => typeof item === 'number' && Number.isFinite(item))) {
+        throw Object.assign(new Error(name + ' 必须是至少 ' + minimumLength + ' 个有限数值组成的数组'), { status: 400 });
+      }
+      return value;
+    };
+    if (algorithmKey !== 'aggregation/interpolate') numericArray(data, 'data');
+    if (['statistical/variance', 'statistical/std'].includes(algorithmKey)) {
+      if (ddof !== undefined && (!Number.isInteger(ddof) || ddof < 0 || ddof >= data.length)) throw Object.assign(new Error('ddof 必须是小于数据长度的非负整数'), { status: 400 });
+    }
+    if (['math/weighted-sum', 'math/weighted-average'].includes(algorithmKey)) {
+      numericArray(weights, 'weights');
+      if (weights.length !== data.length) throw Object.assign(new Error('weights 与 data 长度必须一致'), { status: 400 });
+    }
+    if (algorithmKey === 'normalization/interval-map') {
+      numericArray(source_range, 'source_range', 2); numericArray(target_range, 'target_range', 2);
+      if (source_range.length !== 2 || target_range.length !== 2) throw Object.assign(new Error('source_range 和 target_range 必须各包含两个数值'), { status: 400 });
+    }
+    if (algorithmKey === 'normalization/feature-scale' && (typeof scale_factor !== 'number' || !Number.isFinite(scale_factor))) throw Object.assign(new Error('scale_factor 必须是有限数值'), { status: 400 });
+    if (algorithmKey === 'extreme-value/threshold-filter' && (typeof threshold !== 'number' || !Number.isFinite(threshold))) throw Object.assign(new Error('threshold 必须是有限数值'), { status: 400 });
+    if (['aggregation/aggregate', 'aggregation/smooth'].includes(algorithmKey) && window_size !== undefined && (!Number.isInteger(window_size) || window_size < 1)) throw Object.assign(new Error('window_size 必须是正整数'), { status: 400 });
+    if (algorithmKey === 'aggregation/interpolate') {
+      numericArray(x, 'x', 2); numericArray(y, 'y', 2); numericArray(x_new, 'x_new');
+      if (x.length !== y.length) throw Object.assign(new Error('x 与 y 长度必须一致'), { status: 400 });
+      if (x.some((value, index) => index > 0 && value <= x[index - 1])) throw Object.assign(new Error('插值输入 x 必须严格递增'), { status: 400 });
+    }
+    if (['math/log-transform', 'math/exp-transform'].includes(algorithmKey) && base !== undefined && (typeof base !== 'number' || !Number.isFinite(base) || base <= 0 || (algorithmKey === 'math/log-transform' && base === 1))) throw Object.assign(new Error('base 取值不合法'), { status: 400 });
+    if (algorithmKey === 'math/log-transform' && data.some(value => value <= 0)) throw Object.assign(new Error('对数变换要求 data 中所有值均大于 0'), { status: 400 });
 
     let result;
 
@@ -207,25 +246,13 @@ router.post('/api/compute/:moduleId/:algId', (req, res) => {
         return res.status(404).json({ success: false, error: `算法 ${moduleId}/${algId} 不存在` });
     }
 
-    // 存储过程数据到process_data目录（需求D.b）
     const processId = uuidv4();
-    const processData = {
-      id: processId,
-      module: moduleId,
-      algorithm: algId,
-      input: req.body,
-      output: result,
-      timestamp: new Date().toISOString(),
-    };
-    fs.writeFileSync(
-      path.join(PROCESS_DATA_DIR, `${processId}.json`),
-      JSON.stringify(processData, null, 2),
-      'utf-8'
-    );
+    db.prepare('INSERT INTO processing_runs(id, module, algorithm, input_json, output_json, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(processId, moduleId, algId, JSON.stringify(req.body || {}), JSON.stringify(result), new Date().toISOString());
 
     res.json({ success: true, data: result, processId });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(err.status || 500).json({ success: false, error: err.message });
   }
 });
 

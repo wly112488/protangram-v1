@@ -8,7 +8,11 @@
     "build": "tsc -b && vite build",
     "test:sessions": "node --test tests/sessionWorkbench.test.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node scripts/run-tests.mjs",
+    "test:professional": "node --test tests/analysisResults.test.mjs tests/crossFunctionSharing.test.mjs tests/prediction.test.mjs tests/physicalObjects.test.mjs tests/trialCharts.test.mjs tests/sessionWorkbench.test.mjs tests/taskTrialIntegration.test.mjs",
+    "test:browser": "node scripts/verify-analysis-results.mjs && node scripts/verify-prediction.mjs",
+    "test:browser:install": "playwright install chromium"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -35,13 +39,18 @@
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.1",
+    "esbuild": "0.27.3",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "playwright": "1.61.1",
     "tailwindcss": "^4.2.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.1"
+  },
+  "engines": {
+    "node": ">=22.18.0"
   }
 }

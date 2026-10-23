@@ -46,7 +46,7 @@ export function professionalDataContext(sources: ReturnType<typeof getProfession
   const rawFiles = sources.files.filter(file => sources.rawFiles.some(current => current.id === file.id) || requiredFiles.has(file.id));
   const trials = source.trial ? [source.trial] : source.experiment?.trials ?? [];
   return {
-    scope: { physicalObjectId: source.configuration.id, experimentId: source.experiment?.id, trialId: source.trial?.id, testRecordId: source.record?.id },
+    scope: { physicalObjectId: source.configuration.id, experimentId: source.experiment?.id, ...(source.trial?.cfgId?{cfgId:source.trial.cfgId}:{}), trialId: source.trial?.id, testRecordId: source.record?.id },
     objectParameters: source.configuration.parameters, configurationParameters: source.experiment?.parameters ?? [], loadSpectrum: source.trial?.loadSpectrum,
     records: trials.flatMap(trial => trial.records.filter(record => !source.record || record.id === source.record.id || rawFiles.some(file => file.sourceRecordId === record.id)).map(record => ({ id: record.id, trialId: trial.id, trialName: trial.name, loadSpectrum: trial.loadSpectrum, name: record.name, actualConditions: record.actualConditions, measurements: record.measurements }))),
     rawFiles,

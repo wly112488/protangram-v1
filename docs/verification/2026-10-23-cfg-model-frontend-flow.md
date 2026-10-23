@@ -60,3 +60,13 @@ Threat boundary for all tasks: normal UI/store operations, persisted legacy stat
 - Four independent manual SETs were created in the actual session UI, one renamed and given a field, then all four restored on reload. The isolated browser also creates rotor → blade via the ordinary UI, edits blade parameters, and verifies both nested tree nodes and the trial-task entry.
 - Original records and the other trial's settings remain unchanged in store tests; missing trial/setting IDs fail without writes. New compatibility containers stay out of the CFG/object tree. Legacy experiment nodes remain accessible.
 - Acceptance audit closed for Task 4; zero-SET model-flow acceptance is repeated in Task 5/6.
+
+### Task 5
+
+- RED: model-plan tests could not resolve the new modules; the isolated browser also demonstrated that the old prediction page had no MODEL selector.
+- GREEN: `node --test --test-reporter=spec tests/modelPlanModel.test.mjs tests/prediction.test.mjs tests/crossFunctionSharing.test.mjs`: 22/22 pass. Build and targeted model-flow lint passed.
+- Matching verifies order-independent object IDs, different CFG/configuration separation, multiple-candidate ambiguity and missing identifiers. The independent scheme store confirms once and restores on reload; stale equipment/CFG cannot confirm a scheme.
+- Explicit parameter bindings verify object/parameter IDs, units and required input definitions; same-name fields are never guessed. Selected equipment parameter values join the configuration identity; runtime inputs remain separate.
+- Preview and archived artifact tests verify immutable CFG/trial/MODEL/scheme/configuration/runtime snapshots and demo nature; a mismatched source is rejected.
+- Actual browser flow creates a scheme, changes speed to 6000 without adding a scheme, saves the demo result, and previews another CFG's zero-SET trial using its own scheme. No page errors. Legacy trials retain their original prediction interface.
+- Acceptance audit closed for Task 5. Full journey and stale/ambiguous UI paths are audited again in Task 6.

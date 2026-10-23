@@ -1,5 +1,6 @@
 import type { ValueField } from './physicalObjectStore';
 import type { ProfessionalDataContext } from './professionalContext';
+import type { ModelRunSnapshot } from './modelPlanModel';
 
 export type PredictionService = 'digitalTwin' | 'virtualCondition';
 export interface ConfigurationReference {
@@ -44,6 +45,7 @@ export interface PredictionRequest {
   service: PredictionService;
   targetConfiguration: PredictionTarget;
   model?: ApplicableModel;
+  modelPlan?:ModelRunSnapshot;
   context?: ProfessionalDataContext;
   csvData?: Array<{ rawFileId: string; headers: string[]; rows: Record<string, string>[] }>;
   inputs: Record<string, PredictionValue>;

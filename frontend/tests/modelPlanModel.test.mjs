@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { loadWorkspace, MemoryStorage } from './helpers/workspaceTest.mjs';
+globalThis.localStorage=new MemoryStorage();
+const api=await loadWorkspace("export * from './src/workspace/modelPlanModel'; export * from './src/workspace/modelSchemeStore'; export * from './src/workspace/physicalObjectStore'; export * from './src/workspace/trialConfigurationStore'; export * from './src/services/predictionPreview'; export * from './src/workspace/analysisResultModel';");
+const request={modelId:'MOD-01',cfgId:'CFG-07',objectIds:['fan','rig'],configKey:'geometry-v1'};
+test('MODEL+CFG+OBJ+configuration identity is order-independent and runtime-independent',()=>{
+  const catalog=[{...request,id:'OM-01'}];
+  assert.equal(api.resolveModelPlan({...request,objectIds:['rig','fan']},catalog).schemeId,'OM-01');
+  assert.equal(api.resolveModelPlan({...request,configKey:'geometry-v2'},catalog).action,'plan');
+  assert.equal(api.resolveModelPlan({...request,cfgId:'CFG-02'},catalog).action,'plan');
+  assert.equal(api.resolveModelPlan(request,[...catalog,{...request,id:'OM-02'}]).action,'ambiguous');
+  for(const patch of [{cfgId:''},{modelId:''},{objectIds:[]},{configKey:''}]) assert.throws(()=>api.resolveModelPlan({...request,...patch},catalog),/缺少/);
+  assert.equal(api.modelConfigurationKey({mesh:'A',solver:'B'},[]),api.modelConfigurationKey({solver:'B',mesh:'A'},[]));
+  assert.notEqual(api.modelConfigurationKey({mesh:'A'},[]),api.modelConfigurationKey({mesh:'B'},[]));
+});
+test('parameter binding uses exact object+parameter IDs and units; names cannot guess a source',()=>{
+  const p=api.usePhysicalObjectStore; p.setState({objects:[]});const s=p.getState();
+  const category=s.addRoot({name:'装备',type:'风扇'}),fan=s.addConfiguration(category,{name:'A'}),rig=s.addConfiguration(category,{name:'试验台'});
+  s.addField(fan,'parameters',{name:'直径',value:'280',unit:'mm',form:'单值'});
+  s.addField(rig,'parameters',{name:'直径',value:'1.2',unit:'m',form:'单值'});
+  const [a,b]=p.getState().objects[0].configurations;
+  const defs=[{key:'diameter',label:'参考直径',unit:'mm',required:true}];
+  assert.throws(()=>api.readModelEquipmentInputs(defs,[],p.getState().objects,[fan,rig]),/参考直径/);
+  assert.deepEqual(api.readModelEquipmentInputs(defs,[{key:'diameter',objectId:fan,parameterId:a.parameters[0].id,unit:'mm'}],p.getState().objects,[fan,rig]),{diameter:280});
+  assert.throws(()=>api.readModelEquipmentInputs(defs,[{key:'diameter',objectId:rig,parameterId:b.parameters[0].id,unit:'m'}],p.getState().objects,[fan,rig]),/单位/);
+  assert.throws(()=>api.readModelEquipmentInputs(defs,[{key:'diameter',objectId:fan,parameterId:'missing',unit:'mm'}],p.getState().objects,[fan,rig]),/失效/);
+  assert.throws(()=>api.readModelEquipmentInputs(defs,[{key:'diameter',objectId:fan,parameterId:a.parameters[0].id,unit:'mm'}],p.getState().objects,[rig]),/CFG/);
+});
+test('confirmed scheme persists once, repeats reuse it and stale CFG/object sources cannot confirm',async()=>{
+  const p=api.usePhysicalObjectStore,c=api.useTrialConfigurationStore,m=api.useModelSchemeStore;
+  p.setState({objects:[]});c.setState({configurations:[]});m.setState({schemes:[]});
+  const s=p.getState(),category=s.addRoot({name:'装备',type:'风扇'}),fan=s.addConfiguration(category,{name:'A'});
+  const cfg=c.getState().createConfiguration({name:'CFG',members:[{objectId:fan,role:'tested'}]});
+  const req={modelId:'MOD-01',cfgId:cfg,objectIds:[fan],configKey:api.modelConfigurationKey({mesh:'A'},[])};
+  const details={name:'方案1 气动模型（演示）',configurationInputs:{mesh:'A'},bindings:[]};
+  const first=m.getState().confirmScheme(req,details);
+  assert.equal(m.getState().confirmScheme({...req},details).id,first.id);
+  assert.equal(m.getState().schemes.length,1);
+  await m.persist.rehydrate();assert.equal(api.resolveModelPlan(req,m.getState().schemes).schemeId,first.id);
+  assert.throws(()=>m.getState().confirmScheme({...req,cfgId:'missing'},details),/CFG/);
+  p.setState({objects:[]});assert.throws(()=>m.getState().confirmScheme(req,details),/失效/);
+});
+test('preview and saved artifact retain immutable model configuration and runtime source snapshots',async()=>{
+  const scope={physicalObjectId:'fan',experimentId:'legacy',trialId:'trial',cfgId:'cfg'};
+  const context={scope,objectParameters:[],configurationParameters:[],records:[],rawFiles:[],results:[]};
+  const target={physicalObjectId:'fan',physicalObjectName:'风扇',experimentId:'legacy',experimentName:'内部容器',objectParameters:[],configurationParameters:[]};
+  const modelPlan={modelId:'MOD-01',schemeId:'om',cfgId:'cfg',trialId:'trial',objectIds:['fan'],configKey:'mesh',configurationInputs:{mesh:'A'},bindings:[],runtimeInputs:{speed:3000,temperature:25,pressure:101.3}};
+  const input={requestId:'req',service:'digitalTwin',context,targetConfiguration:target,inputs:{speed:3000,temperature:25,pressure:101.3},modelPlan};
+  const result=await api.runPredictionPreview(input,new AbortController().signal);
+  assert.deepEqual(result.modelPlan,modelPlan);assert.equal(result.resultMode,'demo');
+  modelPlan.configurationInputs.mesh='changed';assert.equal(result.modelPlan.configurationInputs.mesh,'A');
+  const saved=await api.savePredictionPreview(result,new AbortController().signal);
+  assert.equal(api.predictionArtifactInput(saved).payload.modelPlan.schemeId,'om');
+  await assert.rejects(api.runPredictionPreview({...input,modelPlan:{...modelPlan,cfgId:'other'}},new AbortController().signal),/来源/);
+});

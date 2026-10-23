@@ -9,6 +9,7 @@ import type { ProfessionalDataContext } from './professionalContext';
 import PreparationChecklist from './PreparationChecklist';
 import { predictionArtifactInput } from './analysisResultModel';
 import { predictionParameterError, predictionPreparation } from './predictionParameters';
+import CfgPredictionForm from './CfgPredictionForm';
 
 const { Text } = Typography;
 
@@ -124,5 +125,6 @@ export default function PredictionWorkspace({ service }: { service: PredictionSe
     recordArtifactForTaskItem({ projectId: artifact.projectId, artifactId: artifact.id });
     return true;
   };
-  return <PredictionForm key={JSON.stringify([service, target, dataContext.scope, dataContext.rawFiles])} service={service} target={target} context={dataContext} archive={archive} />;
+  return physicalSource.trial?.cfgId ? <CfgPredictionForm key={JSON.stringify([service,physicalSource.trial.id,physicalSource.trial.cfgId])} service={service} target={target} context={dataContext} cfgId={physicalSource.trial.cfgId} trialId={physicalSource.trial.id} archive={archive} />
+    : <PredictionForm key={JSON.stringify([service, target, dataContext.scope, dataContext.rawFiles])} service={service} target={target} context={dataContext} archive={archive} />;
 }

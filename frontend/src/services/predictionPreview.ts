@@ -6,6 +6,7 @@ import { predictionParameterError, predictionPreparation } from '../workspace/pr
 export async function runPredictionPreview(input: PredictionRequest, signal: AbortSignal): Promise<PredictionPreviewTask> {
   signal.throwIfAborted();
   if (!input.context) throw new Error('当前试验上下文不可用');
+  if(input.modelPlan&&(input.modelPlan.cfgId!==input.context.scope.cfgId||input.modelPlan.trialId!==input.context.scope.trialId||!input.modelPlan.objectIds.includes(input.targetConfiguration.physicalObjectId))) throw new Error('模型方案与当前试验来源不匹配');
   const preparation = predictionPreparation(input.service, input.context);
   const inputs = predictionInputs(preparation, input.inputs);
   const invalid = predictionParameterError(inputs);
@@ -30,6 +31,7 @@ export async function runPredictionPreview(input: PredictionRequest, signal: Abo
   return {
     requestId: input.requestId, taskId: `preview:${input.service}:${input.requestId}`, service: input.service,
     targetConfiguration: structuredClone(input.targetConfiguration), context: structuredClone(input.context), inputs,
+    ...(input.modelPlan?{modelPlan:structuredClone(input.modelPlan)}:{}),
     inputFields: preparation.inputFields, status: 'completed', resultMode: 'demo', saved: false, completedAt: new Date().toISOString(),
     result: {
       summary: `${virtual ? '虚拟工况扩展' : '数字孪生'}演示计算完成，共 ${count} 组目标工况。`,

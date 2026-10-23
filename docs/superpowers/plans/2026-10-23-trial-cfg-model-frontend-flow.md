@@ -79,7 +79,7 @@
 | 一套 CFG 编辑器、两处入口 | Create: `frontend/src/workspace/TrialConfigurationEditor.tsx`、`TrialConfigurationLibrary.tsx`；Modify: `TrialCreatePage.tsx`、`router/index.tsx`；Test: `frontend/tests/trialConfiguration.test.mjs` 及浏览器验收 |
 | 旧试验数据兼容/CFG 来源连接 | Create: `frontend/src/workspace/cfgTrialBridge.ts`；Modify: `physicalObjectStore.ts`、`sessionModel.ts`、`TrialCreatePage.tsx`、`taskTrialWorkflow.ts`；Test: `frontend/tests/cfgTrialBridge.test.mjs`、既有 `physicalObjects.test.mjs`、`taskTrialIntegration.test.mjs` |
 | 试验任务导航和多组 SET | Create: `frontend/src/workspace/trialSettingsModel.ts`、`TrialSettingsPanel.tsx`；Modify: `BusinessSidebar.tsx`、`PhysicalObjectsPage.tsx`、`physicalObjectStore.ts`；Test: `frontend/tests/trialSettings.test.mjs`、`physicalNavigation.test.mjs` |
-| MODEL/OM 匹配与模型输入 | Create: `frontend/src/workspace/modelPlanModel.ts`、`modelFlowFixtures.ts`；Modify: `PredictionWorkspace.tsx`、`predictionContract.ts`、`predictionParameters.ts`；Test: `frontend/tests/modelPlanModel.test.mjs`、`prediction.test.mjs` |
+| MODEL/OM 匹配与模型输入 | Create: `frontend/src/workspace/modelPlanModel.ts`、`modelSchemeStore.ts`、`modelFlowFixtures.ts`；Modify: `PredictionWorkspace.tsx`、`predictionContract.ts`、`predictionParameters.ts`；Test: `frontend/tests/modelPlanModel.test.mjs`、`prediction.test.mjs` |
 | 验收 | Existing: `frontend/scripts/verify-session-workflows.mjs`、`verify-physical-source-interactions.mjs`、`verify-prediction.mjs`；按需增加不覆盖用户数据的 `frontend/scripts/verify-cfg-model-flow.mjs` |
 
 所有新建模型文件采用可替换的数据访问边界；不要再以 `ExperimentDefinition` 命名为 CFG，也不要更改已有 `experimentId` 的实际含义。
@@ -314,18 +314,23 @@ Run: `cd frontend && node --test tests/cfgTrialBridge.test.mjs tests/physicalObj
 ~~~js
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createTrialSetting, replaceTrialSetting } from '../src/workspace/trialSettingsModel.ts';
+import { build } from 'esbuild';
+const bundle = await build({
+  stdin: { contents: "export * from './src/workspace/trialSettingsModel';", resolveDir: process.cwd() },
+  bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent'
+});
+const api = await import('data:text/javascript;base64,' + Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 test('SET definitions are independent manual inputs', () => {
-  const a = createTrialSetting('s-1', '0D', []);
-  const b = createTrialSetting('s-2', '0.25D', []);
-  const changed = replaceTrialSetting([a,b], 's-1', { name:'0D 修改' });
+  const a = api.createTrialSetting('s-1', '0D', []);
+  const b = api.createTrialSetting('s-2', '0.25D', []);
+  const changed = api.replaceTrialSetting([a,b], 's-1', { name:'0D 修改' });
   assert.equal(changed[0].name, '0D 修改');
   assert.equal(changed[1].name, '0.25D');
   assert.equal(changed.length, 2);
 });
 ~~~
 
-测试加载必须改用仓库现有 esbuild 动态打包方式（如 `prediction.test.mjs`）；不得直接依赖 Node 运行时原生导入 TS。Run: `cd frontend && node --test tests/trialSettings.test.mjs`，Expected: FAIL。
+测试已沿用仓库现有 esbuild 动态打包方式。Run: `cd frontend && node --test tests/trialSettings.test.mjs`，Expected: FAIL。
 
 - [ ] **Step 2: Implement the small pure SET operations.**
 
@@ -356,6 +361,7 @@ Run: `cd frontend && node --test tests/trialSettings.test.mjs tests/physicalNavi
 **Files:**
 - Create: `frontend/src/workspace/modelPlanModel.ts`
 - Create: `frontend/src/workspace/modelFlowFixtures.ts`
+- Create: `frontend/src/workspace/modelSchemeStore.ts`
 - Modify: `frontend/src/workspace/PredictionWorkspace.tsx`
 - Modify: `frontend/src/workspace/predictionContract.ts`
 - Modify: `frontend/src/workspace/predictionParameters.ts`
@@ -379,37 +385,47 @@ Run: `cd frontend && node --test tests/trialSettings.test.mjs tests/physicalNavi
 ~~~js
 import assert from 'node:assert/strict';
 import test from 'node:test';
-// 用 frontend/tests/prediction.test.mjs 的 esbuild 方式导入 modelPlanModel。
-test('matching an existing scheme is independent of runtime speed', () => {
-  const request = { modelId:'MOD-01', cfgId:'CFG-07', objectIds:['fan-1','rig-1'] };
-  const catalog = [{ id:'OM-01', modelId:'MOD-01', cfgId:'CFG-07', objectIds:['fan-1','rig-1'] }];
+import { build } from 'esbuild';
+const bundle = await build({
+  stdin: { contents: "export * from './src/workspace/modelPlanModel';", resolveDir: process.cwd() },
+  bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent'
+});
+const api = await import('data:text/javascript;base64,' + Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+test('same CFG/MODEL/OBJ/configuration reuses scheme, runtime speed is irrelevant', () => {
+  const request = { modelId:'MOD-01', cfgId:'CFG-07', objectIds:['fan-1','rig-1'], configKey:'geometry-v1' };
+  const catalog = [{ id:'OM-01', modelId:'MOD-01', cfgId:'CFG-07', objectIds:['fan-1','rig-1'], configKey:'geometry-v1' }];
   const a = api.resolveModelPlan(request, catalog);
   const b = api.resolveModelPlan({ ...request }, catalog);
   assert.deepEqual(a, b);
   assert.equal(a.action, 'reuse');
   assert.equal(api.resolveModelPlan({ ...request, cfgId:'CFG-02' }, catalog).action, 'plan');
+  assert.equal(api.resolveModelPlan({ ...request, configKey:'geometry-v2' }, catalog).action, 'plan');
 });
 ~~~
 
-另加无 CFG、缺失目标 OBJ、同型号多候选、顺序无关的成员 ID、缺少必需字段/单位冲突、0 组 SET、改变运行转速不增加 OM 等测试。Expected: RED。
+另加无 CFG、缺失目标 OBJ、同型号多候选、顺序无关的成员 ID、不同模型配置 configKey 不复用、缺少必需字段/单位冲突、0 组 SET、改变运行转速不增加 OM，以及方案确认后下次可复用的存储测试。Expected: RED。
 
 - [ ] **Step 2: Implement the matching contract, not model physics.**
 
 ~~~ts
-export interface ModelScheme { id: string; modelId: string; cfgId: string; objectIds: string[] }
+export interface ModelScheme {
+  id: string; modelId: string; cfgId: string;
+  objectIds: string[]; configKey: string;
+}
 export interface ModelPlan {
-  modelId: string; cfgId: string; objectIds: string[];
+  modelId: string; cfgId: string; objectIds: string[]; configKey: string;
   schemeId?: string; action: 'reuse' | 'plan' | 'ambiguous';
 }
 export function resolveModelPlan(
-  request: { modelId: string; cfgId: string; objectIds: string[] },
+  request: { modelId: string; cfgId: string; objectIds: string[]; configKey: string },
   catalog: ModelScheme[]
 ): ModelPlan {
-  if (!request.modelId || !request.cfgId || !request.objectIds.length)
-    throw new Error('缺少通用模型、试验构型或仿真对象');
+  if (!request.modelId || !request.cfgId || !request.objectIds.length || !request.configKey)
+    throw new Error('缺少通用模型、试验构型、仿真对象或模型配置参数');
   const key = (items: string[]) => [...new Set(items)].sort().join('|');
   const matches = catalog.filter(item =>
     item.modelId === request.modelId && item.cfgId === request.cfgId &&
+    item.configKey === request.configKey &&
     key(item.objectIds) === key(request.objectIds));
   return { ...request,
     schemeId: matches.length === 1 ? matches[0].id : undefined,
@@ -423,11 +439,11 @@ export function resolveModelPlan(
 
 在 `PredictionWorkspace.tsx` 继承当前试验的 `cfgId`；进入时先选择功能对应的 MODEL（如 CFD 通用模型），用户同时填写分析运行参数；页面调用 `resolveModelPlan`，默认复用匹配项，或在当前表单内自动规划“方案1 气动模型”这样的可复用方案。若需要填写模型配置参数，仅在这一流程中显示需要人工确认/补充的字段。不要要求用户先到“对象模型管理”创建，也不要在主界面重复罗列已由 CFG 代表的叶尖直径/机匣/叶片清单。
 
-原有 `predictionParameters.ts` 的不同功能字段定义继续可用作前端演示；新建 `modelFlowFixtures.ts` 只准备用于演示“MOD-01/CFG-07/OM-01”的明确样例数据，并带可识别的演示标记；不得把 `globalModelStore.ts` 中的旧“发动机模型”演示项目当成正式 CFD 目录。`services/predictionPreview.ts` 继续返回 `resultMode:'demo'`，正式后端模型运算不属于本任务。
+原有 `predictionParameters.ts` 的不同功能字段定义继续可用作前端演示；新建 `modelSchemeStore.ts` 使用独立的原型模型方案目录，以 `(modelId, cfgId, objectIds, configKey)` 去重保存自动规划并经用户确认的方案，从而下次进入可以复用；不向 `globalModelStore.ts` 双写，也不删除本地旧数据。新建 `modelFlowFixtures.ts` 只准备用于演示“MOD-01/CFG-07/OM-01”的明确样例数据，并带可识别的演示标记；不得把 `globalModelStore.ts` 中的旧“发动机模型”演示项目当成正式 CFD 目录。`services/predictionPreview.ts` 继续返回 `resultMode:'demo'`，正式后端模型运算不属于本任务。
 
 - [ ] **Step 4: Verify and commit.**
 
-Run: `cd frontend && node --test tests/modelPlanModel.test.mjs tests/prediction.test.mjs tests/crossFunctionSharing.test.mjs && npm run build && npm run lint`。Expected: PASS。手动验证“已有 OM → 自动复用”“无 OM → 同流程自动规划”“修改运行参数 → 不重建 OM”“CFG 失效 → 不使用其它 CFG 代替”“没有 SET → 可手工输入并预览”“演示结果仍显示演示”。Commit: `git add frontend/src/workspace/modelPlanModel.ts frontend/src/workspace/modelFlowFixtures.ts frontend/src/workspace/PredictionWorkspace.tsx frontend/src/workspace/predictionContract.ts frontend/src/workspace/predictionParameters.ts frontend/tests/modelPlanModel.test.mjs frontend/tests/prediction.test.mjs && git commit -m "feat: inherit CFG and plan reusable model workflow"`。
+Run: `cd frontend && node --test tests/modelPlanModel.test.mjs tests/prediction.test.mjs tests/crossFunctionSharing.test.mjs && npm run build && npm run lint`。Expected: PASS。手动验证“已有 OM → 自动复用”“无 OM → 同流程自动规划”“修改运行参数 → 不重建 OM”“CFG 失效 → 不使用其它 CFG 代替”“没有 SET → 可手工输入并预览”“演示结果仍显示演示”。Commit: `git add frontend/src/workspace/modelPlanModel.ts frontend/src/workspace/modelSchemeStore.ts frontend/src/workspace/modelFlowFixtures.ts frontend/src/workspace/PredictionWorkspace.tsx frontend/src/workspace/predictionContract.ts frontend/src/workspace/predictionParameters.ts frontend/tests/modelPlanModel.test.mjs frontend/tests/prediction.test.mjs && git commit -m "feat: inherit CFG and plan reusable model workflow"`。
 
 **Coverage Gate:** `COVERAGE_COMPLETE`，查询函数正反例、字段有效性/来源测试和浏览器“无重复选择”的交互证据共同覆盖全部条件。
 

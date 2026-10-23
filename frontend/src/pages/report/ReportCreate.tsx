@@ -79,6 +79,9 @@ const ReportCreate: React.FC = () => {
   const objects = usePhysicalObjectStore(state => state.objects);
   const cfgs = useTrialConfigurationStore(state=>state.configurations);
   const scope = routeState?.workspaceSession;
+  const currentSessionId = scope?.sessionId;
+  const selectableSessions = sessions.filter(item => !item.archived && !item.taskId);
+  const carriedTemplateId = (location.state as { reportTemplateId?: string } | null)?.reportTemplateId;
   const source = resolvePhysicalSource(objects, scope);
   const taskEntries = getTaskTrials(objects, projects, sessions, task?.id ?? '');
   const taskSources = getTaskTrialSources(taskEntries);
@@ -87,7 +90,7 @@ const ReportCreate: React.FC = () => {
   const chartChoices = taskBoundMode ? taskSources.charts : source.record ? getRecordCharts(source.trial, source.record.id).map(chart => ({ chart, label: `${chart.name} · ${chart.xField} / ${chart.yField}`, reference: { physicalObjectId: source.configuration!.id, experimentId: source.experiment!.id, trialId: source.trial!.id, testRecordId: source.record!.id, chartId: chart.id } })) : [];
   const chartKey = (item: typeof chartChoices[number]) => taskBoundMode ? recordChartKey(item.reference) : item.chart.id;
   const resourceGroups=scope?.sessionId?collectSessionResourceGroups(projects,sessions,objects,cfgs,scope.sessionId):[];
-  const sessionArtifacts=[...new Map(resourceGroups.filter(group=>group.id==='generic' || group.id===scope?.cfgId).flatMap(group=>group.entries.flatMap(entry=>entry.artifact?[[`${entry.artifact.projectId}/${entry.artifact.id}`,entry.artifact] as const]:[]))).values()];
+  const sessionArtifacts=[...new Map(resourceGroups.flatMap(group=>group.entries.flatMap(entry=>entry.artifact?[[`${entry.artifact.projectId}/${entry.artifact.id}`,entry.artifact] as const]:[]))).values()];
   const sourceArtifacts = getReportableArtifacts(scope?.sessionId?sessionArtifacts:getSourceArtifacts(projects,sessions,scope));
   const [selectedChartIds, setSelectedChartIds] = useSessionState<string[]>('selectedChartIds', []);
   const [legacyProjects, setLegacyProjects] = useState<AnalysisProject[]>([]);
@@ -113,7 +116,9 @@ const ReportCreate: React.FC = () => {
         ? routeProjectId
         : resolveReportProjectId({ activeProjectId, projectIds: projects.map((project) => project.id) });
     setSelectedProjectId(initialProjectId);
-    form.setFieldsValue({ ...formValues, analysisProjectId: initialProjectId, ...(taskBoundMode ? { reportTemplateId: formValues.reportTemplateId || REPORT_TEMPLATE_OPTIONS[0].value } : {}) });
+    form.setFieldsValue({ ...formValues, analysisProjectId: initialProjectId,
+      ...(taskBoundMode ? { reportTemplateId: formValues.reportTemplateId || REPORT_TEMPLATE_OPTIONS[0].value }
+        : { reportTemplateId: carriedTemplateId || formValues.reportTemplateId || undefined }) });
     if (taskBoundMode && restoredCharts.current === undefined) setSelectedChartIds(chartChoices.map(chartKey));
 
     const initialProject = projects.find((project) => project.id === initialProjectId);
@@ -218,8 +223,11 @@ const ReportCreate: React.FC = () => {
                 <Form.Item name="analysisProjectId" hidden rules={[{ required: true, message: '当前任务没有关联项目' }]}>
                   <Input />
                 </Form.Item>
-                <Form.Item label={taskBoundMode ? "当前任务书" : "当前会话"}>
-                  <Input disabled value={taskBoundMode ? task?.title : sessionTitle} />
+                <Form.Item label={taskBoundMode ? "当前任务书" : "选择会话"}>
+                  {sessionBoundMode && !taskBoundMode ? <Select aria-label="报告会话" value={currentSessionId}
+                    options={selectableSessions.map(item=>({value:item.id,label:item.title}))}
+                    onChange={id=>navigate(getSessionPath(id,'report'),{state:{reportTemplateId:form.getFieldValue('reportTemplateId')}})} />
+                    : <Input disabled value={taskBoundMode ? task?.title : sessionTitle} />}
                 </Form.Item>
                 <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{sessionBoundMode && !taskBoundMode ? scope?.physicalObjectId ? '报告可引用同一业务来源的已有专业成果和原始记录图表。' : '报告引用当前会话的成果，无需创建项目。' : '任务报告引用当前任务关联的全部试验记录、图表和专业成果。'}</Text>
               </>

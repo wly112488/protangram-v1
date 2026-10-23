@@ -105,6 +105,7 @@ export default function CsvWorksheetEditor({ file, trial, record, owner, tabName
     <div className="csv-worksheet-status"><Typography.Text type="secondary">{file.name} · {data.rows.length} 行 · {data.headers.length} 列</Typography.Text>{dirty && <Tag color="orange">有未保存修改</Tag>}<Button icon={<SaveOutlined />} disabled={!dirty} onClick={() => setCopyName(`${tabName.replace(/\.csv$/i, '')}（编辑副本）.csv`)}>保存工作副本</Button></div>
     <Space className="csv-worksheet-actions" wrap>
       <Dropdown trigger={['click']} menu={{ items: plotKinds.map(item => ({ key: item.value, label: item.label })), onClick: ({ key }) => setDialog({ kind: key as PlotKind, key: Date.now() }) }}><Button aria-label="绘图" icon={<LineChartOutlined />}>绘图</Button></Dropdown>
+      <Button onClick={()=>data && modify({...data,rows:[...data.rows,Object.fromEntries(data.headers.map(field=>[field,'' as string]))]})}>添加数据行</Button>
       <Button disabled={dirty} onClick={() => setTableName(`${tabName} · 数据表`)}>保存数据表</Button>
       <Typography.Text type="secondary">选列后右键绘图 · Ctrl 多选 / Shift 连选 · 双击或直接输入编辑</Typography.Text>
     </Space>

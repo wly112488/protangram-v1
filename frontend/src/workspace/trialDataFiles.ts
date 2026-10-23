@@ -12,10 +12,10 @@ const openDatabase = () => new Promise<IDBDatabase>((resolve, reject) => {
 export interface ParsedRawFile { headers: string[]; rows: Record<string, string>[] }
 
 export const parseTrialCsv = (contents: string): ParsedRawFile => {
-  const parsed = Papa.parse<Record<string, string>>(contents, { header: true, skipEmptyLines: 'greedy', dynamicTyping: false });
+  const normalized = contents.replace(/(?:\r?\n)+$/, '');
+  const parsed = Papa.parse<Record<string, string>>(normalized, { header: true, skipEmptyLines: false, dynamicTyping: false });
   if (parsed.errors.length) throw new Error(parsed.errors[0].message);
-  const rows = parsed.data.filter(row => Object.values(row).some(value => String(value ?? '').trim()));
-  return { headers: parsed.meta.fields ?? Object.keys(rows[0] ?? {}), rows };
+  return { headers: parsed.meta.fields ?? Object.keys(parsed.data[0] ?? {}), rows: parsed.data };
 };
 
 export const buildChartPoints = (rows: Record<string, string>[], xField: string, yField: string, range: { startRow: number; endRow: number; scale: number; offset: number }) => rows

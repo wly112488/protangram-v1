@@ -34,12 +34,11 @@ export default function TrialCsvAnalysis({ trialId, artifacts = [] }: { trialId:
       await saveTrialFile(id, file);
       usePhysicalObjectStore.getState().addRawFile(trial.id, record.id, { id, name: file.name, mimeType: file.type || 'text/csv', size: file.size, addedAt: new Date().toISOString(), headers: parsed.headers, rowCount: parsed.rows.length, status: 'available' });
       openFile(id);
-      message.success(`“${file.name}”已保存到本机的${record.name}；诊断服务尚未接入`);
+      message.success(`“${file.name}”已导入到${record.name}`);
     } catch (error) { message.error(error instanceof Error ? error.message : 'CSV 导入失败'); }
     finally { setImports(count => count - 1); }
   };
   return <div className="trial-csv-analysis">
-    <Alert type="info" showIcon message="CSV、编辑副本及成果保存在本机浏览器，服务端文件存储尚未接入。" />
     <Card size="small"><Space wrap>
       <Select aria-label="执行记录" placeholder="选择执行记录" disabled={imports > 0} value={recordId} onChange={setRecordId} options={trial.records.map(item => ({ value: item.id, label: `${item.name} · ${item.rawFiles.filter(file => file.status !== 'removed').length} 个 CSV` }))} />
       <Button icon={<PlusOutlined />} disabled={imports > 0} onClick={createRecord}>新建执行记录</Button>

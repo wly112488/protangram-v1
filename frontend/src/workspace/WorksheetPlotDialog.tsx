@@ -28,7 +28,7 @@ export default function WorksheetPlotDialog({ kind, headers, selected, fileId, o
       {kind === 'bubble' && <Form.Item label="气泡大小"><Select aria-label="气泡大小字段" placeholder="选择第三列" value={size} onChange={setSize} options={options} /></Form.Item>}
       <Form.Item label="图表名称"><Input aria-label="图表名称" placeholder="可使用自动名称" value={name} onChange={event => setName(event.target.value)} /></Form.Item>
       <Collapse ghost items={[{ key: 'processing', label: '数据处理（可选）', children: <Space orientation="vertical" style={{ width: '100%' }}>
-        <Typography.Text type="secondary">字段保持原始值。领域换算公式目录尚未接入，暂不提供标定、单位换算或采样对齐。</Typography.Text>
+        <Typography.Text type="secondary">数据处理只作用于当前图表，不修改原始数据。</Typography.Text>
         {!distribution && <><Space wrap>每 <InputNumber aria-label="平均分组点数" min={1} precision={0} value={average} onChange={value => setAverage(value ?? 1)} /> 行取平均（1 表示不处理）</Space><Alert type="info" showIcon message="仅作用于当前图表：按 CSV 原始行顺序分组，对同组有效配对的坐标取算术平均；不改变原文件或根因分析输入。" /></>}
       </Space> }]} />
     </Form>

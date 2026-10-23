@@ -27,6 +27,8 @@ import TrialCsvAnalysis from '@/workspace/TrialCsvAnalysis';
 import { getTrialArtifacts } from '@/workspace/analysisResultModel';
 import { useSessionStore } from '@/workspace/sessionStore';
 import '@/workspace/visualIntegrations.css';
+import type { RawDataFile } from '@/workspace/physicalObjectStore';
+import { useProfessionalCfgSelection } from '@/workspace/professionalScopeContext';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -95,11 +97,12 @@ const pointStatusColor = (status: string) => status === '异常' ? 'red' : statu
 
 type SaveKind = 'analysis' | 'rootCause';
 
-const LegacyAnalysisProjects: React.FC = () => {
+export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selectedDataFile?: RawDataFile }> = ({ rootCauseOnly = false, selectedDataFile }) => {
   const navigate = useNavigate();
   const { setContext } = useTrialAIAssistant();
   const incoming = useSessionRouteState();
   const { projects, session, targetProject, activeTask, recordArtifactForTaskItem, physicalSource, addArtifact } = useWorkspaceBusinessSession(incoming);
+  const cfgSelection = useProfessionalCfgSelection();
   const sourceSessions = useSessionStore(state => state.sessions);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
@@ -182,6 +185,7 @@ const LegacyAnalysisProjects: React.FC = () => {
 
   const startAnalysis = () => {
     if (!preparationReady) return message.warning('请先确认全部分析准备项');
+    if (rootCauseOnly && (!cfgSelection?.cfgId || !selectedDataFile)) return message.warning('请先选择试验构型 CFG 和分析数据');
     if (timer.current !== null) window.clearTimeout(timer.current);
     setSavedResultIds({});
     setAnalyzing(true);
@@ -259,6 +263,8 @@ const LegacyAnalysisProjects: React.FC = () => {
           summary: `${primaryRootCause.reason}与${selectedAnomaly.event}具有${primaryRootCause.relevance}关联`,
           payload: {
             anomaly: selectedAnomaly,
+            sourceContext: selectedDataFile ? { rawFiles: [selectedDataFile] } : undefined,
+            dataFile: selectedDataFile,
             confirmedRootCause: primaryRootCause,
             candidates: rootCauseRows,
             evidence: EVIDENCE,
@@ -280,7 +286,7 @@ const LegacyAnalysisProjects: React.FC = () => {
     setSaveTargetOpen(false);
     message.success(session.sessionId ? `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存${boundPhysical ? '到原试验的分析成果' : '到当前会话'}` : `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
     return artifact.id;
-  }, [savedResultIds, setSavedResultIds, trendOption, analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId, boundPhysical, businessScope?.experimentId, businessScope?.physicalObjectId, sourceRecord]);
+  }, [savedResultIds, setSavedResultIds, trendOption, analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId, boundPhysical, businessScope?.experimentId, businessScope?.physicalObjectId, sourceRecord, selectedDataFile]);
 
   const requestSave = (kind: SaveKind) => {
     if (!analyzed) return message.warning('请先完成试验数据分析');
@@ -409,17 +415,7 @@ const LegacyAnalysisProjects: React.FC = () => {
 
   const openConfig = () => { setDraftConfig(config); setConfigModalOpen(true); };
 
-  return (
-    <div className="workspace-business-page">
-      {incoming?.source && (incoming.task || incoming.data || incoming.model || incoming.result || incoming.validation) && (
-        <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
-      )}
-      <Tabs className="workspace-subfunction-tabs" defaultActiveKey={physicalSource.trial ? 'csv' : 'diagnosis'} items={[
-        { key: 'csv', label: '数据浏览与可视化', children: physicalSource.trial
-          ? <TrialCsvAnalysis trialId={physicalSource.trial.id} initialRecordId={physicalSource.record?.id} artifacts={getTrialArtifacts(projects, sourceSessions, session, physicalSource.trial)} />
-          : <Alert type="info" showIcon message="CSV 数据分析需要当前具体试验上下文。" /> },
-        { key: 'diagnosis', label: '异常与根因分析', children: <>
-      <Alert showIcon type="info" title="演示样例" description="当前趋势、异常和根因视图使用内置演示数据，尚未接入基于 CSV 的诊断服务，不代表本次试验的实际结论。" style={{ marginBottom: 16 }} />
+  const diagnosisContent = <>
 
       <PreparationChecklist
         title="分析准备"
@@ -524,8 +520,20 @@ const LegacyAnalysisProjects: React.FC = () => {
           navigate('/report/create', { state: { ...createWorkspaceNavigationState(projectId), artifactIds: [artifactId] } });
         }
       }} />
-        </> },
-      ]} />
+
+  </>;
+
+  return (
+    <div className="workspace-business-page">
+      {incoming?.source && (incoming.task || incoming.data || incoming.model || incoming.result || incoming.validation) && (
+        <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
+      )}
+      {rootCauseOnly ? diagnosisContent : <Tabs className="workspace-subfunction-tabs" defaultActiveKey={physicalSource.trial ? 'csv' : 'diagnosis'} items={[
+        { key: 'csv', label: '数据浏览与可视化', children: physicalSource.trial
+          ? <TrialCsvAnalysis trialId={physicalSource.trial.id} initialRecordId={physicalSource.record?.id} artifacts={getTrialArtifacts(projects, sourceSessions, session, physicalSource.trial)} />
+          : <Alert type="info" showIcon message="CSV 数据分析需要当前具体试验上下文。" /> },
+        { key: 'diagnosis', label: '异常与根因分析', children: diagnosisContent },
+      ]} />}
     </div>
   );
 };

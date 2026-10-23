@@ -1,5 +1,411 @@
-import PredictionWorkspace from '@/workspace/PredictionWorkspace';
+import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Alert, Button, Card, Checkbox, Col, Descriptions, Form, InputNumber, Modal, Progress,
+  Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message,
+} from 'antd';
+import {
+  ExperimentOutlined, PlayCircleOutlined, ReloadOutlined, SaveOutlined,
+} from '@ant-design/icons';
+import ReactECharts from 'echarts-for-react';
+import { useNavigate } from 'react-router-dom';
+import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
+import type { BusinessRouteState } from '@/types/businessContext';
+import PreparationChecklist from '@/workspace/PreparationChecklist';
+import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
+import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
+import { createVirtualConditionArtifactInput } from '@/workspace/projectModel';
+import { createTaskReturnPath } from '@/workspace/businessSessionModel';
+import { useTaskStore } from '@/workspace/taskStore';
+import { useWorkspaceBusinessSession } from '@/workspace/useWorkspaceBusinessSession';
+import { PROFESSIONAL_MODEL_OPTIONS } from '@/workspace/professionalModelCatalog';
+import { useProfessionalCfgSelection } from '@/workspace/professionalScopeContext';
+import ProfessionalCfgField from '@/workspace/ProfessionalCfgField';
 
-export default function VirtualConditionExtension() {
-  return <PredictionWorkspace service="virtualCondition" />;
-}
+const { Text, Paragraph } = Typography;
+
+const DEFAULT_CONFIG = { method: '范围扩展', speedMin: 8000, speedMax: 10000, temperatureMin: 80, temperatureMax: 120, pressureMin: 1.5, pressureMax: 2.2, count: 36, sampling: '自动生成' };
+const DEFAULT_CONSTRAINTS = { speedMax: 10000, temperatureMax: 120, pressureMin: 1.5, pressureMax: 2.2, withinScope: true, excludeAbnormal: true, markOutsideTrusted: true };
+const EMPTY_CONFIRMATION = { model: false, config: false, constraints: false };
+
+type ConditionConfig = typeof DEFAULT_CONFIG;
+type ConstraintConfig = typeof DEFAULT_CONSTRAINTS;
+type VirtualCondition = {
+  key: string;
+  code: string;
+  speed: number;
+  temperature: number;
+  pressure: number;
+  status: '待预测' | '已完成';
+  thrust?: number;
+  temperatureRise?: number;
+  credibility?: '高' | '中' | '低';
+  risk?: '低' | '中' | '高';
+};
+
+const parseRange = (value?: string) => {
+  const numbers = value?.match(/\d+/g)?.map(Number);
+  return numbers && numbers.length >= 2 ? [numbers[0], numbers[1]] as const : null;
+};
+
+const levelTag = (value?: string, reverse = false) => {
+  const color = reverse
+    ? value === '高' ? 'green' : value === '中' ? 'orange' : 'red'
+    : value === '高' ? 'red' : value === '中' ? 'orange' : 'green';
+  return value ? <Tag color={color}>{value}</Tag> : '-';
+};
+
+const VirtualConditionExtension: React.FC = () => {
+  const navigate = useNavigate();
+  const incoming = useSessionRouteState();
+  const { setContext } = useTrialAIAssistant();
+  const { projects, session, targetProject, activeTask, recordArtifactForTaskItem, addArtifact } = useWorkspaceBusinessSession(incoming);
+  const cfgSelection = useProfessionalCfgSelection();
+  const modelOptions = PROFESSIONAL_MODEL_OPTIONS;
+  const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
+  const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
+
+  const incomingRange = parseRange(incoming?.validation?.suggestedRange);
+  const incomingProfessionalModel=PROFESSIONAL_MODEL_OPTIONS.find(item=>item.modelId===incoming?.model?.modelId||item.baseModelId===incoming?.model?.modelId);
+  const initialModel = incomingProfessionalModel ?? PROFESSIONAL_MODEL_OPTIONS[0];
+  const initialConfig = incomingRange
+    ? { ...DEFAULT_CONFIG, speedMin: incomingRange[0], speedMax: incomingRange[1], count: incoming?.validation?.recommendedRuns ?? DEFAULT_CONFIG.count }
+    : DEFAULT_CONFIG;
+  const initialConstraints = incomingRange
+    ? { ...DEFAULT_CONSTRAINTS, speedMax: Math.max(DEFAULT_CONSTRAINTS.speedMax, incomingRange[1]) }
+    : DEFAULT_CONSTRAINTS;
+
+  const [selectedModel, setModel] = useSessionState('selectedModel', initialModel);
+  const model = modelOptions.find((item) => item.modelId === selectedModel.modelId || item.baseModelId === selectedModel.modelId) ?? initialModel;
+  const [config, setConfig] = useSessionState<ConditionConfig>('config', initialConfig);
+  const [constraints, setConstraints] = useSessionState<ConstraintConfig>('constraints', initialConstraints);
+  const [draftConfig, setDraftConfig] = useSessionState<ConditionConfig>('draftConfig', initialConfig);
+  const [draftConstraints, setDraftConstraints] = useSessionState<ConstraintConfig>('draftConstraints', initialConstraints);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [constraintsOpen, setConstraintsOpen] = useState(false);
+  const [saveTargetOpen, setSaveTargetOpen] = useState(false);
+  const [savedProjectId, setSavedProjectId] = useSessionState<string | undefined>('savedProjectId', session.targetProjectId);
+  const [persistedProjectId, setPersistedProjectId] = useSessionState<string | null>('persistedProjectId', null);
+  const [persistedArtifactId, setPersistedArtifactId] = useSessionState<string | null>('persistedArtifactId', null);
+  const [conditions, setConditions] = useSessionState<VirtualCondition[]>('conditions', []);
+  const [generationStatus, setGenerationStatus] = useSessionState<'idle' | 'generated'>('generationStatus', 'idle');
+  const [predictionStatus, setPredictionStatus] = useState<'idle' | 'loading' | 'completed'>(conditions.length > 0 && conditions.every(row => row.status === '已完成') ? 'completed' : 'idle');
+  const [activeTab, setActiveTab] = useSessionState('activeTab', 'prediction');
+  const [filter, setFilter] = useSessionState('filter', '全部');
+  const [selectedCondition, setSelectedCondition] = useSessionState<VirtualCondition | null>('selectedCondition', null);
+  const [confirmed, setConfirmed] = useSessionState('confirmed', autoExecute ? { model: true, config: true, constraints: true } : EMPTY_CONFIRMATION);
+  const timer = useRef<number | null>(null);
+  const autoGenerationStarted = useRef(false);
+  const autoPredictionStarted = useRef(false);
+  const autoReturned = useRef(false);
+  const preparationReady = Object.values(confirmed).every(Boolean) && (!cfgSelection || Boolean(cfgSelection.cfgId && !cfgSelection.error));
+
+  const boundProject = projects.find((project) => project.id === savedProjectId) ?? targetProject;
+  const effectiveSession = useMemo<NonNullable<BusinessRouteState['workspaceSession']>>(
+    () => boundProject ? (session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: boundProject.id }) : { mode: 'standalone' },
+    [boundProject, session],
+  );
+
+  useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
+
+  const invalidate = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+    setConditions([]);
+    setGenerationStatus('idle');
+    setPredictionStatus('idle');
+    setActiveTab('prediction');
+    setSelectedCondition(null);
+    setFilter('全部');
+    setPersistedProjectId(null);
+    setPersistedArtifactId(null);
+  };
+
+  const generateConditions = () => {
+    if (cfgSelection && (!cfgSelection.cfgId || cfgSelection.error)) return message.warning('请在工况参数中选择有效的试验构型 CFG');
+    if (!preparationReady) return message.warning('请先确认全部工况扩展准备项');
+    const count = Math.max(1, Math.min(100, Number.isFinite(config.count) ? config.count : DEFAULT_CONFIG.count));
+    if (config.speedMin > config.speedMax || config.temperatureMin > config.temperatureMax || config.pressureMin > config.pressureMax) {
+      message.warning('工况范围的最小值不能大于最大值');
+      return;
+    }
+    const next = Array.from({ length: count }, (_, index) => {
+      const ratio = count === 1 ? 0 : index / (count - 1);
+      return {
+        key: String(index + 1),
+        code: `V${String(index + 1).padStart(2, '0')}`,
+        speed: Math.round((config.speedMin + (config.speedMax - config.speedMin) * ratio) / 10) * 10,
+        temperature: Math.round(config.temperatureMin + (config.temperatureMax - config.temperatureMin) * ((index * 7) % count) / Math.max(1, count - 1)),
+        pressure: Number((config.pressureMin + (config.pressureMax - config.pressureMin) * ((index * 11) % count) / Math.max(1, count - 1)).toFixed(2)),
+        status: '待预测' as const,
+      };
+    });
+    setConditions(next);
+    setGenerationStatus('generated');
+    setPredictionStatus('idle');
+    setActiveTab('prediction');
+    setSelectedCondition(next[0] ?? null);
+    setPersistedProjectId(null);
+    setPersistedArtifactId(null);
+    message.success(`已生成 ${next.length} 个虚拟工况`);
+  };
+
+  const startPrediction = () => {
+    if (generationStatus !== 'generated') return message.warning('请先生成虚拟工况。');
+    setPredictionStatus('loading');
+    setPersistedProjectId(null);
+    setPersistedArtifactId(null);
+    timer.current = window.setTimeout(() => {
+      setConditions((prev) => prev.map((row) => {
+        const credibility = row.speed <= 8800 ? '高' : row.speed <= 9400 ? '中' : '低';
+        const risk = row.speed <= 8800 ? '低' : row.speed <= 9400 ? '中' : '高';
+        return {
+          ...row,
+          status: '已完成',
+          thrust: Number((69.5 + row.speed * 0.002 + row.pressure * 1.3 - row.temperature * 0.04).toFixed(1)),
+          temperatureRise: Number((43 + row.speed * 0.0042 + row.temperature * 0.06).toFixed(1)),
+          credibility,
+          risk,
+        };
+      }));
+      setPredictionStatus('completed');
+      setActiveTab('prediction');
+      timer.current = null;
+      message.success('虚拟工况预测完成');
+    }, 900);
+  };
+
+  const reset = () => {
+    setModel(initialModel);
+    setConfig(initialConfig);
+    setConstraints(DEFAULT_CONSTRAINTS);
+    setDraftConfig(initialConfig);
+    setDraftConstraints(DEFAULT_CONSTRAINTS);
+    setConfirmed(EMPTY_CONFIRMATION);
+    invalidate();
+    message.success('已恢复默认扩展配置');
+  };
+
+  const persistVirtualResult = useCallback((projectId: string, notify = true) => {
+    if (predictionStatus !== 'completed') return null;
+    if (persistedProjectId === projectId) {
+      const existing = projects.find((item) => item.id === projectId)?.artifacts.find((artifact) => artifact.id === persistedArtifactId);
+      if (existing) {
+        recordArtifactForTaskItem({ projectId, artifactId: existing.id });
+        return existing;
+      }
+    }
+    const project = projects.find((item) => item.id === projectId);
+    if (!project) return null;
+    const highRiskCount = conditions.filter((row) => row.risk === '高').length;
+    const artifact = addArtifact(projectId, createVirtualConditionArtifactInput({
+      title: `${model.modelName} ${model.version} · 虚拟工况预测`,
+      summary: `已完成 ${conditions.length} 个虚拟工况预测，高风险工况 ${highRiskCount} 个`,
+      payload: {
+        model,
+        config,
+        constraints,
+        conditions,
+        highRiskCount,
+        trustedRange: model.trustedRange,
+        charts: [
+          { id: 'virtual-trend', title: '虚拟工况预测趋势' },
+          { id: 'virtual-coverage', title: '真实试验与虚拟工况覆盖' },
+        ],
+      },
+    }));
+    if (!artifact) return null;
+    recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
+    setSavedProjectId(projectId);
+    setPersistedProjectId(projectId);
+    setPersistedArtifactId(artifact.id);
+    setSaveTargetOpen(false);
+    if (notify) message.success(effectiveSession.mode === 'task' ? '虚拟工况结果已保存到当前任务' : `预测结果已保存到项目“${project.name}”`);
+    return artifact;
+  }, [setSavedProjectId, setPersistedProjectId, setPersistedArtifactId, addArtifact, conditions, config, constraints, effectiveSession.mode, model, persistedArtifactId, persistedProjectId, predictionStatus, projects, recordArtifactForTaskItem]);
+
+  const requestSave = () => {
+    if (predictionStatus !== 'completed') return message.warning('请先完成虚拟工况预测');
+    if (boundProject) {
+      persistVirtualResult(boundProject.id);
+      return;
+    }
+    setSaveTargetOpen(true);
+  };
+
+  useEffect(() => {
+    if (!autoExecute || generationStatus === 'generated' || autoGenerationStarted.current || !preparationReady) return;
+    autoGenerationStarted.current = true;
+    const kickoff = window.setTimeout(() => generateConditions(), 0);
+    return () => { window.clearTimeout(kickoff); autoGenerationStarted.current = false; };
+  }, [autoExecute, preparationReady]);
+
+  useEffect(() => {
+    if (!autoExecute || predictionStatus === 'completed' || generationStatus !== 'generated' || autoPredictionStarted.current) return;
+    autoPredictionStarted.current = true;
+    const kickoff = window.setTimeout(() => startPrediction(), 0);
+    return () => { window.clearTimeout(kickoff); autoPredictionStarted.current = false; };
+  }, [autoExecute, generationStatus]);
+
+  useEffect(() => {
+    if (!autoExecute || predictionStatus !== 'completed' || autoReturned.current || effectiveSession.mode !== 'task' || !effectiveSession.taskItemId || !boundProject) return;
+    const publish = window.setTimeout(() => {
+    autoReturned.current = true;
+    const artifact = persistVirtualResult(boundProject.id);
+    if (!artifact) return;
+    setRequirementStatus(effectiveSession.taskId, effectiveSession.taskItemId!, '待确认');
+    message.success('已按复核后的任务规划完成模拟工况扩展，成果已回到当前任务');
+    navigate(createTaskReturnPath(effectiveSession));
+    }, 0);
+    return () => window.clearTimeout(publish);
+  }, [autoExecute, boundProject, effectiveSession, navigate, persistVirtualResult, predictionStatus, setRequirementStatus]);
+
+  useEffect(() => {
+    setContext({
+      pageType: 'virtualCondition',
+      pageName: '虚拟工况扩展',
+      projectName: boundProject?.name,
+      taskName: incoming?.task?.taskName ?? activeTask?.title,
+      modelName: `${model.modelName} ${model.version}`,
+      resultSummary: predictionStatus === 'completed'
+        ? `已完成 ${conditions.length} 个虚拟工况预测`
+        : generationStatus === 'generated'
+          ? `已生成 ${conditions.length} 个待预测工况`
+          : '等待生成虚拟工况',
+      resultReady: predictionStatus === 'completed',
+    });
+    return () => setContext(null);
+  }, [activeTask?.title, boundProject?.name, conditions.length, generationStatus, incoming?.task?.taskName, model.modelName, model.version, predictionStatus, setContext]);
+
+  const filteredConditions = useMemo(
+    () => conditions.filter((row) => filter === '全部' || (filter === '高风险' ? row.risk === '高' : row.risk === '高' || row.credibility === '低')),
+    [conditions, filter],
+  );
+  const completed = predictionStatus === 'completed';
+
+  const tableColumns = completed ? [
+    { title: '工况', dataIndex: 'code' }, { title: '转速', dataIndex: 'speed' }, { title: '温度', dataIndex: 'temperature' }, { title: '压力', dataIndex: 'pressure' },
+    { title: '预测推力', dataIndex: 'thrust' }, { title: '预测温升', dataIndex: 'temperatureRise' },
+    { title: '可信度', dataIndex: 'credibility', render: (value: string) => levelTag(value, true) }, { title: '风险', dataIndex: 'risk', render: (value: string) => levelTag(value) },
+  ] : [
+    { title: '工况', dataIndex: 'code' }, { title: '转速', dataIndex: 'speed' }, { title: '温度', dataIndex: 'temperature' }, { title: '压力', dataIndex: 'pressure' }, { title: '状态', dataIndex: 'status', render: (value: string) => <Tag>{value}</Tag> },
+  ];
+
+  const trendOption = {
+    tooltip: { trigger: 'axis' }, legend: { data: ['预测推力', '预测温升'] },
+    xAxis: { type: 'category', name: '转速 / rpm', data: conditions.map((row) => row.speed) }, yAxis: { type: 'value' },
+    series: [
+      { name: '预测推力', type: 'line', smooth: true, data: conditions.map((row) => row.thrust) },
+      { name: '预测温升', type: 'line', smooth: true, data: conditions.map((row) => row.temperatureRise) },
+    ],
+  };
+
+  const coverageOption = {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } }, legend: { data: ['实测区域', '高可信虚拟区域', '谨慎区域', '待验证区域'] },
+    xAxis: { type: 'value', min: 2000, max: 10000, name: '转速 / rpm' }, yAxis: { type: 'category', data: ['工况覆盖'] },
+    series: [
+      { name: '实测区域', type: 'bar', stack: 'range', data: [6000] },
+      { name: '高可信虚拟区域', type: 'bar', stack: 'range', data: [800] },
+      { name: '谨慎区域', type: 'bar', stack: 'range', data: [600] },
+      { name: '待验证区域', type: 'bar', stack: 'range', data: [600] },
+    ],
+  };
+
+  const resultTabs = [
+    { key: 'prediction', label: '预测结果', children: <><Space style={{ marginBottom: 12 }}><Select value={filter} onChange={setFilter} options={['全部', '高风险', '待验证'].map((value) => ({ value, label: value }))} /><Text type="secondary">当前选中：{selectedCondition?.code ?? '无'}</Text></Space><Table size="small" pagination={{ pageSize: 12, showSizeChanger: false }} dataSource={filteredConditions} columns={tableColumns} onRow={(row) => ({ onClick: () => setSelectedCondition(row) })} rowClassName={(row) => row.key === selectedCondition?.key ? 'ant-table-row-selected' : ''} /></> },
+    { key: 'trend', label: '趋势分析', children: completed ? <ReactECharts option={trendOption} style={{ height: 320 }} /> : <Alert type="info" showIcon title="完成预测后展示转速—推力与转速—温升趋势" /> },
+    { key: 'risk', label: '风险与可信度', children: completed ? <Row gutter={16}>
+      <Col span={8}><Card size="small" title={<Space><Tag color="green">高可信区域</Tag><Text>8000～8800 rpm</Text></Space>}><Progress percent={92} status="success" /><Paragraph>模型预测可信度较高，可作为工程参考。</Paragraph></Card></Col>
+      <Col span={8}><Card size="small" title={<Space><Tag color="orange">谨慎区域</Tag><Text>8800～9400 rpm</Text></Space>}><Progress percent={68} strokeColor="#faad14" /><Paragraph>模型不确定性开始上升，建议结合实际任务谨慎使用。</Paragraph></Card></Col>
+      <Col span={8}><Card size="small" title={<Space><Tag color="red">待验证区域</Tag><Text>9400～10000 rpm</Text></Space>}><Progress percent={36} status="exception" /><Paragraph>实测覆盖不足、模型不确定性增加，部分工况接近安全边界。</Paragraph></Card></Col>
+    </Row> : <Alert type="info" showIcon title="完成预测后展示风险与可信度分区" /> },
+    { key: 'coverage', label: '工况覆盖', children: completed ? <><Row gutter={16} style={{ marginBottom: 12 }}><Col span={5}><Statistic title="实测试验覆盖" value={42} suffix="组" /></Col><Col span={5}><Statistic title="模型校准覆盖" value={38} suffix="组" /></Col><Col span={5}><Statistic title="虚拟扩展工况" value={conditions.length} suffix="组" /></Col><Col span={5}><Statistic title="高可信虚拟工况" value={conditions.filter((row) => row.credibility === '高').length} suffix="组" /></Col><Col span={4}><Statistic title="待验证工况" value={conditions.filter((row) => row.risk === '高').length} suffix="组" /></Col></Row><Alert type="info" showIcon title="蓝色为真实试验覆盖，其余区域为模型虚拟预测" style={{ marginBottom: 8 }} /><ReactECharts option={coverageOption} style={{ height: 240 }} /></> : <Alert type="info" showIcon title="完成预测后展示真实试验与虚拟扩展覆盖关系" /> },
+  ];
+
+  const sourceName = incoming?.source === 'dataAnalysis'
+    ? `试验数据分析${incoming.task ? ` / ${incoming.task.taskName}` : ''}`
+    : incoming?.source === 'digitalTwin' ? '试验数字孪生' : '';
+  const openConfig = () => { setDraftConfig(config); setConfigOpen(true); };
+  const openConstraints = () => { setDraftConstraints(constraints); setConstraintsOpen(true); };
+
+  return (
+    <div className="workspace-business-page">
+      <div className="workspace-business-heading workspace-page-heading">
+        <div className="workspace-top-choice-row">
+          <Typography.Text type="secondary">专业模型</Typography.Text>
+          <ModelChoiceStrip
+            models={modelOptions}
+            value={model.modelId}
+            ariaLabel="虚拟工况专业模型选择"
+            isDisabled={(item) => item.status === '待确认'}
+            onChange={(nextModel) => {
+              const matched = PROFESSIONAL_MODEL_OPTIONS.find(item => item.modelId === nextModel.modelId);
+              if (matched) setModel(matched);
+              setConfirmed((prev) => ({ ...prev, model: true }));
+              invalidate();
+            }}
+          />
+        </div>
+        <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
+      </div>
+
+      {sourceName && <Alert type="success" showIcon title={`已从${sourceName}带入业务上下文`} description={`${incoming?.validation ? `待验证区间：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}；` : ''}已携带可信模型：${model.modelName} ${model.version}`} style={{ marginBottom: 16 }} />}
+
+      <PreparationChecklist
+        title="工况扩展准备"
+        items={[
+          ...(cfgSelection ? [{ key: 'cfg', label: '试验构型 CFG', value: cfgSelection.cfgId && !cfgSelection.error ? '已选择' : '未选择或无效', confirmed: Boolean(cfgSelection.cfgId && !cfgSelection.error), onClick: openConfig, preview: <Tag>{cfgSelection.cfgId && !cfgSelection.error ? '本次工况将关联到所选 CFG' : '请在工况配置中选择有效 CFG'}</Tag> }] : []),
+          { key: 'config', label: '工况配置', value: `${config.speedMin}～${config.speedMax} rpm / ${config.count} 组`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">{config.method}</Tag><Tag>转速 {config.speedMin}～{config.speedMax} rpm</Tag><Tag>温度 {config.temperatureMin}～{config.temperatureMax} ℃</Tag><Tag>压力 {config.pressureMin}～{config.pressureMax} MPa</Tag><Tag>{config.count} 组 · {config.sampling}</Tag></Space> },
+          { key: 'constraints', label: '约束设置', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints, preview: <Space size={[4, 4]} wrap><Tag color="green">转速 ≤ {constraints.speedMax} rpm</Tag><Tag>温度 ≤ {constraints.temperatureMax} ℃</Tag><Tag>压力 {constraints.pressureMin}～{constraints.pressureMax} MPa</Tag><Tag>{constraints.withinScope ? '限制在可信范围内' : '允许超出可信范围'}</Tag><Tag>{constraints.excludeAbnormal ? '排除异常工况' : '保留异常工况'}</Tag><Tag>{constraints.markOutsideTrusted ? '标记可信范围外工况' : '不标记范围外工况'}</Tag></Space> },
+        ]}
+        actions={<Space size={6}>
+          <Button type={preparationReady && generationStatus !== 'generated' ? 'primary' : 'default'} icon={<ExperimentOutlined />} disabled={!preparationReady} onClick={generateConditions}>生成虚拟工况</Button>
+          <Button type={generationStatus === 'generated' ? 'primary' : 'default'} icon={<PlayCircleOutlined />} disabled={generationStatus !== 'generated'} loading={predictionStatus === 'loading'} onClick={startPrediction}>开始预测</Button>
+          <Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} onClick={reset}>重置</Button>
+        </Space>}
+      />
+
+      <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions size="small" column={2} items={[
+        { key: 'model', label: '当前模型', children: `${model.modelName} ${model.version}` },
+        { key: 'status', label: '模型状态', children: <Tag color="green">{model.status}</Tag> },
+        { key: 'calibration', label: '会话校准数据', children: model.calibrationData ? `已更新 · ${model.calibratedAt ?? ''}` : '使用模型当前参数' },
+        { key: 'measured', label: '当前实测范围', children: model.measuredRange ?? '未设置' },
+        { key: 'target', label: '目标扩展范围', children: `${config.speedMin}～${config.speedMax} rpm` },
+        { key: 'variables', label: '扩展变量', children: '转速、温度、压力' },
+        { key: 'count', label: '虚拟工况', children: `${conditions.length || config.count} 组` },
+        { key: 'state', label: '当前状态', children: predictionStatus === 'completed' ? '已完成预测' : generationStatus === 'generated' ? '已生成' : '未生成' },
+        sourceName ? { key: 'source', label: '来源', children: sourceName } : { key: 'trusted', label: '模型可信范围', children: model.trustedRange },
+      ]} /></Card>
+
+      <Card id="business-result" title="虚拟工况与预测结果" size="small" className="workspace-business-card">
+        {predictionStatus === 'loading' ? (
+          <div style={{ padding: '48px 12%' }}><Progress percent={78} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在执行虚拟工况预测与风险标记...</Paragraph></div>
+        ) : generationStatus === 'generated' ? (
+          <><Alert type={completed ? 'success' : 'info'} showIcon title={completed ? `已完成 ${conditions.length} 个虚拟工况预测` : `已生成 ${conditions.length} 个虚拟工况，请点击“开始预测”`} style={{ marginBottom: 12 }} /><Tabs activeKey={activeTab} onChange={setActiveTab} items={resultTabs} /></>
+        ) : (
+          <Alert type="info" showIcon title="请配置扩展范围并生成虚拟工况" />
+        )}
+        {completed && <div className="workspace-result-actions"><Space wrap>
+          <Button icon={<SaveOutlined />} type="primary" onClick={requestSave}>{persistedProjectId ? (effectiveSession.mode === 'task' ? '已保存到当前任务' : '已保存到项目') : (effectiveSession.mode === 'task' ? '保存到当前任务' : '保存预测结果')}</Button>
+        </Space></div>}
+      </Card>
+
+      <Modal title="工况配置" width={650} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 6 }} wrapperCol={{ span: 17 }}>
+        <ProfessionalCfgField />
+        <Form.Item label="扩展方式"><Select value={draftConfig.method} onChange={(value) => setDraftConfig({ ...draftConfig, method: value })} options={['范围扩展', '指定区域扩展'].map((value) => ({ value }))} /></Form.Item>
+        {[[ '转速（rpm）', 'speedMin', 'speedMax' ], [ '温度（℃）', 'temperatureMin', 'temperatureMax' ], [ '压力（MPa）', 'pressureMin', 'pressureMax' ]].map(([label, minKey, maxKey]) => <Form.Item label={label} key={label}><Space><InputNumber value={draftConfig[minKey as keyof ConditionConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [minKey]: value ?? 0 })} /><Text>～</Text><InputNumber value={draftConfig[maxKey as keyof ConditionConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [maxKey]: value ?? 0 })} /></Space></Form.Item>)}
+        <Form.Item label="生成数量"><InputNumber min={1} max={100} value={draftConfig.count} onChange={(value) => setDraftConfig({ ...draftConfig, count: value ?? 36 })} /></Form.Item>
+        <Form.Item label="采样方式"><Select value={draftConfig.sampling} onChange={(value) => setDraftConfig({ ...draftConfig, sampling: value })} options={['自动生成', '均匀采样'].map((value) => ({ value }))} /></Form.Item>
+      </Form></Modal>
+      <Modal title="约束设置" width={620} open={constraintsOpen} onCancel={() => setConstraintsOpen(false)} onOk={() => { setConstraints(draftConstraints); setConfirmed((prev) => ({ ...prev, constraints: true })); setConstraintsOpen(false); invalidate(); }}><Form labelCol={{ span: 9 }} wrapperCol={{ span: 14 }}>
+        <Form.Item label="最大转速（rpm）"><InputNumber value={draftConstraints.speedMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, speedMax: value ?? 10000 })} /></Form.Item>
+        <Form.Item label="最大温度（℃）"><InputNumber value={draftConstraints.temperatureMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, temperatureMax: value ?? 120 })} /></Form.Item>
+        <Form.Item label="压力范围"><Space><InputNumber value={draftConstraints.pressureMin} onChange={(value) => setDraftConstraints({ ...draftConstraints, pressureMin: value ?? 1.5 })} /><Text>～</Text><InputNumber value={draftConstraints.pressureMax} onChange={(value) => setDraftConstraints({ ...draftConstraints, pressureMax: value ?? 2.2 })} /></Space></Form.Item>
+        <Form.Item label="约束策略"><Space orientation="vertical"><Checkbox checked={draftConstraints.withinScope} onChange={(event) => setDraftConstraints({ ...draftConstraints, withinScope: event.target.checked })}>限制在模型可推演范围内</Checkbox><Checkbox checked={draftConstraints.excludeAbnormal} onChange={(event) => setDraftConstraints({ ...draftConstraints, excludeAbnormal: event.target.checked })}>排除历史异常区域</Checkbox><Checkbox checked={draftConstraints.markOutsideTrusted} onChange={(event) => setDraftConstraints({ ...draftConstraints, markOutsideTrusted: event.target.checked })}>标记超出可信范围工况</Checkbox></Space></Form.Item>
+      </Form></Modal>
+      <ProjectSaveTargetModal open={saveTargetOpen} title="保存虚拟工况预测到项目" defaultProjectId={boundProject?.id} onCancel={() => setSaveTargetOpen(false)} onConfirm={persistVirtualResult} />
+    </div>
+  );
+};
+
+export default VirtualConditionExtension;

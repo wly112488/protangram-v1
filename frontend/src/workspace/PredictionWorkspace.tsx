@@ -74,12 +74,13 @@ export default function PredictionWorkspace({service}:{service:PredictionService
       <Typography.Title level={4}>{service==='virtualCondition'?'虚拟工况':'数字孪生'} · 通用模型</Typography.Title>
       <Input.Search aria-label="搜索通用模型" placeholder="搜索通用模型" value={query} onChange={event=>setQuery(event.target.value)} />
       <div className="general-model-grid">
-        {available.map(model=><Card key={model.id} title={model.name} extra={<Tag>演示</Tag>}>
-          <Typography.Paragraph type="secondary">配置装备组合和模型参数，执行本次工况预览。</Typography.Paragraph>
+        {available.map(model=><Card key={model.id} title={model.name} extra={<Tag>通用模型</Tag>}>
+          <Typography.Paragraph type="secondary">配置装备组合和模型参数，运行本次工况。</Typography.Paragraph>
           <Button type="primary" aria-label={`配置 ${model.name}`} onClick={()=>{setModelId(model.id);setCfgId(undefined);setError('');}}>配置模型</Button>
         </Card>)}
         {other.map(model=><Card key={model.modelId} title={model.modelName} extra={<Tag>{model.version}</Tag>}>
-          <Typography.Paragraph type="secondary">尚无可用的计算配置。</Typography.Paragraph><Button disabled>暂不可用</Button>
+          <Typography.Paragraph type="secondary">配置本次工况参数并运行模型。</Typography.Paragraph>
+          <Button type="primary" aria-label={`配置 ${model.modelName}`} onClick={()=>{setModelId(model.modelId);setCfgId(undefined);setError('');}}>配置模型</Button>
         </Card>)}
       </div>
       {!available.length && !other.length && <Empty description="没有匹配的通用模型" />}

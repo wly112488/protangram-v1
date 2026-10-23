@@ -15,19 +15,24 @@ test('a professional operation needs a valid CFG but does not create a trial',()
   assert.deepEqual(objects,before);
   assert.throws(()=>cfgOperationScope(cfg('invalid','missing'),objects),/失效/);
 });
-test('switching CFG cannot inherit an unrelated trial or execution',()=>{
+test('any valid CFG can be used and only the matching CFG inherits a concrete trial',()=>{
   const original=cfgOperationScope(cfg('A'),objects,base);
   assert.equal(original.trialId,'t');assert.equal(original.testRecordId,'r');
-  for(const alternative of [cfg('B'),cfg('C','other')]) {
-    assert.throws(()=>cfgOperationScope(alternative,objects,base),/不匹配/);
-  }
+  const sameEquipment=cfgOperationScope(cfg('B'),objects,base);
+  assert.equal(sameEquipment.cfgId,'B');assert.equal(sameEquipment.physicalObjectId,'fan');
+  assert.equal(sameEquipment.trialId,undefined);assert.equal(sameEquipment.testRecordId,undefined);
+  const otherEquipment=cfgOperationScope(cfg('C','other'),objects,base);
+  assert.equal(otherEquipment.cfgId,'C');assert.equal(otherEquipment.physicalObjectId,'other');
+  assert.equal(otherEquipment.trialId,undefined);assert.equal(otherEquipment.testRecordId,undefined);
 });
 
-test('an explicitly opened legacy trial retains its identity when the user selects a CFG for the same equipment',()=>{
+test('an explicitly opened legacy trial is inherited only when its CFG is known to match',()=>{
   const legacy=structuredClone(objects);delete legacy[0].configurations[0].experiments[0].trials[0].cfgId;
   const before=structuredClone(legacy);
-  const scope=cfgOperationScope(cfg('selected'),legacy,base);
+  const scope=cfgOperationScope(cfg('A'),legacy,base);
   assert.equal(scope.trialId,'t');assert.equal(scope.experimentId,'setup');assert.equal(scope.testRecordId,'r');
-  assert.equal(scope.cfgId,'selected');assert.deepEqual(legacy,before);
-  assert.throws(()=>cfgOperationScope(cfg('other','other'),legacy,base),/不匹配/);
+  assert.equal(scope.cfgId,'A');assert.deepEqual(legacy,before);
+  const other=cfgOperationScope(cfg('selected'),legacy,base);
+  assert.equal(other.cfgId,'selected');assert.equal(other.physicalObjectId,'fan');assert.equal(other.trialId,undefined);
+  assert.deepEqual(legacy,before);
 });

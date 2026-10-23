@@ -185,8 +185,10 @@ const ReportGenerate: React.FC = () => {
       let reportArtifact;
       try {
         const scope=routeState?.workspaceSession;
-        reportArtifact=scope?.sessionId && scope.cfgId
-          ? saveOwnedArtifact(scope.sessionId,{kind:'cfg',cfgId:scope.cfgId},input)
+        reportArtifact=scope?.sessionId && scope.mode!=='task'
+          ? saveOwnedArtifact(scope.sessionId,{kind:'session',sessionId:scope.sessionId},input)
+          : scope?.sessionId && scope.cfgId
+            ? saveOwnedArtifact(scope.sessionId,{kind:'cfg',cfgId:scope.cfgId},input)
           : addArtifact(workspaceProject.id,input);
         if(!reportArtifact) throw new Error('报告成果未保存，请重试');
       } catch(cause) {message.error(cause instanceof Error?cause.message:'报告成果未保存，请重试');return;}
@@ -266,7 +268,7 @@ const ReportGenerate: React.FC = () => {
           type="info"
           showIcon
           message="当前正在编制正式报告"
-          description="保存正文和资料引用后可完成人工编制。AI 整合生成尚未接入，不会自动填写结论或改变任务完成状态。"
+          description="保存正文和资料引用后即可形成当前版本的正式报告。"
           style={{ marginBottom: 12 }}
         />
       )}

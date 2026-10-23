@@ -49,6 +49,6 @@ export default function ProjectContent({sessionViewId,trialViewId,embedded=false
       ...scope.related.map(entry=>({key:entry.trial.id,label:entry.trial.name,children:<AnalysisResults entries={[]} groups={collectTrialResourceGroups(projects,sessions,objects,configurations,{projectId,trialId:entry.trial.id})} shared hideTitle />})),
       ...((()=>{const entries=scope.entries.filter(entry=>!entry.trialId && !(entry.artifact && resolveArtifactTrialScope(entry.artifact,sessions,objects,configurations)));return entries.length?[{key:'project-data',label:'项目资料',children:<AnalysisResults entries={entries} shared hideTitle />}]:[];})()),
     ]} /> : (resourceGroups ? !resourceGroups.length : scope.missing) ? <Alert type="warning" showIcon message="当前项目、会话或试验来源不可用" description="未切换到其他试验，也未删除已有成果。可返回项目重新选择查看范围。" />
-      : <AnalysisResults key={`${projectId ?? sessionId}:${trialId ?? 'all'}`} entries={resourceGroups?.flatMap(group=>group.entries) ?? scope.entries} trials={scope.trials} groups={resourceGroups} shared hideTitle={!embedded} initialArtifactId={routeState?.artifactId} />}
+      : <AnalysisResults key={`${projectId ?? sessionId}:${trialId ?? 'all'}`} entries={resourceGroups?.flatMap(group=>group.entries) ?? scope.entries} trials={scope.trials} groups={resourceGroups} rootLabel={sessionId ? boundSession?.title : scopedTrial ? scope.related.find(entry=>entry.trial.id===scopedTrial)?.trial.name : undefined} shared hideTitle={!embedded} initialArtifactId={routeState?.artifactId} />}
   </div>;
 }

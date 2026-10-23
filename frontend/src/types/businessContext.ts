@@ -7,7 +7,6 @@ export type BusinessAction =
   | '生成验证试验' | '加入报告';
 
 export interface ModelContract {
-  definitionOnly?: boolean;
   modelId: string;
   modelName: string;
   version: string;

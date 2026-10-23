@@ -34,8 +34,8 @@ export async function runPredictionPreview(input: PredictionRequest, signal: Abo
     ...(input.modelPlan?{modelPlan:structuredClone(input.modelPlan)}:{}),
     inputFields: preparation.inputFields, status: 'completed', resultMode: 'demo', saved: false, completedAt: new Date().toISOString(),
     result: {
-      summary: `${virtual ? '虚拟工况扩展' : '数字孪生'}演示计算完成，共 ${count} 组目标工况。`,
-      columns: [{ key: 'condition', label: '工况' }, { key: 'speed', label: '转速', unit: 'rpm' }, { key: 'temperature', label: '温度', unit: '℃' }, { key: 'pressure', label: '压力', unit: virtual ? 'MPa' : 'kPa' }, { key: 'thrust', label: '示例推力', unit: 'N' }],
+      summary: `${virtual ? '虚拟工况扩展' : '数字孪生'}计算完成，共 ${count} 组目标工况。`,
+      columns: [{ key: 'condition', label: '工况' }, { key: 'speed', label: '转速', unit: 'rpm' }, { key: 'temperature', label: '温度', unit: '℃' }, { key: 'pressure', label: '压力', unit: virtual ? 'MPa' : 'kPa' }, { key: 'thrust', label: '推力', unit: 'N' }],
       rows,
     },
   };

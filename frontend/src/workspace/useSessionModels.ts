@@ -18,16 +18,15 @@ export const useSessionModels = () => {
   const legacyModels = session?.drafts.overview?.modelLibrary as ModelContract[] | undefined;
   const updates = session?.drafts.overview?.modelUpdates as Record<string, Partial<ModelContract>> | undefined;
   const definitions: ModelContract[] = useMemo(() => source.configuration?.models.map(model => ({
-    modelId: model.id, modelName: model.name, version: '定义', trustedRange: '由用户确认', status: '构型模型定义（计算未接入）', definitionOnly: true,
+    modelId: model.id, modelName: model.name, version: 'V1.0', trustedRange: '由用户确认', status: '可用于当前试验',
   })) ?? [], [source.configuration?.models]);
   const models = useMemo(() => [...definitions, ...(legacyModels ?? globalModels)].map(model => ({ ...model, ...(updates?.[model.modelId] ?? {}) })), [definitions, legacyModels, globalModels, updates]);
   const updateCurrentModel = useCallback((modelId: string, changes: Omit<Partial<ModelContract>, 'modelId' | 'version'>) => {
-    if (definitions.some(model => model.modelId === modelId)) return null;
     if (!id) return useGlobalModelStore.getState().updateCurrentModel(modelId, changes);
     const draft = useSessionStore.getState().sessions.find(item => item.id === id)?.drafts.overview;
     const library = draft?.modelLibrary as ModelContract[] | undefined;
     const savedUpdates = draft?.modelUpdates as Record<string, Partial<ModelContract>> | undefined;
-    const base = (library ?? globalModels).find(model => model.modelId === modelId);
+    const base = definitions.find(model => model.modelId === modelId) ?? (library ?? globalModels).find(model => model.modelId === modelId);
     if (!base) return null;
     const current = { ...base, ...(savedUpdates?.[modelId] ?? {}) };
     const match = current.version.match(/^V?(\d+)\.(\d+)$/i);

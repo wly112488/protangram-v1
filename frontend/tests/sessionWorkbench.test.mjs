@@ -167,9 +167,12 @@ test('DOE methods share the intelligent experiment design capability and legacy 
   assert.equal(api.sessionCapabilities.filter(item => item.key === 'doe' || item.key === 'doeMethods').length, 1);
 });
 
-test('DOE keeps business design methods and preparation without a model choice or model confirmation gate', () => {
+test('DOE keeps its business design methods, displays its model choices, and associates input with a CFG', () => {
   const designSource = readFileSync(new URL('../src/pages/experiment/design/IntelligentExperimentDesign.tsx', import.meta.url), 'utf8');
-  assert.doesNotMatch(designSource, /ModelChoiceStrip|confirmed\.model|选择适用模型/);
+  assert.match(designSource, /ModelChoiceStrip/);
+  assert.match(designSource, /PROFESSIONAL_MODEL_OPTIONS/);
+  assert.match(designSource, /ProfessionalCfgField/);
+  assert.doesNotMatch(designSource, /confirmed\.model|选择适用模型/);
   assert.match(designSource, /displayMode="doe-design"/);
   assert.match(designSource, /label: '试验配置'/);
   assert.match(designSource, /label: '约束'/);

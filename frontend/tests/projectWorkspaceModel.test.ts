@@ -68,6 +68,7 @@ test('project navigation only exposes categories backed by real content', () => 
 
   assert.deepEqual(buildProjectNavigation(withCalibration).map((item) => item.view), [
     'overview',
+    'trials',
     'worksheet',
     'charts',
     'design',
@@ -140,14 +141,14 @@ test('header active key follows the current business route', () => {
   assert.equal(getHeaderActiveKey('/analysis/digital-twin'), 'digitalTwin');
   assert.equal(getHeaderActiveKey('/analysis/virtual-condition'), 'virtualCondition');
   assert.equal(getHeaderActiveKey('/report/list'), 'report');
-  assert.equal(getHeaderActiveKey('/'), null);
+  assert.equal(getHeaderActiveKey('/'), 'taskCenter');
 });
 
 test('primary navigation exposes direct business pages and hides legacy experiment and analysis entries', () => {
   assert.deepEqual(
     primaryNavigationItems.map(({ key, label, path }) => ({ key, label, path })),
     [
-      { key: 'experiment', label: '试验管理', path: undefined },
+      { key: 'taskCenter', label: '任务中心', path: '/' },
       { key: 'doe', label: '试验设计', path: '/experiment/design/intelligent' },
       { key: 'analysis', label: '试验数据分析', path: '/analysis/projects' },
       { key: 'digitalTwin', label: '试验数字孪生', path: '/analysis/digital-twin' },
@@ -187,15 +188,18 @@ test('home shortcuts no longer expose legacy design, module-management, or templ
   assert.doesNotMatch(homeSource, /title: '数据分析'/);
 });
 
-test('core business page transitions keep their route-state handoffs', () => {
+test('professional functions retain their feature-specific models and CFG input fields', () => {
   const analysisSource = readFileSync(new URL('../src/pages/analysis/projects/AnalysisProjects.tsx', import.meta.url), 'utf8');
   const digitalTwinSource = readFileSync(new URL('../src/pages/analysis/DigitalTwin.tsx', import.meta.url), 'utf8');
   const virtualConditionSource = readFileSync(new URL('../src/pages/analysis/VirtualConditionExtension.tsx', import.meta.url), 'utf8');
+  const designSource = readFileSync(new URL('../src/pages/experiment/design/IntelligentExperimentDesign.tsx', import.meta.url), 'utf8');
 
-  assert.match(analysisSource, /navigate\('\/analysis\/digital-twin', \{ state: base \}\)/);
-  assert.match(analysisSource, /navigate\('\/analysis\/virtual-condition', \{ state:/);
-  assert.match(digitalTwinSource, /navigate\('\/experiment\/design\/intelligent', \{ state:/);
-  assert.match(virtualConditionSource, /navigate\('\/experiment\/design\/intelligent', \{ state:/);
+  assert.match(analysisSource, /navigate\(`\/analysis\/digital-twin\$\{createTaskContextSearch\(effectiveSession\)\}`, \{ state: base \}\)/);
+  assert.match(analysisSource, /navigate\(`\/analysis\/virtual-condition\$\{createTaskContextSearch\(effectiveSession\)\}`, \{ state:/);
+  for (const source of [digitalTwinSource, virtualConditionSource, designSource]) {
+    assert.match(source, /ProfessionalCfgField/);
+    assert.match(source, /ModelChoiceStrip/);
+  }
 });
 
 test('business artifact factories assign stable type, source and payload contracts', () => {
@@ -234,19 +238,26 @@ test('top-level business navigation carries the active project or explicit stand
   });
 });
 
-test('the root workspace is the only homepage route and visible management/report groups have routes', () => {
+test('the workbench is the homepage route and visible management/report groups have routes', () => {
   const routerSource = readFileSync(new URL('../src/router/index.tsx', import.meta.url), 'utf8');
   const functionBarSource = readFileSync(new URL('../src/workbench/FunctionBar.tsx', import.meta.url), 'utf8');
   const shellSource = readFileSync(new URL('../src/workspace/WorkspaceShell.tsx', import.meta.url), 'utf8');
 
   assert.doesNotMatch(routerSource, /import Home from ['"]@\/pages\/Home['"]/);
   assert.doesNotMatch(routerSource, /\{ index: true, element: <Home \/> \}/);
-  assert.match(shellSource, /location\.pathname === '\/' \? <ProjectContent \/>/);
+  assert.match(routerSource, /\{ index: true, element: <WorkbenchHome \/> \}/);
+  assert.match(shellSource, /<Outlet \/>/);
   assert.match(functionBarSource, /试验科目: '\/experiment\/info\/subjects'/);
   assert.match(functionBarSource, /采样要求: '\/experiment\/info\/sampling'/);
   assert.match(functionBarSource, /报告模板管理: '\/report\/templates'/);
   assert.match(functionBarSource, /分析报告管理: '\/report\/list'/);
   assert.match(functionBarSource, /报告生成: '\/report\/create'/);
+});
+
+test('session reports save into the session resource space and retain selected artifact references', () => {
+  const reportSource = readFileSync(new URL('../src/pages/report/ReportGenerate.tsx', import.meta.url), 'utf8');
+  assert.match(reportSource, /artifactIds: selectedArtifactIds \|\| projectOutputVariables\.map/);
+  assert.match(reportSource, /saveOwnedArtifact\(scope\.sessionId,\{kind:'session',sessionId:scope\.sessionId\},input\)/);
 });
 
 test('workspace header and data analysis integrate the approved COMAC visual assets and interactive measurement view', () => {

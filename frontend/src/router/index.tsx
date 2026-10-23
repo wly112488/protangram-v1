@@ -43,6 +43,7 @@ import TrialCreatePage from '@/workspace/TrialCreatePage';
 import TrialConfigurationLibrary from '@/workspace/TrialConfigurationLibrary';
 import TaskBookAnalysisPage from '@/workspace/TaskBookAnalysisPage';
 import SessionDataWorkspace from '@/workspace/SessionDataWorkspace';
+import SessionAnalysisWorkspace from '@/workspace/SessionAnalysisWorkspace';
 
 /**
  * 应用路由配置
@@ -66,7 +67,7 @@ const router = createBrowserRouter([
         { path: 'doe-design', element: <IntelligentExperimentDesign /> },
         { path: 'doe', element: <IntelligentExperimentDesign /> },
         { path: 'doe/result', element: <ExperimentTaskResult /> },
-        { path: 'analysis', element: <SessionDataWorkspace professional /> },
+        { path: 'analysis', element: <SessionAnalysisWorkspace /> },
         { path: 'tools', element: <SessionDataWorkspace /> },
         { path: 'digital-twin', element: <DigitalTwin /> },
         { path: 'virtual-condition', element: <VirtualConditionExtension /> },

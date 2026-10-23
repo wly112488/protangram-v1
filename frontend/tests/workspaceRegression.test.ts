@@ -122,7 +122,7 @@ test('data analysis readiness contains only user-confirmed analysis inputs, with
   assert.doesNotMatch(source, /confirmed\.model/);
 });
 
-test('joining analysis and virtual results to a report persists Project artifacts and carries their ids', () => {
+test('joining analysis and virtual results to a report persists session resources and carries their ids', () => {
   const analysisSource = readFileSync(new URL('../src/pages/analysis/projects/AnalysisProjects.tsx', import.meta.url), 'utf8');
   const virtualSource = readFileSync(new URL('../src/pages/analysis/VirtualConditionExtension.tsx', import.meta.url), 'utf8');
   const createSource = readFileSync(new URL('../src/pages/report/ReportCreate.tsx', import.meta.url), 'utf8');
@@ -132,10 +132,9 @@ test('joining analysis and virtual results to a report persists Project artifact
   assert.match(analysisSource, /artifactIds: \[artifactId\]/);
   assert.doesNotMatch(analysisSource, /saveBusinessReportItem/);
   assert.match(virtualSource, /persistVirtualResult\(boundProject\.id\)/);
-  assert.match(virtualSource, /artifactIds: \[artifact\.id\]/);
   assert.doesNotMatch(virtualSource, /saveBusinessReportItem/);
   assert.match(createSource, /routeState\?\.artifactIds/);
-  assert.match(generateSource, /addArtifact\(workspaceProject\.id, createReportArtifactInput/);
+  assert.match(generateSource, /saveOwnedArtifact\(scope\.sessionId,\{kind:'session',sessionId:scope\.sessionId\},input\)/);
 });
 
 test('cross-page workflows explain which task data model or validation context was carried forward', () => {

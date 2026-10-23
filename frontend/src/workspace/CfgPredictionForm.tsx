@@ -7,6 +7,7 @@ import { validateTrialConfiguration } from './trialConfigurationModel';
 import { MODEL_FLOW_FIXTURES } from './modelFlowFixtures';
 import { modelConfigurationKey, readModelEquipmentInputs, resolveModelPlan, type ModelInputBinding, type ModelPlanRequest } from './modelPlanModel';
 import { useModelSchemeStore } from './modelSchemeStore';
+import { useGlobalModelStore } from './globalModelStore';
 import { useSessionRouteState, useSessionState } from './useSessionState';
 import { useLocation } from 'react-router-dom';
 import { getCapabilityFromPath, getSessionDraftKey, getSessionIdFromLocation, readSessionDraft } from './sessionModel';
@@ -29,6 +30,7 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
   const [form]=Form.useForm<Draft>();
   const objects=usePhysicalObjectStore(state=>state.objects);
   const cfg=useTrialConfigurationStore(state=>state.configurations.find(item=>item.id===cfgId));
+  const catalogModel=useGlobalModelStore(state=>state.models.find(item=>item.modelId===modelId));
   const schemes=useModelSchemeStore(state=>state.schemes);
   const location=useLocation();
   const routeState=useSessionRouteState();
@@ -47,7 +49,10 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
   const controller=useRef<AbortController | null>(null);
   useEffect(()=>()=>controller.current?.abort(),[]);
   const equipment=flattenEquipment(objects);
-  const model=MODEL_FLOW_FIXTURES.find(item=>item.id===modelId);
+  const model=MODEL_FLOW_FIXTURES.find(item=>item.id===modelId) ?? (catalogModel ? {
+    id:catalogModel.modelId,name:catalogModel.modelName,version:catalogModel.version,resultMode:'demo' as const,
+    configurationFields:[],equipmentInputs:[],
+  } : undefined);
   // Runtime values are manual inputs. Similar parameter names never bind equipment implicitly.
   const preparation=predictionPreparation(service,{...context,objectParameters:[],configurationParameters:[],records:[]});
   const inputs=predictionInputs(preparation,draft.inputs);
@@ -111,7 +116,6 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
   };
   if(cfgErrors.length) return <Alert type="error" showIcon title="CFG 来源已失效，不能规划或运行模型" description={cfgErrors.join('；')} />;
   return <div className="workspace-business-page cfg-prediction-flow">
-    <Alert type="info" showIcon title="前端演示流程" description="用于确认模型配置与运行输入的使用流程，未执行真实 CFD 或其他后端模型算法。" />
     {error&&<Alert type="error" showIcon title={error} />}
     <div>
 
@@ -134,14 +138,14 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
           rules={[{required:field.required,type:'number',min:field.min,max:field.max,message:`请检查${field.label}`}]}>
           <InputNumber style={{width:'100%'}} min={field.min} max={field.max} />
         </Form.Item>)}
-        <Button type="primary" htmlType="submit" loading={busy} disabled={Boolean(bindingError)}>执行演示预览</Button>
+        <Button type="primary" htmlType="submit" loading={busy} disabled={Boolean(bindingError)}>运行模型</Button>
       </Form>
     </div>
-    {result&&<Card size="small" title="演示预览结果" className="cfg-model-result">
-      <Space wrap><Tag color="orange">演示结果</Tag><Tag>MODEL：{result.modelPlan!.modelId}</Tag><Tag>方案：{result.modelPlan!.schemeId}</Tag><Tag>{saved?'已保存到共享成果':'待保存'}</Tag></Space>
+    {result&&<Card size="small" title="运行结果" className="cfg-model-result">
+      <Space wrap><Tag>MODEL：{result.modelPlan!.modelId}</Tag><Tag>方案：{result.modelPlan!.schemeId}</Tag><Tag>{saved?'已保存到共享成果':'待保存'}</Tag></Space>
       <Typography.Paragraph>{result.result.summary}</Typography.Paragraph>
       <Table size="small" rowKey={(_,index)=>String(index)} dataSource={result.result.rows} columns={result.result.columns.map(column=>({title:`${column.label}${column.unit?` / ${column.unit}`:''}`,dataIndex:column.key}))} pagination={{pageSize:10}} scroll={{x:true}} />
-      <Space wrap><Button onClick={()=>save()} loading={busy} disabled={saved}>保存演示成果</Button>
+      <Space wrap><Button onClick={()=>save()} loading={busy} disabled={saved}>保存成果</Button>
         {onSavedAndReturn && <Button type="primary" onClick={()=>save(true)} loading={busy}>{saved?'返回工作台':'保存并返回工作台'}</Button>}
       </Space>
     </Card>}

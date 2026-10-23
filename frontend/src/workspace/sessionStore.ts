@@ -88,8 +88,11 @@ export const useSessionStore = create<SessionStore>((set, get) => {
     ...load(),
     createSession: (input = {}) => create(input),
     linkConfiguration: (id, cfgId) => {
-      if (get().sessions.find(session => session.id === id)?.cfgIds?.includes(cfgId)) return;
-      update(id, session => ({ ...session, cfgIds: [...(session.cfgIds ?? []), cfgId] }));
+      const session = get().sessions.find(item => item.id === id);
+      if (!session) return;
+      const cfgIds = session.cfgIds ?? [];
+      if (cfgIds.at(-1) === cfgId) return;
+      update(id, current => ({ ...current, cfgIds: [...cfgIds.filter(item => item !== cfgId), cfgId] }));
     },
     linkResource: (id, reference) => {
       if (get().sessions.find(session => session.id === id)?.resourceRefs?.some(ref => ref.projectId === reference.projectId && ref.artifactId === reference.artifactId)) return;

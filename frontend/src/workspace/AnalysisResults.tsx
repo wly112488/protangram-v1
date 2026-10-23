@@ -13,8 +13,8 @@ import type { SessionResourceGroup } from './sessionResourceModel';
 
 const kindLabels = { chart: '图表', table: '数据表', metric: '指标', document: '文档' };
 const kindIcons = { chart: <BarChartOutlined />, table: <TableOutlined />, metric: <NumberOutlined />, document: <FileTextOutlined /> };
-export default function AnalysisResults({ entries, actions, extra, shared = false, trial, trials, recordId, activeKind, onKindChange, initialArtifactId, groups, hideTitle = false }: {
-  hideTitle?: boolean; groups?: SessionResourceGroup[]; entries: ResultEntry[]; actions?: (entry: ResultEntry) => ReactNode; extra?: ReactNode; shared?: boolean; trial?: ConcreteTrial; trials?: ConcreteTrial[]; recordId?: string; activeKind?: string; onKindChange?: (kind: string) => void; initialArtifactId?: string;
+export default function AnalysisResults({ entries, actions, extra, shared = false, trial, trials, recordId, activeKind, onKindChange, initialArtifactId, groups, rootLabel, hideTitle = false }: {
+  hideTitle?: boolean; groups?: SessionResourceGroup[]; rootLabel?: string; entries: ResultEntry[]; actions?: (entry: ResultEntry) => ReactNode; extra?: ReactNode; shared?: boolean; trial?: ConcreteTrial; trials?: ConcreteTrial[]; recordId?: string; activeKind?: string; onKindChange?: (kind: string) => void; initialArtifactId?: string;
 }) {
   const [selection, setSelection] = useState<string>();
   const [query, setQuery] = useState('');
@@ -31,6 +31,7 @@ export default function AnalysisResults({ entries, actions, extra, shared = fals
     choices.set(key, { title: entry.name, body: <ResultPreview key={entry.key} entry={entry} />, entry, description: entry.artifact?.summary });
     return { key, isLeaf: true, icon: kindIcons[entry.kind], title: <span className="result-directory-title" title={[sourceLabel, origin, entry.artifact?.summary].filter(Boolean).join(' · ')}><span>{entry.name}</span><small>{kindLabels[entry.kind]}{entry.sourceAvailable === false ? ' · 来源失效' : ''}</small>{sourceLabel.startsWith('多文件') && <small>{sourceLabel}</small>}</span> };
   };
+  const seenFileIds = new Set<string>();
   const renderCatalog = (catalog: ReturnType<typeof buildResultCatalog>, groupKey: string, groupMatches: boolean): DataNode[] => catalog.flatMap(spectrum => {
     const parentMatches = groupMatches || matches(`${spectrum.name} ${spectrum.trialName ?? ''}`);
     const runs: DataNode[] = spectrum.records.flatMap(run => {
@@ -39,6 +40,8 @@ export default function AnalysisResults({ entries, actions, extra, shared = fals
         const fileMatches = runMatches || matches(file.file.name);
         const results = file.results.map(result => resultNode(result, fileMatches)).filter((node): node is DataNode => Boolean(node));
         if (!results.length && ((!fileMatches && query.trim()) || kind !== 'all')) return [];
+        if (seenFileIds.has(file.file.id)) return results;
+        seenFileIds.add(file.file.id);
         const key = `file:${groupKey}:${file.key}`;
         choices.set(key, { title: file.file.name, body: <CsvFilePreview key={file.file.id} file={file.file} /> });
         return [{ key, icon: <FileTextOutlined />, title: <span className="result-directory-title"><span>{file.file.name}</span><small>{file.results.length} 项成果{file.file.status === 'removed' ? ' · 已移除' : ''}</small></span>, children: results }];
@@ -51,10 +54,18 @@ export default function AnalysisResults({ entries, actions, extra, shared = fals
     if (groups && spectrum.key === 'context') return runs;
     return runs.length ? [{ key: `spectrum:${groupKey}:${spectrum.key}`, selectable: false, title: <span className="result-directory-spectrum"><strong>{spectrum.name}</strong><small>{spectrum.trialName}</small></span>, children: runs }] : [];
   });
-  const treeData: DataNode[] = groups ? catalogs.flatMap(group=>{
-    const children=renderCatalog(group.catalog,group.id,Boolean(query.trim()) && matches(group.name));
-    return children.length || !query.trim() ? [{key:`owner:${group.id}`,title:group.name,selectable:false,children}] : [];
-  }) : renderCatalog(catalogs[0].catalog,'',false);
+  const treeData: DataNode[] = groups ? (()=>{
+    const generic: DataNode[] = [];
+    const configurations: DataNode[] = [];
+    for(const group of catalogs) {
+      const children=renderCatalog(group.catalog,group.id,Boolean(query.trim()) && matches(group.name));
+      if(!children.length && query.trim()) continue;
+      const node: DataNode={key:`owner:${group.id}`,title:group.name,selectable:false,children};
+      if(group.id==='generic') generic.push(node); else configurations.push(node);
+    }
+    const owners: DataNode[]=[...generic,{key:'owner:configurations',title:'试验构型',selectable:false,children:configurations}];
+    return rootLabel?[{key:`resource-root:${rootLabel}`,title:rootLabel,selectable:false,children:owners}]:owners;
+  })() : renderCatalog(catalogs[0].catalog,'',false);
   const selectedKey = selection ?? (initialArtifactId ? [...choices].find(([, choice]) => choice.entry?.artifact?.id === initialArtifactId)?.[0] : undefined);
   const selected = selectedKey ? choices.get(selectedKey) : undefined;
   return <Card size="small" className="physical-analysis-results" title={hideTitle ? undefined : shared ? '共享数据与成果' : '已保存成果'} extra={extra}>

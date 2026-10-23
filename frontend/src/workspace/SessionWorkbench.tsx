@@ -47,7 +47,6 @@ const SessionWorkbench: React.FC = () => {
   if (!session) return <div className="session-missing"><Empty description="此会话不存在或本机数据不可用" /><Button onClick={() => navigate('/')}>返回工作台</Button></div>;
   const capability = getCapabilityFromPath(location.pathname);
   const professional = sessionCapabilities.some(item => item.key === capability);
-  const modelFunction = capability === 'virtualCondition' || capability === 'digitalTwin';
   const taskReportMode = Boolean(session.taskId && capability === 'report');
   const project = projects.find(item => item.id === session.projectId && !item.sessionOwnerId);
   const context = useSessionStore.getState().getWorkspaceSession(session.id);
@@ -82,7 +81,7 @@ const SessionWorkbench: React.FC = () => {
       </Modal>
     </>}
     <div className="session-professional-content">
-      {professional && !modelFunction
+      {professional && capability !== 'report'
         ? <SessionProfessionalBoundary key={`${session.id}:${capability}`} capability={capability}><Outlet key={`${session.id}:${location.pathname}:${location.key}`} /></SessionProfessionalBoundary>
         : <Outlet key={`${session.id}:${location.pathname}:${location.key}`} />}
     </div>

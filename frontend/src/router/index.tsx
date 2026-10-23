@@ -40,6 +40,7 @@ import SessionWorkbench, { SessionEntryRedirect } from '@/workspace/SessionWorkb
 import PhysicalObjectsPage from '@/workspace/PhysicalObjectsPage';
 import WorkbenchHome from '@/workspace/WorkbenchHome';
 import TrialCreatePage from '@/workspace/TrialCreatePage';
+import TrialConfigurationLibrary from '@/workspace/TrialConfigurationLibrary';
 import TaskBookAnalysisPage from '@/workspace/TaskBookAnalysisPage';
 
 /**
@@ -53,6 +54,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <WorkbenchHome /> },
       { path: 'trials/new', element: <TrialCreatePage /> },
+      { path: 'trial-configurations', element: <TrialConfigurationLibrary /> },
       { path: 'physical-objects', element: <PhysicalObjectsPage /> },
       { path: 'task-center', element: <SessionHome /> },
       { path: 'task-book-analysis', element: <TaskBookAnalysisPage /> },

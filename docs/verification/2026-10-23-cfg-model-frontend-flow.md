@@ -34,3 +34,12 @@ Threat boundary for all tasks: normal UI/store operations, persisted legacy stat
 - `npm run build`: exit 0. Contract-surface check: additive composition method and independent CFG key; legacy physical store version and experiment/trial schemas unchanged.
 - Acceptance audit closed: distinct nested equipment IDs, cross-level members, invalid-role/reference rejection, cloned member input, reload, and unchanged original physical storage verified directly.
 - Lint baseline detail is persisted in `cfg-model-lint-baseline.json`.
+
+### Task 2
+
+- RED: isolated browser could not find the required CFG selector in the old three-step creation page.
+- GREEN: `verify-cfg-model-flow.mjs` verifies the CFG selector, modal save/auto-selection, cancelled CFG causes no writes and preserves trial name, creating a trial, management editor role rejection and successful save. Exit 0; no page errors.
+- An actual label collision between the page and modal (`name` / `description` DOM IDs) was reproduced and fixed with the editor's own Form namespace; the browser test now exercises both forms together.
+- `tests/trialConfiguration.test.mjs`: exit 0; build exit 0. Full lint still has the same 36 errors / 4 warnings; file/rule comparison found no new findings. Targeted lint for all new/changed CFG components passed.
+- Browser runtime: isolated Playwright 1.61 installation under `/tmp/protangram-cfg-browser-V6aviC`, cached Chromium headless shell with locally extracted runtime libraries. Vite serves this workspace at `http://127.0.0.1:5193`; screenshots are in `frontend/node_modules/.tmp/cfg-model-flow/`.
+- Acceptance audit closed for the shared editor and both entrypoints. CFG-to-trial identity and optional spectrum are Task 3 work.

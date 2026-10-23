@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { flattenEquipment, mapEquipment } from './equipmentCompositionModel';
 
 export type DataForm = '单值' | '分组' | '表格' | '序列' | '文件';
 export interface ValueField { id: string; name: string; description?: string; unit?: string; form: DataForm; value: string; source?: string }
@@ -53,7 +54,7 @@ export const findObjectCategory = (items: PhysicalObject[], categoryOrObjectId: 
 function defaultCategories(): PhysicalObject[] {
   return [['category-fan', '涵道风扇'], ['category-motor', '电机'], ['category-propulsion', '电推进']].map(([categoryId, name]) => ({ ...blankFamily(name, name), id: categoryId, legacyCategories: [] }));
 }
-const mapConfig = (items: PhysicalObject[], configId: string, update: (item: PhysicalConfiguration) => PhysicalConfiguration) => items.map(family => ({ ...family, configurations: family.configurations.map(config => config.id === configId ? update(config) : config) }));
+const mapConfig = (items: PhysicalObject[], configId: string, update: (item: PhysicalConfiguration) => PhysicalConfiguration) => mapEquipment(items, config => config.id === configId ? update(config) : config);
 const mapExperiment = (items: PhysicalObject[], experimentId: string, update: (item: ExperimentDefinition) => ExperimentDefinition) => items.map(family => ({ ...family, configurations: family.configurations.map(config => ({ ...config, experiments: config.experiments.map(item => item.id === experimentId ? update(item) : item) })) }));
 const mapTrial = (items: PhysicalObject[], trialId: string, update: (item: ConcreteTrial) => ConcreteTrial) => items.map(family => ({ ...family, configurations: family.configurations.map(config => ({ ...config, experiments: config.experiments.map(experiment => ({ ...experiment, trials: experiment.trials.map(item => item.id === trialId ? update(item) : item) })) })) }));
 const findTrial = (items: PhysicalObject[], trialId: string) => items.flatMap(family => family.configurations).flatMap(config => config.experiments).flatMap(experiment => experiment.trials).find(trial => trial.id === trialId);
@@ -71,6 +72,7 @@ export interface PhysicalObjectState {
   objects: PhysicalObject[];
   addRoot: (input: { name: string; type: string; description?: string }) => string;
   addConfiguration: (familyId: string, input: { name: string; description?: string }) => string;
+  addComponent: (parentId: string, input: { name: string; description?: string }) => string;
   addField: (configurationId: string, section: 'parameters' | 'materials', item: Omit<ValueField, 'id'>) => void;
   updateField: (configurationId: string, section: 'parameters' | 'materials', fieldId: string, patch: Omit<ValueField, 'id'>) => void;
   addExperiment: (configurationId: string, item: Omit<ExperimentDefinition, 'id' | 'trials'>) => string;
@@ -101,6 +103,13 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
     const config = blankConfig(input.name.trim(), input.description);
     set(state => ({ objects: state.objects.map(item => item.id === familyId ? { ...item, configurations: [...item.configurations, config] } : item) }));
     return config.id;
+  },
+  addComponent: (parentId, input) => {
+    if (!flattenEquipment(get().objects).some(item => item.id === parentId)) throw new Error('所属物理对象不存在');
+    if (!input.name.trim()) throw new Error('请填写组成对象名称');
+    const child = blankFamily(input.name.trim(), '组成对象', input.description);
+    set(state => ({ objects: mapConfig(state.objects, parentId, parent => ({ ...parent, children: [...parent.children, child] })) }));
+    return child.id;
   },
   addField: (configurationId, section, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: [...config[section], { ...item, id: id('field') }] })) })),
   updateField: (configurationId, section, fieldId, patch) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: config[section].map(item => item.id === fieldId ? { ...item, ...patch, id: fieldId } : item) })) })),

@@ -1,0 +1,321 @@
+[
+  {
+    "file": "src/components/FullscreenPanel.tsx",
+    "errors": 1,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 28,
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/pages/analysis/modules/ModuleManagement.tsx",
+    "errors": 2,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 2,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 10,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/pages/analysis/projects/AnalysisExecution.tsx",
+    "errors": 8,
+    "warnings": 2,
+    "messages": [
+      {
+        "line": 3,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 3,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 6,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 193,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 214,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 226,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 226,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 280,
+        "rule": "react-hooks/exhaustive-deps",
+        "severity": 1
+      },
+      {
+        "line": 326,
+        "rule": "react-hooks/immutability",
+        "severity": 2
+      },
+      {
+        "line": 328,
+        "rule": "react-hooks/exhaustive-deps",
+        "severity": 1
+      }
+    ]
+  },
+  {
+    "file": "src/pages/analysis/projects/AnalysisProjectCreate.tsx",
+    "errors": 1,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 17,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/pages/analysis/projects/AnalysisProjects.tsx",
+    "errors": 0,
+    "warnings": 1,
+    "messages": [
+      {
+        "line": 334,
+        "rule": "react-hooks/exhaustive-deps",
+        "severity": 1
+      }
+    ]
+  },
+  {
+    "file": "src/pages/analysis/templates/TemplateCreate.tsx",
+    "errors": 4,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 3,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 8,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 249,
+        "rule": "react-hooks/purity",
+        "severity": 2
+      },
+      {
+        "line": 249,
+        "rule": "react-hooks/purity",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/pages/experiment/design/ExperimentCreate.tsx",
+    "errors": 2,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 119,
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2
+      },
+      {
+        "line": 138,
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/pages/experiment/design/IntelligentExperimentDesign.tsx",
+    "errors": 0,
+    "warnings": 1,
+    "messages": [
+      {
+        "line": 243,
+        "rule": "react-hooks/exhaustive-deps",
+        "severity": 1
+      }
+    ]
+  },
+  {
+    "file": "src/pages/experiment/design/OutlineDesign.tsx",
+    "errors": 4,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 3,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 3,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 3,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 87,
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/pages/experiment/info/BOMManagement.tsx",
+    "errors": 3,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 67,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 74,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 104,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/pages/report/ReportTemplates.tsx",
+    "errors": 1,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 2,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/workbench/EquipmentManagerWindow.tsx",
+    "errors": 2,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 174,
+        "rule": "react-hooks/purity",
+        "severity": 2
+      },
+      {
+        "line": 210,
+        "rule": "react-hooks/purity",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/workbench/ExperimentWorkbench.tsx",
+    "errors": 1,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 299,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/workbench/FreeCanvas.tsx",
+    "errors": 1,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 2,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/workbench/FunctionBar.tsx",
+    "errors": 1,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 220,
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/workspace/TaskWorkbench.tsx",
+    "errors": 3,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 67,
+        "rule": "react-hooks/preserve-manual-memoization",
+        "severity": 2
+      },
+      {
+        "line": 184,
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2
+      },
+      {
+        "line": 286,
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2
+      }
+    ]
+  },
+  {
+    "file": "src/workspace/WorkspaceShell.tsx",
+    "errors": 2,
+    "warnings": 0,
+    "messages": [
+      {
+        "line": 3,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "severity": 2
+      },
+      {
+        "line": 98,
+        "rule": "react-hooks/set-state-in-effect",
+        "severity": 2
+      }
+    ]
+  }
+]

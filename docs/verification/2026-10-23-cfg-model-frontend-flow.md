@@ -43,3 +43,12 @@ Threat boundary for all tasks: normal UI/store operations, persisted legacy stat
 - `tests/trialConfiguration.test.mjs`: exit 0; build exit 0. Full lint still has the same 36 errors / 4 warnings; file/rule comparison found no new findings. Targeted lint for all new/changed CFG components passed.
 - Browser runtime: isolated Playwright 1.61 installation under `/tmp/protangram-cfg-browser-V6aviC`, cached Chromium headless shell with locally extracted runtime libraries. Vite serves this workspace at `http://127.0.0.1:5193`; screenshots are in `frontend/node_modules/.tmp/cfg-model-flow/`.
 - Acceptance audit closed for the shared editor and both entrypoints. CFG-to-trial identity and optional spectrum are Task 3 work.
+
+### Task 3
+
+- RED: `cfgTrialBridge.test.mjs` exited 1 because the bridge module did not exist.
+- GREEN: bridge tests prove shared CFG / distinct trials, stable compatibility container, ambiguous/missing source rejection before writes, nested primary-object record writes/navigation/task projections, unchanged legacy trial, and idempotent task confirmation with cfgId in the session.
+- `node --test --test-reporter=dot tests/cfgTrialBridge.test.mjs tests/physicalObjects.test.mjs tests/taskTrialIntegration.test.mjs tests/trialCreationModel.test.mjs tests/taskAnalysisWorkflow.test.mjs tests/crossFunctionSharing.test.mjs`: 46 tests pass, exit 0. Build exit 0.
+- Finding Gate: three existing assertions requiring a load spectrum were classified `OBSOLETE_TEST` under Task 3 / authoritative rule 7. Replaced those assertions with optional-spectrum record creation or the still-required trial-name guard; historical spectrum immutability assertions remain.
+- Contract boundary includes nested equipment through record mutation, source navigation, task projection and original-file lookup; these existing resolvers were extended together to avoid creating inaccessible part-owned trials.
+- Browser fixture imports must use one fresh Vite module graph: after HMR changes, restart the isolated dev server before dynamic-import seeding. Dependencies remain shared, production stores/source come from this workspace.

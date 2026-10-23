@@ -40,7 +40,7 @@ const SessionShell: React.FC = () => {
       const explicitProjectId = incoming?.workspaceSession?.targetProjectId ?? location.pathname.match(/^\/report\/create\/([^/]+)$/)?.[1];
       const requestedScope = incoming?.workspaceSession;
       const trialScope = requestedScope?.trialId ? { physicalObjectId: requestedScope.physicalObjectId,
-        experimentId: requestedScope.experimentId, trialId: requestedScope.trialId,
+        experimentId: requestedScope.experimentId, cfgId: requestedScope.cfgId, trialId: requestedScope.trialId,
         testRecordId: requestedScope.testRecordId } : undefined;
       const current = sessions.find(item => item.id === bridgeId);
       if (!task && !explicitProjectId && !current) {

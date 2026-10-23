@@ -3,17 +3,18 @@ import { getSourceArtifacts, samePhysicalSource, type RecordChartReference } fro
 import type { PhysicalBusinessScope, WorkSession } from './sessionModel';
 import type { Project, ProjectArtifact } from './types';
 import type { TaskRecord } from './taskTypes';
+import { flattenEquipment } from './equipmentCompositionModel';
 
 export const taskBookPath = (taskId: string, view?: string) => `/task-center?${new URLSearchParams({ taskId, ...(view ? { view } : {}) })}`;
 
 // This is a live projection. No trial, record, file or result is written into a task.
 export function getTaskTrials(objects: PhysicalObject[], projects: Project[], sessions: WorkSession[], taskId: string) {
-  return objects.flatMap(category => category.configurations.flatMap(object => object.experiments.flatMap(configuration => configuration.trials
+  return flattenEquipment(objects).flatMap(ref => ref.equipment.experiments.flatMap(configuration => configuration.trials
     .filter(trial => Boolean(taskId) && trial.taskBookId === taskId)
-    .map(trial => ({ category, object, configuration, trial, records: trial.records.map(record => ({
+    .map(trial => ({ category:objects.find(category=>category.id===ref.categoryId)!, object:ref.equipment, configuration, trial, records: trial.records.map(record => ({
       record, charts: getRecordCharts(trial, record.id),
-      artifacts: getSourceArtifacts(projects, sessions, { physicalObjectId: object.id, experimentId: configuration.id, trialId: trial.id, testRecordId: record.id }),
-    })) })))));
+      artifacts: getSourceArtifacts(projects, sessions, { physicalObjectId: ref.id, experimentId: configuration.id, trialId: trial.id, testRecordId: record.id }),
+    })) }))));
 }
 export type TaskTrialEntry = ReturnType<typeof getTaskTrials>[number];
 

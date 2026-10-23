@@ -3,25 +3,30 @@ import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
 import { usePhysicalObjectStore } from './physicalObjectStore';
 import { resolvePhysicalSource } from './physicalBusinessContext';
+import { createTrialFromCfg, resolveCfgTrialTarget } from './cfgTrialBridge';
 
 export function confirmTaskTrialDraft(taskId: string, draftId: string, values: {
-  name: string; loadSpectrum: string; description?: string; loadSpectrumDescription?: string; physicalObjectId: string; experimentId: string;
+  name: string; cfgId?: string; loadSpectrum?: string; description?: string; loadSpectrumDescription?: string; physicalObjectId?: string; experimentId?: string;
 }) {
   const task = useTaskStore.getState().tasks.find(item => item.id === taskId);
   const draft = task?.trialDrafts?.find(item => item.id === draftId);
   if (!task || !draft) throw new Error('任务或试验草稿已不存在');
-  if (!values.name.trim() || !values.loadSpectrum.trim()) throw new Error('请补充试验名称和载荷谱');
+  if (!values.name.trim()) throw new Error('请补充试验名称');
   const objects = usePhysicalObjectStore.getState().objects;
-  const target = resolvePhysicalSource(objects, { physicalObjectId: values.physicalObjectId, experimentId: values.experimentId });
-  if (!target.configuration || !target.experiment || target.missing) throw new Error('物理对象或试验构型已失效');
+  if (values.cfgId) resolveCfgTrialTarget(values.cfgId);
   let source = draft.source;
   if (source) {
     const existing = resolvePhysicalSource(objects, source);
     if (existing.missing || !existing.trial) throw new Error('已确认试验来源已失效，请先核对原试验');
     if (existing.trial.taskBookId !== taskId) throw new Error('试验的任务书关联已变化，请核对原试验');
-    if (source.physicalObjectId !== values.physicalObjectId || source.experimentId !== values.experimentId) throw new Error('试验已确认，请继续原试验');
+    if (values.cfgId ? existing.trial.cfgId !== values.cfgId : source.physicalObjectId !== values.physicalObjectId || source.experimentId !== values.experimentId) throw new Error('试验已确认，请继续原试验');
+  } else if (values.cfgId) {
+    source = { ...createTrialFromCfg(values.cfgId,{...values,taskBookId:task.id}), taskBookName:task.title };
   } else {
-    const trialId = usePhysicalObjectStore.getState().addConcreteTrial(values.experimentId, { name: values.name.trim(), loadSpectrum: values.loadSpectrum.trim(), description: values.description, loadSpectrumDescription: values.loadSpectrumDescription, taskBookId: task.id });
+    // Older task links may still carry an explicit legacy experiment source.
+    const target = resolvePhysicalSource(objects, { physicalObjectId: values.physicalObjectId, experimentId: values.experimentId });
+    if (!target.configuration || !target.experiment || target.missing) throw new Error('物理对象或试验构型已失效');
+    const trialId = usePhysicalObjectStore.getState().addConcreteTrial(target.experiment.id, { name: values.name.trim(), loadSpectrum: values.loadSpectrum?.trim() ?? '', description: values.description, loadSpectrumDescription: values.loadSpectrumDescription, taskBookId: task.id });
     source = { physicalObjectId: values.physicalObjectId, physicalObjectName: target.configuration.name,
       experimentId: values.experimentId, experimentName: target.experiment.name, trialId, trialName: values.name.trim(), taskBookId: task.id, taskBookName: task.title };
   }

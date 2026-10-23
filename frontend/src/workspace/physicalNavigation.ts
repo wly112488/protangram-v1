@@ -1,4 +1,5 @@
 import { findObjectCategory, type PhysicalObject } from './physicalObjectStore';
+import { flattenEquipment } from './equipmentCompositionModel';
 
 export interface PhysicalTreeNodeModel {
   key: string;
@@ -28,7 +29,7 @@ export function resolvePhysicalNavigation(objects: PhysicalObject[], params: URL
   const objectId = params.get('objectId') || '';
   const family = objectId ? findObjectCategory(objects, objectId) : undefined;
   const configurationId = params.get('configurationId') ?? (family?.configurations.some(item => item.id === objectId) ? objectId : '');
-  const configuration = family?.configurations.find(item => item.id === configurationId);
+  const configuration = flattenEquipment(objects).find(item => item.id === configurationId && item.categoryId === family?.id)?.equipment;
   const experimentId = params.get('experimentId');
   const experiment = configuration?.experiments.find(item => item.id === experimentId);
   const trialId = params.get('trialId');

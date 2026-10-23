@@ -14,7 +14,8 @@ const page = await context.newPage();
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 page.setDefaultTimeout(10000);
-await context.route('**/*', route => ['POST','PUT','PATCH','DELETE'].includes(route.request().method()) ? route.abort() : route.continue());
+await context.route('**/*', route => ['POST','PUT','PATCH','DELETE'].includes(route.request().method()) ? route.abort()
+  : new URL(route.request().url()).pathname.startsWith('/api/') ? route.fulfill({json:{success:true,data:[]}}) : route.continue());
 const go = path => page.goto(baseURL + path, { waitUntil:'networkidle' });
 const choose = async (input, label) => {
   await input.click();
@@ -57,7 +58,6 @@ try {
   await page.getByText('弹窗新建 CFG',{exact:true}).waitFor();
   assert.equal(await page.getByLabel('具体试验名称',{exact:true}).inputValue(),'验收试验草稿');
   console.log('PASS embedded editor saves once, auto-selects and preserves cancelled trial draft');
-  await page.getByLabel('载荷谱名称或编号',{exact:true}).fill('验收谱');
   await page.getByRole('button',{name:'创建并进入试验工作台',exact:true}).click();
   await page.waitForURL(/\/sessions\//);
   console.log('PASS create trial using selected CFG');

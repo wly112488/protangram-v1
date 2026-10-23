@@ -18,7 +18,7 @@ export interface TrialChartResult extends DerivedChart { sourceRecordId: string 
 export type ChartInput = Omit<DerivedChart, 'id' | 'createdAt' | 'updatedAt'>;
 export interface DerivedTable { id: string; name: string; rawFileId: string; fields: string[]; startRow: number; endRow: number; createdAt: string; updatedAt: string }
 export interface TestRecord { id: string; name: string; executionNumber: number; description?: string; createdAt: string; actualConditions: ValueField[]; measurements: ValueField[]; rawFiles: RawDataFile[]; tables: DerivedTable[] }
-export interface ConcreteTrial { id: string; name: string; description?: string; taskBookId?: string; loadSpectrum: string; loadSpectrumDescription?: string; designArtifactRef?: { projectId: string; artifactId: string }; designs?: DesignField[]; records: TestRecord[]; charts: TrialChartResult[] }
+export interface ConcreteTrial { id: string; name: string; cfgId?: string; description?: string; taskBookId?: string; loadSpectrum: string; loadSpectrumDescription?: string; designArtifactRef?: { projectId: string; artifactId: string }; designs?: DesignField[]; records: TestRecord[]; charts: TrialChartResult[] }
 export const getRecordCharts = (trial: ConcreteTrial | undefined, recordId: string | undefined) => recordId ? (trial?.charts ?? []).filter(chart => chart.sourceRecordId === recordId) : [];
 const chartNameKey = (name: string) => name.trim().normalize('NFC').toLocaleLowerCase();
 export const hasTrialChartNameConflict = (trial: ConcreteTrial, name: string, current?: { id: string; sourceRecordId: string }) => (trial.charts ?? []).some(chart =>
@@ -50,14 +50,14 @@ export interface PhysicalObject {
 const id = (prefix: string) => `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
 const blankConfig = (name: string, description = ''): PhysicalConfiguration => ({ id: id('config'), name, description, parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
 const blankFamily = (name: string, type = '自定义对象', description = ''): PhysicalObject => ({ id: id('object'), name, type, description, configurations: [], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
-export const findObjectCategory = (items: PhysicalObject[], categoryOrObjectId: string) => items.find(category => category.id === categoryOrObjectId || category.legacyCategories?.some(item => item.id === categoryOrObjectId) || category.configurations.some(object => object.id === categoryOrObjectId));
+export const findObjectCategory = (items: PhysicalObject[], categoryOrObjectId: string) => items.find(category => category.id === categoryOrObjectId || category.legacyCategories?.some(item => item.id === categoryOrObjectId) || category.id === flattenEquipment(items).find(object => object.id === categoryOrObjectId)?.categoryId);
 function defaultCategories(): PhysicalObject[] {
   return [['category-fan', '涵道风扇'], ['category-motor', '电机'], ['category-propulsion', '电推进']].map(([categoryId, name]) => ({ ...blankFamily(name, name), id: categoryId, legacyCategories: [] }));
 }
 const mapConfig = (items: PhysicalObject[], configId: string, update: (item: PhysicalConfiguration) => PhysicalConfiguration) => mapEquipment(items, config => config.id === configId ? update(config) : config);
-const mapExperiment = (items: PhysicalObject[], experimentId: string, update: (item: ExperimentDefinition) => ExperimentDefinition) => items.map(family => ({ ...family, configurations: family.configurations.map(config => ({ ...config, experiments: config.experiments.map(item => item.id === experimentId ? update(item) : item) })) }));
-const mapTrial = (items: PhysicalObject[], trialId: string, update: (item: ConcreteTrial) => ConcreteTrial) => items.map(family => ({ ...family, configurations: family.configurations.map(config => ({ ...config, experiments: config.experiments.map(experiment => ({ ...experiment, trials: experiment.trials.map(item => item.id === trialId ? update(item) : item) })) })) }));
-const findTrial = (items: PhysicalObject[], trialId: string) => items.flatMap(family => family.configurations).flatMap(config => config.experiments).flatMap(experiment => experiment.trials).find(trial => trial.id === trialId);
+const mapExperiment = (items: PhysicalObject[], experimentId: string, update: (item: ExperimentDefinition) => ExperimentDefinition) => mapEquipment(items, config => ({ ...config, experiments: config.experiments.map(item => item.id === experimentId ? update(item) : item) }));
+const mapTrial = (items: PhysicalObject[], trialId: string, update: (item: ConcreteTrial) => ConcreteTrial) => mapEquipment(items, config => ({ ...config, experiments: config.experiments.map(experiment => ({ ...experiment, trials: experiment.trials.map(item => item.id === trialId ? update(item) : item) })) }));
+const findTrial = (items: PhysicalObject[], trialId: string) => flattenEquipment(items).flatMap(ref => ref.equipment.experiments).flatMap(experiment => experiment.trials).find(trial => trial.id === trialId);
 const requireRecord = (items: PhysicalObject[], trialId: string, recordId: string) => {
   const record = findTrial(items, trialId)?.records.find(item => item.id === recordId);
   if (!record) throw new Error('指定试验记录不存在，未写入其他记录。');
@@ -114,18 +114,17 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
   addField: (configurationId, section, item) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: [...config[section], { ...item, id: id('field') }] })) })),
   updateField: (configurationId, section, fieldId, patch) => set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, [section]: config[section].map(item => item.id === fieldId ? { ...item, ...patch, id: fieldId } : item) })) })),
   addExperiment: (configurationId, item) => {
-    if (!get().objects.some(family => family.configurations.some(config => config.id === configurationId))) throw new Error('所属具体物理对象不存在');
+    if (!flattenEquipment(get().objects).some(config => config.id === configurationId)) throw new Error('所属具体物理对象不存在');
     const experiment = { ...item, id: id('trial-configuration'), trials: [] };
     set(state => ({ objects: mapConfig(state.objects, configurationId, config => ({ ...config, experiments: [...config.experiments, experiment] })) }));return experiment.id;
   },
   addConcreteTrial: (experimentId, item) => {
-    if (!item.loadSpectrum.trim()) throw new Error('请填写载荷谱名称或编号');
-    if (!get().objects.some(family => family.configurations.some(config => config.experiments.some(experiment => experiment.id === experimentId)))) throw new Error('所属试验构型不存在');
+    if (!item.name.trim()) throw new Error('请填写具体试验名称');
+    if (!flattenEquipment(get().objects).some(config => config.equipment.experiments.some(experiment => experiment.id === experimentId))) throw new Error('所属试验构型不存在');
     const trial = { ...item, id: id('trial'), records: [], charts: [] };
     set(state => ({ objects: mapExperiment(state.objects, experimentId, experiment => ({ ...experiment, trials: [...experiment.trials, trial] })) }));return trial.id;
   },
   updateConcreteTrial: (trialId, patch) => set(state => ({ objects: mapTrial(state.objects, trialId, trial => {
-    if (patch.loadSpectrum !== undefined && !patch.loadSpectrum.trim()) throw new Error('请填写载荷谱名称或编号');
     if (trial.records.length && trial.loadSpectrum && patch.loadSpectrum !== undefined && patch.loadSpectrum !== trial.loadSpectrum) throw new Error('已有执行记录，变更载荷谱请新建具体试验。');
     return { ...trial, ...patch };
   }) })),
@@ -136,7 +135,6 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
   addTrialRecord: (trialId, input) => {
     const trial = findTrial(get().objects, trialId);
     if (!trial) throw new Error('所属具体试验不存在');
-    if (!trial.loadSpectrum.trim()) throw new Error('请先补充本试验的载荷谱名称或编号');
     const executionNumber = Math.max(0, ...trial.records.map(item => item.executionNumber)) + 1;
     const record: TestRecord = { ...input, id: id('record'), name: input.name?.trim() || `第 ${executionNumber} 次试验记录`, executionNumber, createdAt: new Date().toISOString(), actualConditions: [], measurements: [], rawFiles: [], tables: [] };
     set(state => ({ objects: mapTrial(state.objects, trialId, item => ({ ...item, records: [...item.records, record] })) }));return record.id;
@@ -249,5 +247,5 @@ export function migratePhysicalState(persisted: unknown): Pick<PhysicalObjectSta
   for (const category of defaultCategories()) if (!groups.has(category.name)) groups.set(category.name, category);
   return { objects: [...groups.values()] };
 }
-export const flattenObjects = (objects: PhysicalObject[], path = ''): Array<{ object: PhysicalConfiguration & { type: string }; path: string }> => objects.flatMap(family => family.configurations.map(config => ({ object: { ...config, type: family.type }, path: `${path ? `${path} / ` : ''}${family.name} / ${config.name}` })));
+export const flattenObjects = (objects: PhysicalObject[], path = ''): Array<{ object: PhysicalConfiguration & { type: string }; path: string }> => flattenEquipment(objects).map(ref => ({ object: { ...ref.equipment, type:objects.find(category=>category.id===ref.categoryId)?.type ?? '组成对象' }, path:`${path ? `${path} / ` : ''}${ref.path}` }));
 export const findPhysicalTrialRecord = (objects: PhysicalObject[], configurationId: string, experimentId: string, recordId: string) => flattenObjects(objects).find(({ object }) => object.id === configurationId)?.object.experiments.find(item => item.id === experimentId)?.trials.flatMap(trial => trial.records).find(record => record.id === recordId);

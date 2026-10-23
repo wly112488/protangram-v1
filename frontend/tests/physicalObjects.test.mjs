@@ -77,7 +77,8 @@ test('load spectrum is only an identifier and different spectrum after execution
   assert.throws(() => store.updateConcreteTrial(trialId, { loadSpectrum: '载荷谱 03' }), /新建具体试验/);
   store.updateConcreteTrial(trialId, { name: '名称更正', taskBookId: 'task-1' });assert.equal(trial().loadSpectrum, '载荷谱 02');assert.equal(trial().taskBookId, 'task-1');
   const next = store.addConcreteTrial(experimentId, { name: '下一项试验', loadSpectrum: '载荷谱 03' });assert.notEqual(next, trialId);
-  assert.throws(() => store.addConcreteTrial(experimentId, { name: '无标识', loadSpectrum: '' }), /载荷谱/);
+  const noSpectrum = store.addConcreteTrial(experimentId, { name: '无载荷谱', loadSpectrum: '' });
+  assert.ok(store.addTrialRecord(noSpectrum, {}));
 });
 test('trial configurations have independent parameters and used setup cannot silently overwrite historical meaning', () => {
   const { store, configurationId, experimentId, trialId } = fixture();
@@ -116,7 +117,7 @@ test('v3 migration retains existing trial IDs and references, merges fields with
 });
 test('legacy trial may acquire a missing spectrum once; new execution still uses a new record ID', () => {
   physical.setState(migratePhysicalState(canonical({id:'exp',name:'布置',trials:[{id:'old-trial',name:'试验',record:oldRecord('old-record','2026-10-13')}]})));
-  const store=physical.getState();assert.throws(()=>store.addTrialRecord('old-trial',{}),/补充/);store.updateConcreteTrial('old-trial',{loadSpectrum:'补登载荷谱'});const next=store.addTrialRecord('old-trial',{});assert.notEqual(next,'old-record');assert.equal(getRecordCharts(physical.getState().objects[0].configurations[0].experiments[0].trials[0], 'old-record')[0].id,'old-record-chart');
+  const store=physical.getState();const withoutSpectrum=store.addTrialRecord('old-trial',{});assert.notEqual(withoutSpectrum,'old-record');store.updateConcreteTrial('old-trial',{loadSpectrum:'补登载荷谱'});const next=store.addTrialRecord('old-trial',{});assert.notEqual(next,withoutSpectrum);assert.equal(getRecordCharts(physical.getState().objects[0].configurations[0].experiments[0].trials[0], 'old-record')[0].id,'old-record-chart');
 });
 
 test('partly migrated legacy records join the existing stable trial without duplicate entities or input mutation', () => {

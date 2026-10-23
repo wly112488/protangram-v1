@@ -1,6 +1,7 @@
 import type { PhysicalObject, TestRecord } from './physicalObjectStore';
 import type { PhysicalBusinessScope, WorkSession } from './sessionModel';
 import type { Project, ProjectArtifact } from './types';
+import { flattenEquipment } from './equipmentCompositionModel';
 
 export const recordLabel = (record: TestRecord) => record.name === `第 ${record.executionNumber} 次试验记录` ? record.name : `第 ${record.executionNumber} 次 · ${record.name}`;
 
@@ -15,8 +16,9 @@ export const samePhysicalSource = (left?: PhysicalBusinessScope, right?: Physica
   && (left?.trialId === right?.trialId || Boolean(left?.testRecordId && left.testRecordId === right?.testRecordId && (!left.trialId || !right.trialId)));
 
 export const resolvePhysicalSource = (objects: PhysicalObject[], scope?: PhysicalBusinessScope) => {
-  const family = objects.find(item => item.configurations.some(config => config.id === scope?.physicalObjectId));
-  const configuration = family?.configurations.find(item => item.id === scope?.physicalObjectId);
+  const ref = flattenEquipment(objects).find(item => item.id === scope?.physicalObjectId);
+  const family = objects.find(item => item.id === ref?.categoryId);
+  const configuration = ref?.equipment;
   const experiment = configuration?.experiments.find(item => item.id === scope?.experimentId);
   const requestedTrial = experiment?.trials?.find(item => item.id === scope?.trialId);
   const matchingTrial = scope?.testRecordId ? experiment?.trials?.find(item => item.records.some(record => record.id === scope.testRecordId)) : undefined;

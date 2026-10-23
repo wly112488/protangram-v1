@@ -67,7 +67,7 @@ test('missing required template data does not create a trial or session', () => 
   const preview = api.createTaskAnalysisPreview('任务书.pdf', '', physical.getState().objects);
   const taskId = tasks.getState().createTask({ title: preview.title, projectId: '', requirementTexts: [] });
   tasks.getState().setAnalysisPlan(taskId, preview.requirements, preview.trialDrafts);
-  assert.throws(() => api.confirmTaskTrialDraft(taskId, preview.trialDrafts[0].id, { name: '试验', loadSpectrum: ' ', physicalObjectId: f.object, experimentId: f.config }), /载荷谱/);
+  assert.throws(() => api.confirmTaskTrialDraft(taskId, preview.trialDrafts[0].id, { name: ' ', loadSpectrum: ' ', physicalObjectId: f.object, experimentId: f.config }), /试验名称/);
   assert.equal(sessions.getState().sessions.length, 0);
   assert.equal(physical.getState().objects[0].configurations[0].experiments[0].trials.length, 0);
 });

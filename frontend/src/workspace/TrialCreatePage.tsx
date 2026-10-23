@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Button, Card, Form, Input, Modal, Select, Space, Typography, message } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { usePhysicalObjectStore } from './physicalObjectStore';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
 import { useSessionStore } from './sessionStore';
@@ -10,46 +9,33 @@ import { resolveTrialCreationContext, resolveTrialTaskBookId } from './trialCrea
 import { confirmTaskTrialDraft } from './taskTrialWorkflow';
 import { taskCapabilityRoute } from './taskAnalysisModel';
 import { useTrialConfigurationStore } from './trialConfigurationStore';
-import { flattenEquipment } from './equipmentCompositionModel';
-import { validateTrialConfiguration } from './trialConfigurationModel';
+import { createTrialFromCfg } from './cfgTrialBridge';
 import TrialConfigurationEditor from './TrialConfigurationEditor';
 
 function TrialCreateForm() {
   const [form] = Form.useForm();
   const location = useLocation(), navigate = useNavigate();
   const tasks = useTaskStore(state=>state.tasks), projects = useProjectStore(state=>state.projects);
-  const objects = usePhysicalObjectStore(state=>state.objects);
   const configurations = useTrialConfigurationStore(state=>state.configurations);
   const params = new URLSearchParams(location.search);
   const taskDraft = tasks.find(task=>task.id===params.get('taskBookId'))?.trialDrafts?.find(draft=>draft.id===params.get('draftId'));
   const context = resolveTrialCreationContext(location.search,tasks,projects);
-  const [cfgId,setCfgId] = useState<string|undefined>(()=>params.get('cfgId') || undefined);
+  const [cfgId,setCfgId] = useState<string|undefined>(()=>params.get('cfgId') || taskDraft?.source?.cfgId || undefined);
   const [creating,setCreating] = useState(false);
   const cfg = configurations.find(item=>item.id===cfgId);
-  const equipment = flattenEquipment(objects);
 
   const submit = (values:{name:string;description?:string;loadSpectrum?:string;loadSpectrumDescription?:string;taskBookId?:string}) => {
     if(context.mode==='missing-task'||context.mode==='missing-project') return;
     if(!cfg) return message.error('请选择有效的试验构型 CFG');
     try {
-      const errors = validateTrialConfiguration(cfg,new Set(equipment.map(item=>item.id)));
-      if(errors.length) throw new Error(errors.join('；'));
-      const tested = cfg.members.filter(member=>member.role==='tested');
-      const primary = cfg.primaryObjectId ?? (tested.length===1?tested[0].objectId:undefined);
-      const object = equipment.find(item=>item.id===primary)?.equipment;
-      if(!object) throw new Error('请在 CFG 中明确主被试对象');
-      const store = usePhysicalObjectStore.getState();
-      const experimentId = object.experiments.find(item=>item.category==='internal:cfg-trials')?.id
-        ?? store.addExperiment(object.id,{name:'具体试验',category:'internal:cfg-trials',parameters:[]});
       if(taskDraft && context.mode==='task') {
-        const sessionId = confirmTaskTrialDraft(context.taskId,taskDraft.id,{...values,loadSpectrum:values.loadSpectrum ?? '',physicalObjectId:object.id,experimentId});
+        const sessionId = confirmTaskTrialDraft(context.taskId,taskDraft.id,{...values,cfgId:cfg.id});
         const requirement = tasks.find(task=>task.id===context.taskId)?.requirements.find(item=>taskDraft.requirementIds.includes(item.id));
         navigate(getSessionPath(sessionId,requirement?.capability?taskCapabilityRoute[requirement.capability]:'doe'));
         return;
       }
       const taskBookId = resolveTrialTaskBookId(context,values.taskBookId);
-      const trialId = store.addConcreteTrial(experimentId,{...values,name:values.name.trim(),loadSpectrum:values.loadSpectrum?.trim() ?? '',taskBookId});
-      const scope = {physicalObjectId:object.id,physicalObjectName:object.name,experimentId,experimentName:'具体试验',trialId,trialName:values.name.trim(),taskBookId};
+      const scope = createTrialFromCfg(cfg.id,{...values,taskBookId});
       const sessionStore = useSessionStore.getState();
       const projectId = context.mode==='project'||context.mode==='task'?context.projectId:undefined;
       const sessionId = projectId?sessionStore.ensureProjectSession(projectId,scope):sessionStore.ensurePhysicalSession(scope,values.name.trim());
@@ -61,6 +47,7 @@ function TrialCreateForm() {
   };
   if(context.mode==='missing-task'||context.mode==='missing-project') return <Alert type="error" showIcon title="创建入口已失效" description="关联的任务或项目已不存在，请从有效入口重新开始。" />;
   if(params.has('draftId')&&!taskDraft) return <Alert type="error" title="试验模板不存在，请返回任务重新选择" />;
+  if(taskDraft?.source&&!taskDraft.source.cfgId&&taskDraft.sessionId) return <Alert type="info" showIcon title="此模板已有历史试验" description="继续原试验会保留原来的来源、执行记录和成果，无需重新选择 CFG。" action={<Button onClick={()=>navigate(getSessionPath(taskDraft.sessionId!,'doe'))}>继续历史试验</Button>} />;
   return <div className="trial-create-page">
     <Button type="link" onClick={()=>navigate(-1)}>返回</Button>
     <Typography.Title level={2}>{taskDraft?'复核试验模板':'创建具体试验'}</Typography.Title>
@@ -79,7 +66,7 @@ function TrialCreateForm() {
     <Card title="试验信息" style={{marginTop:16}}>
       <Form form={form} layout="vertical" onFinish={submit} initialValues={{name:taskDraft?.name,description:taskDraft?.description,loadSpectrum:taskDraft?.loadSpectrum}}>
         <Form.Item name="name" label="具体试验名称" rules={[{required:true,whitespace:true,message:'请填写具体试验名称'}]}><Input /></Form.Item>
-        <Form.Item name="loadSpectrum" label="载荷谱名称或编号" rules={[{required:true,whitespace:true,message:'请填写载荷谱名称或编号'}]}><Input /></Form.Item>
+        <Form.Item name="loadSpectrum" label="载荷谱名称或编号（可选）"><Input placeholder="没有载荷谱也可开展试验和记录" /></Form.Item>
         <Form.Item name="loadSpectrumDescription" label="载荷谱说明（可选）"><Input /></Form.Item>
         <Form.Item name="description" label="试验说明（可选）"><Input.TextArea rows={2} /></Form.Item>
         {context.mode!=='task'&&<Form.Item name="taskBookId" label="关联任务书（可选）"><Select allowClear options={tasks.filter(item=>item.status!=='已归档').map(item=>({value:item.id,label:item.title}))} /></Form.Item>}

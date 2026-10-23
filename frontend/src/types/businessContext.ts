@@ -65,6 +65,7 @@ export interface PlanCondition {
 export type WorkspaceSessionState = ({
   sessionId?: string;
   physicalObjectId?: string;
+  cfgId?: string;
   physicalObjectName?: string;
   experimentId?: string;
   experimentName?: string;

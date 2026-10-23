@@ -14,6 +14,8 @@ import dayjs from 'dayjs';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisProjects, loadExperiments, loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
+import { useTrialConfigurationStore } from '@/workspace/trialConfigurationStore';
+import { collectSessionResourceGroups } from '@/workspace/sessionResourceModel';
 import ProjectSidebar from '@/workspace/ProjectSidebar';
 import { useTaskStore } from '@/workspace/taskStore';
 import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js';
@@ -75,6 +77,7 @@ const ReportCreate: React.FC = () => {
   const { projects, activeProjectId } = useProjectStore();
   const sessions = useSessionStore(state => state.sessions);
   const objects = usePhysicalObjectStore(state => state.objects);
+  const cfgs = useTrialConfigurationStore(state=>state.configurations);
   const scope = routeState?.workspaceSession;
   const source = resolvePhysicalSource(objects, scope);
   const taskEntries = getTaskTrials(objects, projects, sessions, task?.id ?? '');
@@ -83,13 +86,15 @@ const ReportCreate: React.FC = () => {
   const artifactKey = (artifact: ProjectArtifact) => taskBoundMode ? JSON.stringify([artifact.projectId, artifact.id]) : artifact.id;
   const chartChoices = taskBoundMode ? taskSources.charts : source.record ? getRecordCharts(source.trial, source.record.id).map(chart => ({ chart, label: `${chart.name} · ${chart.xField} / ${chart.yField}`, reference: { physicalObjectId: source.configuration!.id, experimentId: source.experiment!.id, trialId: source.trial!.id, testRecordId: source.record!.id, chartId: chart.id } })) : [];
   const chartKey = (item: typeof chartChoices[number]) => taskBoundMode ? recordChartKey(item.reference) : item.chart.id;
-  const sourceArtifacts = getReportableArtifacts(getSourceArtifacts(projects, sessions, scope));
+  const resourceGroups=scope?.sessionId?collectSessionResourceGroups(projects,sessions,objects,cfgs,scope.sessionId):[];
+  const sessionArtifacts=[...new Map(resourceGroups.filter(group=>group.id==='generic' || group.id===scope?.cfgId).flatMap(group=>group.entries.flatMap(entry=>entry.artifact?[[`${entry.artifact.projectId}/${entry.artifact.id}`,entry.artifact] as const]:[]))).values()];
+  const sourceArtifacts = getReportableArtifacts(scope?.sessionId?sessionArtifacts:getSourceArtifacts(projects,sessions,scope));
   const [selectedChartIds, setSelectedChartIds] = useSessionState<string[]>('selectedChartIds', []);
   const [legacyProjects, setLegacyProjects] = useState<AnalysisProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useSessionState('selectedProjectId', routeProjectId ?? '');
   const [selectedArtifactIds, setSelectedArtifactIds] = useSessionState<string[]>('selectedArtifactIds', []);
-  const restoredCharts = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey('selectedChartIds', routeState?.workspaceSession)]);
-  const restoredSelection = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey('selectedArtifactIds', routeState?.workspaceSession)]);
+  const restoredCharts = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey(`${scope?.cfgId?`cfg:${scope.cfgId}:`:''}selectedChartIds`, routeState?.workspaceSession)]);
+  const restoredSelection = useRef(useSessionStore.getState().sessions.find(item => item.id === routeState?.workspaceSession?.sessionId)?.drafts.report?.[getSessionDraftKey(`${scope?.cfgId?`cfg:${scope.cfgId}:`:''}selectedArtifactIds`, routeState?.workspaceSession)]);
 
   const [formValues, setFormValues] = useSessionState<Record<string, unknown>>('formValues', {});
 
@@ -174,7 +179,7 @@ const ReportCreate: React.FC = () => {
       if (task?.id && taskItemId) setTaskRequirementStatus(task.id, taskItemId, '进行中');
       const all = loadAnalysisReports().filter((item) => item.id !== report.id);
       all.push(report);
-      saveAnalysisReports(all);
+      saveAnalysisReports(all,{localOnly:Boolean(scope?.sessionId)});
 
       message.success(taskBoundMode ? '报告配置已保存，可继续编制正式报告' : '报告已创建');
       navigate(`${scope?.sessionId ? getSessionPath(scope.sessionId, 'report') : '/report'}/generate/${report.id}${task ? `?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}` : ''}`);

@@ -1,0 +1,685 @@
+{
+  "baseURL": "http://127.0.0.1:5193",
+  "profile": "/tmp/protangram-session-resource-6qcPcW",
+  "sessionId": "session-0d0610bb-5adf-485e-b035-57da7d4b9a82",
+  "secondSession": "session-3dda8190-5b23-4ef6-af48-fc0e1a646326",
+  "cfgs": {
+    "a": "cfg-84acffdc-a9a8-4a0b-9bce-0496990fe71f",
+    "b": "cfg-f2548c71-9933-43b8-8239-f672be799b95"
+  },
+  "generic": {
+    "type": "analysis",
+    "title": "通用曲线",
+    "source": "通用工具",
+    "summary": "generic.csv",
+    "payload": {
+      "resultMode": "measured",
+      "chartConfiguration": {
+        "rawFileId": "raw-2e171e00-8d5b-4765-9e89-b324ec2f5a3d",
+        "name": "通用曲线",
+        "plotKind": "line",
+        "chartType": "line",
+        "xField": "time",
+        "yField": "thrust",
+        "yFields": [
+          "thrust"
+        ],
+        "averageEvery": 1,
+        "startRow": 0,
+        "endRow": 0,
+        "scale": 1,
+        "offset": 0,
+        "color": "#1677ff",
+        "smooth": false,
+        "sourceCapability": "tools"
+      },
+      "sourceContext": {
+        "rawFiles": [
+          {
+            "id": "raw-2e171e00-8d5b-4765-9e89-b324ec2f5a3d",
+            "name": "generic.csv",
+            "mimeType": "text/csv",
+            "size": 27,
+            "addedAt": "2026-10-23T08:46:17.110Z",
+            "headers": [
+              "time",
+              "thrust"
+            ],
+            "rowCount": 3,
+            "status": "available"
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "chart",
+          "name": "通用曲线",
+          "kind": "chart",
+          "option": {
+            "animation": false,
+            "tooltip": {
+              "trigger": "axis"
+            },
+            "grid": {
+              "left": 62,
+              "right": 32,
+              "top": 48,
+              "bottom": 68
+            },
+            "dataZoom": [
+              {
+                "type": "inside"
+              },
+              {
+                "type": "slider",
+                "height": 16,
+                "bottom": 12
+              }
+            ],
+            "legend": {
+              "type": "scroll",
+              "top": 4
+            },
+            "xAxis": {
+              "type": "value",
+              "name": "time",
+              "scale": true
+            },
+            "yAxis": {
+              "type": "value",
+              "name": "thrust",
+              "scale": true
+            },
+            "series": [
+              {
+                "name": "thrust",
+                "type": "line",
+                "data": [
+                  [
+                    0,
+                    10
+                  ],
+                  [
+                    1,
+                    15
+                  ],
+                  [
+                    2,
+                    20
+                  ]
+                ],
+                "smooth": false,
+                "symbolSize": 6
+              }
+            ]
+          }
+        }
+      ],
+      "sourceCapability": "tools",
+      "resourceOwner": {
+        "kind": "session",
+        "sessionId": "session-0d0610bb-5adf-485e-b035-57da7d4b9a82"
+      },
+      "sourceSessionId": "session-0d0610bb-5adf-485e-b035-57da7d4b9a82"
+    },
+    "id": "analysis-284dbb0f-cfe4-487c-b558-8bd6672b2b70",
+    "projectId": "project-92add4bd-f4ce-4151-9a9d-8ef9fd5d85ae",
+    "createdAt": "2026-10-23T08:46:20.046Z",
+    "updatedAt": "2026-10-23T08:46:20.046Z"
+  },
+  "cfgChart": {
+    "type": "analysis",
+    "title": "构型曲线",
+    "source": "数据分析",
+    "summary": "cfg-a.csv",
+    "payload": {
+      "resultMode": "measured",
+      "chartConfiguration": {
+        "rawFileId": "raw-81860df7-e1e7-4940-a600-cc8b8e7f5b84",
+        "name": "构型曲线",
+        "plotKind": "line",
+        "chartType": "line",
+        "xField": "time",
+        "yField": "thrust",
+        "yFields": [
+          "thrust"
+        ],
+        "averageEvery": 1,
+        "startRow": 0,
+        "endRow": 0,
+        "scale": 1,
+        "offset": 0,
+        "color": "#1677ff",
+        "smooth": false,
+        "sourceCapability": "analysis"
+      },
+      "sourceContext": {
+        "rawFiles": [
+          {
+            "id": "raw-81860df7-e1e7-4940-a600-cc8b8e7f5b84",
+            "name": "cfg-a.csv",
+            "mimeType": "text/csv",
+            "size": 27,
+            "addedAt": "2026-10-23T08:46:31.838Z",
+            "headers": [
+              "time",
+              "thrust"
+            ],
+            "rowCount": 3,
+            "status": "available"
+          }
+        ]
+      },
+      "results": [
+        {
+          "id": "chart",
+          "name": "构型曲线",
+          "kind": "chart",
+          "option": {
+            "animation": false,
+            "tooltip": {
+              "trigger": "axis"
+            },
+            "grid": {
+              "left": 62,
+              "right": 32,
+              "top": 48,
+              "bottom": 68
+            },
+            "dataZoom": [
+              {
+                "type": "inside"
+              },
+              {
+                "type": "slider",
+                "height": 16,
+                "bottom": 12
+              }
+            ],
+            "legend": {
+              "type": "scroll",
+              "top": 4
+            },
+            "xAxis": {
+              "type": "value",
+              "name": "time",
+              "scale": true
+            },
+            "yAxis": {
+              "type": "value",
+              "name": "thrust",
+              "scale": true
+            },
+            "series": [
+              {
+                "name": "thrust",
+                "type": "line",
+                "data": [
+                  [
+                    0,
+                    10
+                  ],
+                  [
+                    1,
+                    15
+                  ],
+                  [
+                    2,
+                    20
+                  ]
+                ],
+                "smooth": false,
+                "symbolSize": 6
+              }
+            ]
+          }
+        }
+      ],
+      "sourceCapability": "analysis",
+      "sourceScope": {
+        "physicalObjectId": "demo-fan-A",
+        "physicalObjectName": "涵道风扇 A（演示）",
+        "cfgId": "cfg-84acffdc-a9a8-4a0b-9bce-0496990fe71f"
+      },
+      "resourceOwner": {
+        "kind": "cfg",
+        "cfgId": "cfg-84acffdc-a9a8-4a0b-9bce-0496990fe71f"
+      },
+      "sourceSessionId": "session-0d0610bb-5adf-485e-b035-57da7d4b9a82"
+    },
+    "id": "analysis-f3ed6a12-c5a0-4872-b999-ed215a3bb76a",
+    "projectId": "project-92add4bd-f4ce-4151-9a9d-8ef9fd5d85ae",
+    "createdAt": "2026-10-23T08:46:34.152Z",
+    "updatedAt": "2026-10-23T08:46:34.152Z"
+  },
+  "prediction": {
+    "id": "prediction:virtualCondition:preview:virtualCondition:1d8afd4c-3ad9-46d4-acb5-903ee43b20df",
+    "type": "virtualCondition",
+    "title": "涵道风扇 B（演示） · 虚拟工况",
+    "source": "虚拟工况扩展",
+    "summary": "虚拟工况扩展演示计算完成，共 36 组目标工况。",
+    "payload": {
+      "resultMode": "demo",
+      "resultNature": "virtualPrediction",
+      "predictionTaskId": "preview:virtualCondition:1d8afd4c-3ad9-46d4-acb5-903ee43b20df",
+      "inputs": {
+        "speedMin": 8000,
+        "speedMax": 10000,
+        "temperatureMin": 80,
+        "temperatureMax": 120,
+        "pressureMin": 1.5,
+        "pressureMax": 2.2,
+        "count": 36
+      },
+      "targetConfiguration": {
+        "physicalObjectId": "demo-fan-B",
+        "physicalObjectName": "涵道风扇 B（演示）",
+        "experimentId": "",
+        "experimentName": "",
+        "objectParameters": [
+          {
+            "id": "demo-diameter-B",
+            "name": "涵道直径",
+            "value": "320",
+            "unit": "mm",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-blades-B",
+            "name": "叶片数量",
+            "value": "9",
+            "unit": "",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-power-B",
+            "name": "额定功率",
+            "value": "8",
+            "unit": "kW",
+            "form": "单值",
+            "source": "演示样例"
+          }
+        ],
+        "configurationParameters": []
+      },
+      "modelPlan": {
+        "modelId": "MOD-01",
+        "cfgId": "cfg-f2548c71-9933-43b8-8239-f672be799b95",
+        "objectIds": [
+          "demo-fan-B"
+        ],
+        "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"mesh\",\"演示标准网格\"]],[]]",
+        "schemeId": "om-5e74b1e7-e478-420e-92bb-2001b3d87e0b",
+        "configurationInputs": {
+          "mesh": "演示标准网格",
+          "$modelVersion": "demo-v1"
+        },
+        "bindings": [],
+        "equipmentInputs": {},
+        "runtimeInputs": {
+          "speedMin": 8000,
+          "speedMax": 10000,
+          "temperatureMin": 80,
+          "temperatureMax": 120,
+          "pressureMin": 1.5,
+          "pressureMax": 2.2,
+          "count": 36
+        }
+      },
+      "sourceContext": {
+        "scope": {
+          "physicalObjectId": "demo-fan-B",
+          "cfgId": "cfg-f2548c71-9933-43b8-8239-f672be799b95"
+        },
+        "physicalObjectName": "涵道风扇 B（演示）",
+        "objectParameters": [
+          {
+            "id": "demo-diameter-B",
+            "name": "涵道直径",
+            "value": "320",
+            "unit": "mm",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-blades-B",
+            "name": "叶片数量",
+            "value": "9",
+            "unit": "",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-power-B",
+            "name": "额定功率",
+            "value": "8",
+            "unit": "kW",
+            "form": "单值",
+            "source": "演示样例"
+          }
+        ],
+        "rawFiles": []
+      },
+      "upstreamResultKeys": [],
+      "upstreamArtifactRefs": [],
+      "results": [
+        {
+          "id": "prediction",
+          "name": "虚拟工况扩展",
+          "kind": "table",
+          "summary": "虚拟工况扩展演示计算完成，共 36 组目标工况。",
+          "columns": [
+            {
+              "key": "condition",
+              "label": "工况"
+            },
+            {
+              "key": "speed",
+              "label": "转速",
+              "unit": "rpm"
+            },
+            {
+              "key": "temperature",
+              "label": "温度",
+              "unit": "℃"
+            },
+            {
+              "key": "pressure",
+              "label": "压力",
+              "unit": "MPa"
+            },
+            {
+              "key": "thrust",
+              "label": "示例推力",
+              "unit": "N"
+            }
+          ],
+          "rows": [
+            {
+              "condition": 1,
+              "speed": 8000,
+              "temperature": 80,
+              "pressure": 1.5,
+              "thrust": 80.28
+            },
+            {
+              "condition": 2,
+              "speed": 8057.14,
+              "temperature": 81.14,
+              "pressure": 1.52,
+              "thrust": 82.25
+            },
+            {
+              "condition": 3,
+              "speed": 8114.29,
+              "temperature": 82.29,
+              "pressure": 1.54,
+              "thrust": 84.24
+            },
+            {
+              "condition": 4,
+              "speed": 8171.43,
+              "temperature": 83.43,
+              "pressure": 1.56,
+              "thrust": 86.27
+            },
+            {
+              "condition": 5,
+              "speed": 8228.57,
+              "temperature": 84.57,
+              "pressure": 1.58,
+              "thrust": 88.32
+            },
+            {
+              "condition": 6,
+              "speed": 8285.71,
+              "temperature": 85.71,
+              "pressure": 1.6,
+              "thrust": 90.39
+            },
+            {
+              "condition": 7,
+              "speed": 8342.86,
+              "temperature": 86.86,
+              "pressure": 1.62,
+              "thrust": 92.49
+            },
+            {
+              "condition": 8,
+              "speed": 8400,
+              "temperature": 88,
+              "pressure": 1.64,
+              "thrust": 94.62
+            },
+            {
+              "condition": 9,
+              "speed": 8457.14,
+              "temperature": 89.14,
+              "pressure": 1.66,
+              "thrust": 96.78
+            },
+            {
+              "condition": 10,
+              "speed": 8514.29,
+              "temperature": 90.29,
+              "pressure": 1.68,
+              "thrust": 98.96
+            },
+            {
+              "condition": 11,
+              "speed": 8571.43,
+              "temperature": 91.43,
+              "pressure": 1.7,
+              "thrust": 101.17
+            },
+            {
+              "condition": 12,
+              "speed": 8628.57,
+              "temperature": 92.57,
+              "pressure": 1.72,
+              "thrust": 103.4
+            },
+            {
+              "condition": 13,
+              "speed": 8685.71,
+              "temperature": 93.71,
+              "pressure": 1.74,
+              "thrust": 105.67
+            },
+            {
+              "condition": 14,
+              "speed": 8742.86,
+              "temperature": 94.86,
+              "pressure": 1.76,
+              "thrust": 107.95
+            },
+            {
+              "condition": 15,
+              "speed": 8800,
+              "temperature": 96,
+              "pressure": 1.78,
+              "thrust": 110.27
+            },
+            {
+              "condition": 16,
+              "speed": 8857.14,
+              "temperature": 97.14,
+              "pressure": 1.8,
+              "thrust": 112.61
+            },
+            {
+              "condition": 17,
+              "speed": 8914.29,
+              "temperature": 98.29,
+              "pressure": 1.82,
+              "thrust": 114.98
+            },
+            {
+              "condition": 18,
+              "speed": 8971.43,
+              "temperature": 99.43,
+              "pressure": 1.84,
+              "thrust": 117.38
+            },
+            {
+              "condition": 19,
+              "speed": 9028.57,
+              "temperature": 100.57,
+              "pressure": 1.86,
+              "thrust": 119.81
+            },
+            {
+              "condition": 20,
+              "speed": 9085.71,
+              "temperature": 101.71,
+              "pressure": 1.88,
+              "thrust": 122.26
+            },
+            {
+              "condition": 21,
+              "speed": 9142.86,
+              "temperature": 102.86,
+              "pressure": 1.9,
+              "thrust": 124.74
+            },
+            {
+              "condition": 22,
+              "speed": 9200,
+              "temperature": 104,
+              "pressure": 1.92,
+              "thrust": 127.25
+            },
+            {
+              "condition": 23,
+              "speed": 9257.14,
+              "temperature": 105.14,
+              "pressure": 1.94,
+              "thrust": 129.78
+            },
+            {
+              "condition": 24,
+              "speed": 9314.29,
+              "temperature": 106.29,
+              "pressure": 1.96,
+              "thrust": 132.34
+            },
+            {
+              "condition": 25,
+              "speed": 9371.43,
+              "temperature": 107.43,
+              "pressure": 1.98,
+              "thrust": 134.93
+            },
+            {
+              "condition": 26,
+              "speed": 9428.57,
+              "temperature": 108.57,
+              "pressure": 2,
+              "thrust": 137.55
+            },
+            {
+              "condition": 27,
+              "speed": 9485.71,
+              "temperature": 109.71,
+              "pressure": 2.02,
+              "thrust": 140.19
+            },
+            {
+              "condition": 28,
+              "speed": 9542.86,
+              "temperature": 110.86,
+              "pressure": 2.04,
+              "thrust": 142.87
+            },
+            {
+              "condition": 29,
+              "speed": 9600,
+              "temperature": 112,
+              "pressure": 2.06,
+              "thrust": 145.57
+            },
+            {
+              "condition": 30,
+              "speed": 9657.14,
+              "temperature": 113.14,
+              "pressure": 2.08,
+              "thrust": 148.29
+            },
+            {
+              "condition": 31,
+              "speed": 9714.29,
+              "temperature": 114.29,
+              "pressure": 2.1,
+              "thrust": 151.05
+            },
+            {
+              "condition": 32,
+              "speed": 9771.43,
+              "temperature": 115.43,
+              "pressure": 2.12,
+              "thrust": 153.83
+            },
+            {
+              "condition": 33,
+              "speed": 9828.57,
+              "temperature": 116.57,
+              "pressure": 2.14,
+              "thrust": 156.65
+            },
+            {
+              "condition": 34,
+              "speed": 9885.71,
+              "temperature": 117.71,
+              "pressure": 2.16,
+              "thrust": 159.49
+            },
+            {
+              "condition": 35,
+              "speed": 9942.86,
+              "temperature": 118.86,
+              "pressure": 2.18,
+              "thrust": 162.35
+            },
+            {
+              "condition": 36,
+              "speed": 10000,
+              "temperature": 120,
+              "pressure": 2.2,
+              "thrust": 165.25
+            }
+          ],
+          "basis": [
+            "输入条件：转速下限：8000 rpm；转速上限：10000 rpm；温度下限：80 ℃；温度上限：120 ℃；压力下限：1.5 MPa；压力上限：2.2 MPa；工况数量：36 ",
+            "前端演示数据；关联的 CSV 和已有成果仅作为业务上下文，未参与物理预测计算。"
+          ]
+        }
+      ],
+      "sourceCapability": "virtualCondition",
+      "sourceScope": {
+        "physicalObjectId": "demo-fan-B",
+        "cfgId": "cfg-f2548c71-9933-43b8-8239-f672be799b95"
+      },
+      "upstreamArtifactIds": [],
+      "resourceOwner": {
+        "kind": "cfg",
+        "cfgId": "cfg-f2548c71-9933-43b8-8239-f672be799b95"
+      },
+      "sourceSessionId": "session-0d0610bb-5adf-485e-b035-57da7d4b9a82"
+    },
+    "projectId": "project-92add4bd-f4ce-4151-9a9d-8ef9fd5d85ae",
+    "createdAt": "2026-10-23T08:46:40.315Z",
+    "updatedAt": "2026-10-23T08:46:40.315Z"
+  },
+  "passed": [
+    "generic CSV editing and plotting saves to the session without a trial, CFG or model",
+    "design, analysis and report require CFG; a CFG can own imported data and charts unrelated to models",
+    "a CFG report can cite generic and CFG charts and saves to the same session catalog",
+    "virtual condition chooses MODEL before configuring CFG, retries failed saves, and shares generic/A/B resources in one session",
+    "digital twin requires CFG; a second session and CFG library reuse the same resources without receiving another session’s generic data",
+    "reopening preserves resource identities and original trial data; model configuration never silently restores a confirmed CFG"
+  ],
+  "errors": [],
+  "writes": []
+}

@@ -3,6 +3,7 @@ import type { PhysicalBusinessScope, WorkSession } from './sessionModel';
 import type { Project } from './types';
 import { artifactResultMode, getSourceArtifacts, resolvePhysicalSource } from './physicalBusinessContext';
 import { collectAnalysisResults, getTrialArtifacts } from './analysisResultModel';
+import { artifactOwner } from './sessionResourceModel';
 
 export function getProfessionalSources(objects: PhysicalObject[], projects: Project[], sessions: WorkSession[], scope: PhysicalBusinessScope) {
   const source = resolvePhysicalSource(objects, scope);
@@ -20,11 +21,25 @@ export function getProfessionalSources(objects: PhysicalObject[], projects: Proj
   for (const trial of trials) for (const artifact of getTrialArtifacts(projects, sessions, { physicalObjectId: scope.physicalObjectId, experimentId: scope.experimentId, trialId: trial.id }, trial)) {
     if (artifact.type !== 'report') artifacts.set(`${artifact.projectId}/${artifact.id}`, artifact);
   }
+  if (scope.cfgId) {
+    for (const [key, artifact] of artifacts) {
+      const owner = artifactOwner(artifact, trials);
+      if (owner?.kind !== 'cfg' || owner.cfgId !== scope.cfgId) artifacts.delete(key);
+    }
+    for (const project of projects) for (const artifact of project.artifacts) {
+      const owner = artifactOwner(artifact, trials);
+      if (owner?.kind === 'cfg' && owner.cfgId === scope.cfgId) artifacts.set(`${artifact.projectId}/${artifact.id}`, artifact);
+    }
+  }
   const results = [...trials.flatMap(trial => collectAnalysisResults(trial, [])), ...collectAnalysisResults(undefined, [...artifacts.values()])].map(entry => {
     const scope = entry.artifact?.payload.sourceScope as PhysicalBusinessScope | undefined;
     return entry.artifact ? { ...entry, record: records.find(item => item.record.id === scope?.testRecordId)?.record } : entry;
   });
-  const files = records.flatMap(({ trial, record }) => record.rawFiles.map(file => ({ ...file, trialId: trial.id, sourceRecordId: record.id })));
+  const files: Array<RawDataFile & {trialId?:string;sourceRecordId?:string}> = records.flatMap(({ trial, record }) => record.rawFiles.map(file => ({ ...file, trialId: trial.id, sourceRecordId: record.id })));
+  for (const artifact of artifacts.values()) {
+    const file = artifact.payload.dataFile as RawDataFile | undefined;
+    if (file && file.status !== 'removed' && !files.some(item=>item.id===file.id)) files.push(file);
+  }
   return { source, results, files, rawFiles: source.record ? files.filter(file => file.sourceRecordId === source.record!.id) : files };
 }
 
@@ -34,7 +49,7 @@ export interface ProfessionalDataContext {
   configurationParameters: Array<{ id: string; name: string; value: string; unit?: string }>;
   loadSpectrum?: string;
   records: Array<{ id: string; trialId: string; trialName: string; loadSpectrum: string; name: string; actualConditions: unknown[]; measurements: unknown[] }>;
-  rawFiles: Array<RawDataFile & { trialId: string; sourceRecordId: string }>;
+  rawFiles: Array<RawDataFile & { trialId?: string; sourceRecordId?: string }>;
   results: Array<{ key: string; kind: string; name: string; source: string; resultMode: string; sourceRecordId?: string; sourceScope?: PhysicalBusinessScope; artifactRef?: { projectId: string; artifactId: string }; data: unknown }>;
 }
 

@@ -55,7 +55,7 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
   });
   const treeData=treeModel.map(renderTreeNode);
   const open = (path: string) => { navigate(path); onNavigate(); };
-  const startSession = () => open('/trials/new');
+  const startSession = () => open('/sessions/' + useSessionStore.getState().createSession());
   const sessionLink = (session: WorkSession) => <Dropdown key={session.id} trigger={['contextMenu']} menu={{ items: [
     { key: 'delete', label: '删除会话', icon: <DeleteOutlined />, danger: true },
   ], onClick: () => Modal.confirm({

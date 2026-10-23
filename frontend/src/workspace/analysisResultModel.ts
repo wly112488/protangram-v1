@@ -55,7 +55,7 @@ export function captureResultContext(objects: PhysicalObject[], scope: PhysicalB
   const source = resolvePhysicalSource(objects, scope);
   if (!source.configuration || source.missing) throw new Error('成果来源已失效，请返回原试验检查');
   return {
-    scope: { physicalObjectId: source.configuration.id, experimentId: source.experiment?.id, ...(source.trial?.cfgId ? {cfgId:source.trial.cfgId} : {}), trialId: source.trial?.id, testRecordId: source.record?.id },
+    scope: { physicalObjectId: source.configuration.id, experimentId: source.experiment?.id, ...((scope.cfgId ?? source.trial?.cfgId) ? {cfgId:scope.cfgId ?? source.trial?.cfgId} : {}), trialId: source.trial?.id, testRecordId: source.record?.id },
     physicalObjectName: source.configuration.name, experimentName: source.experiment?.name,
     trialName: source.trial?.name, recordName: source.record?.name,
     loadSpectrum: source.trial?.loadSpectrum,

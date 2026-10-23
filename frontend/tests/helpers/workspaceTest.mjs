@@ -7,7 +7,7 @@ export class MemoryStorage {
   removeItem(key) { this.values.delete(key); }
 }
 
-export async function loadWorkspace(exports) {
-  const bundle = await build({ stdin: { contents: exports, resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent' });
+export async function loadWorkspace(exports, options = {}) {
+  const bundle = await build({ stdin: { contents: exports, resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent', ...options });
   return import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 }

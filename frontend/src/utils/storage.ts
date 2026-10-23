@@ -136,8 +136,9 @@ export async function fetchAndSyncProjects(): Promise<AnalysisProject[]> {
  * 保存分析报告列表（localStorage + 后端JSON文件）
  * @param reports - 报告数组
  */
-export function saveAnalysisReports(reports: AnalysisReport[]): void {
+export function saveAnalysisReports(reports: AnalysisReport[], options?: { localOnly?: boolean }): void {
   localStorage.setItem(STORAGE_KEYS.ANALYSIS_REPORTS, JSON.stringify(reports));
+  if (options?.localOnly) return;
   // 异步同步到后端JSON文件
   reports.forEach((r) => {
     saveReport(r).catch((err) => console.warn('后端保存报告失败:', err));

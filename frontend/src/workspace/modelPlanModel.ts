@@ -14,7 +14,7 @@ export interface ModelPlan {
 }
 export type ModelPlanRequest=Pick<ModelPlan,'modelId'|'cfgId'|'objectIds'|'configKey'>;
 export interface ModelRunSnapshot extends ModelPlanRequest {
-  schemeId:string; trialId:string; configurationInputs:Record<string,PredictionValue>;
+  schemeId:string; trialId?:string; configurationInputs:Record<string,PredictionValue>;
   bindings:ModelInputBinding[]; equipmentInputs?:Record<string,PredictionValue>; runtimeInputs:Record<string,PredictionValue>;
 }
 const objectKey=(ids:string[])=>JSON.stringify([...new Set(ids)].sort());

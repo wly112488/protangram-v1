@@ -171,3 +171,17 @@ html[data-theme="dark"] .session-shell .session-main-content { background: #141b
 @media (max-width: 1200px) { .session-sidebar { width: 225px; flex-basis: 225px; } .session-home { padding: 45px 28px; } .session-capability-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .session-sidebar { position: fixed; top: 0; bottom: 0; left: 0; width: 260px; transform: translateX(-100%); transition: transform 0.15s; } .session-sidebar.is-open { transform: translateX(0); } .session-sidebar-backdrop { display: block; position: fixed; inset: 0; border: 0; background: #172a4559; z-index: 35; } .session-topbar { padding: 0 14px; } .session-topbar .session-mobile-toggle { display: inline-flex; } .session-home { padding: 34px 20px; } .session-home-intro { margin-bottom: 32px; } .session-capability-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .session-capability-cards > button { min-height: 145px; } .session-recent-grid { grid-template-columns: 1fr; } .session-workbench-header { align-items: flex-start; padding: 20px 16px; } .session-title-line h1 { font-size: 18px; } .session-header-actions > .ant-btn { padding-inline: 8px; } .session-header-actions .ant-btn span:not(.anticon) { display: none; } .session-capability-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px 16px; gap: 7px; } .session-capability-tabs > button { min-height: 52px; gap: 7px; padding: 6px 8px; } .session-capability-tab-icon { width: 30px; height: 30px; flex-basis: 30px; border-radius: 8px; font-size: 16px; } .session-capability-tab-copy strong { font-size: 11px; } .session-capability-tab-copy small { font-size: 8px; } .session-professional-content { padding: 20px 14px 36px; } .session-overview { padding: 14px 2px; } .session-shell .task-center-page { padding: 20px 14px; } }
 @media (max-width: 760px) { .trial-create-page { padding: 18px 14px 40px; } .trial-create-page .ant-space-compact { flex-wrap: nowrap; } .trial-create-page .ant-space-compact .ant-select { min-width: 0; } .trial-workbench-actions { margin: -16px 0 26px; } }
+
+/* Session sections keep generic tools distinct from CFG-based functions. */
+.session-workbench > .session-section-label { margin: 16px 28px 0; }
+.session-general-actions { padding: 10px 28px; border-bottom: 1px solid #e3e9f2; }
+.professional-cfg-summary { margin-bottom: 16px; }
+.general-model-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; margin-top: 20px; }
+.model-configuration-card { margin-top: 16px; }
+.model-cfg-field { display: grid; gap: 8px; margin-bottom: 24px; }
+.session-data-workspace > .ant-card { margin-bottom: 16px; }
+.session-data-preview { margin-top: 20px; }
+@media (max-width: 760px) {
+  .session-workbench > .session-section-label { margin-inline: 16px; }
+  .session-general-actions { padding-inline: 16px; }
+}

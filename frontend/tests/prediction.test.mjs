@@ -97,3 +97,15 @@ test('frontend preview respects cancellation and rejects invalid target ranges',
   await assert.rejects(api.runPredictionPreview({ ...request, inputs: { speedMin: 6000, speedMax: 4000 } }, signal), /上限不能小于下限/);
   await assert.rejects(api.runPredictionPreview({ ...request, inputs: { count: 0 } }, signal), /正整数/);
 });
+
+test('a CFG-bound preview carries its ownership without inventing a concrete trial or legacy setup', async () => {
+  const cfgContext={...context,scope:{physicalObjectId:target.physicalObjectId,cfgId:'cfg-only'},records:[]};
+  const cfgTarget={...target,experimentId:'',experimentName:''};
+  const snapshot={modelId:'MOD-01',schemeId:'om',cfgId:'cfg-only',objectIds:[target.physicalObjectId],configKey:'config',configurationInputs:{mesh:'standard'},bindings:[],runtimeInputs:{speed:3500}};
+  const preview=await api.runPredictionPreview({...request,service:'digitalTwin',targetConfiguration:cfgTarget,context:cfgContext,modelPlan:snapshot,inputs:{speed:3500}},new AbortController().signal);
+  assert.equal(preview.modelPlan.cfgId,'cfg-only');
+  assert.equal(preview.modelPlan.trialId,undefined);
+  assert.equal(preview.targetConfiguration.experimentId,'');
+  assert.equal(preview.context.scope.trialId,undefined);
+  assert.deepEqual(context.scope,{physicalObjectId:target.physicalObjectId,experimentId:target.experimentId,trialId:'trial',testRecordId:'record-1'});
+});

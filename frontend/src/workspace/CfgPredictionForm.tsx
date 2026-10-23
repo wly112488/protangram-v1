@@ -21,8 +21,8 @@ interface Draft {
   bindingKeys:Record<string,string>; selectedSchemeId?:string;
 }
 
-export default function CfgPredictionForm({service,target,context,cfgId,trialId,archive,onSavedAndReturn}:{
-  service:PredictionService; target:PredictionTarget; context:ProfessionalDataContext; cfgId:string; trialId:string;
+export default function CfgPredictionForm({service,target,context,cfgId,trialId,archive,onSavedAndReturn,modelId}:{
+  service:PredictionService; target:PredictionTarget; context:ProfessionalDataContext; cfgId:string; trialId?:string; modelId:string;
   archive:(task:PredictionPreviewTask)=>boolean;
   onSavedAndReturn?:()=>void;
 }) {
@@ -32,20 +32,22 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
   const schemes=useModelSchemeStore(state=>state.schemes);
   const location=useLocation();
   const routeState=useSessionRouteState();
-  const [draft,setDraft]=useSessionState<Draft>(`cfgModelFlowV2:${cfgId}`,()=>{
-    const initial:Draft={modelId:MODEL_FLOW_FIXTURES[0].id,configurationInputs:{mesh:'演示标准网格'},inputs:{},bindingKeys:{}};
+  const [draft,setDraft]=useSessionState<Draft>(`cfgModelFlowV3:${modelId}`,()=>{
+    const selected=MODEL_FLOW_FIXTURES.find(item=>item.id===modelId);
+    const initial:Draft={modelId,configurationInputs:Object.fromEntries((selected?.configurationFields ?? []).flatMap(field=>field.defaultValue!==undefined?[[field.key,field.defaultValue]]:[])),inputs:{},bindingKeys:{}};
     // Preserve pre-picker drafts for their original CFG; each CFG then keeps
     // separate manual inputs without changing or deleting the legacy draft.
     if(context.scope.cfgId!==cfgId) return initial;
     const session=useSessionStore.getState().sessions.find(item=>item.id===getSessionIdFromLocation(location.pathname,location.search));
-    return readSessionDraft(session,getCapabilityFromPath(location.pathname),getSessionDraftKey('cfgModelFlowV1',routeState?.workspaceSession),initial);
+    const legacy=readSessionDraft(session,getCapabilityFromPath(location.pathname),getSessionDraftKey(`cfgModelFlowV2:${cfgId}`,routeState?.workspaceSession),readSessionDraft(session,getCapabilityFromPath(location.pathname),getSessionDraftKey('cfgModelFlowV1',routeState?.workspaceSession),initial));
+    return legacy.modelId===modelId?legacy:initial;
   });
   const [error,setError]=useState(''),[busy,setBusy]=useState(false),[saved,setSaved]=useState(false);
   const [result,setResult]=useState<PredictionPreviewTask>();
   const controller=useRef<AbortController | null>(null);
   useEffect(()=>()=>controller.current?.abort(),[]);
   const equipment=flattenEquipment(objects);
-  const model=MODEL_FLOW_FIXTURES.find(item=>item.id===draft.modelId);
+  const model=MODEL_FLOW_FIXTURES.find(item=>item.id===modelId);
   // Runtime values are manual inputs. Similar parameter names never bind equipment implicitly.
   const preparation=predictionPreparation(service,{...context,objectParameters:[],configurationParameters:[],records:[]});
   const inputs=predictionInputs(preparation,draft.inputs);
@@ -111,11 +113,11 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
   return <div className="workspace-business-page cfg-prediction-flow">
     <Alert type="info" showIcon title="前端演示流程" description="用于确认模型配置与运行输入的使用流程，未执行真实 CFD 或其他后端模型算法。" />
     {error&&<Alert type="error" showIcon title={error} />}
-    <Card size="small" title={service==='digitalTwin'?'数字孪生：模型与本次输入':'虚拟工况：模型与本次输入'}>
-      <Typography.Paragraph>CFG：{cfg!.name} · {cfgId}</Typography.Paragraph>
+    <div>
+
       <Form name="cfg-prediction" form={form} layout="vertical" initialValues={{...draft,inputs}} onFinish={run}
         onValuesChange={(_,values)=>{setDraft(values);setResult(undefined);setSaved(false);setError('');}}>
-        <Form.Item name="modelId" label="通用模型 MODEL" rules={[{required:true}]}><Select aria-label="通用模型 MODEL" options={MODEL_FLOW_FIXTURES.map(item=>({value:item.id,label:item.name}))} /></Form.Item>
+
         <Typography.Paragraph type="secondary">仿真对象：{target.physicalObjectName}（{target.physicalObjectId}）。参数来源按模型字段明确选择；不会默认读取整个 CFG 的装备参数。</Typography.Paragraph>
         <Typography.Title level={5}>模型配置</Typography.Title>
         {model?.configurationFields.map(field=><Form.Item key={field.key} name={['configurationInputs',field.key]} label={field.label} rules={[{required:field.required,whitespace:true,message:`请填写${field.label}`}]}><Input /></Form.Item>)}
@@ -134,13 +136,13 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
         </Form.Item>)}
         <Button type="primary" htmlType="submit" loading={busy} disabled={Boolean(bindingError)}>执行演示预览</Button>
       </Form>
-    </Card>
+    </div>
     {result&&<Card size="small" title="演示预览结果" className="cfg-model-result">
       <Space wrap><Tag color="orange">演示结果</Tag><Tag>MODEL：{result.modelPlan!.modelId}</Tag><Tag>方案：{result.modelPlan!.schemeId}</Tag><Tag>{saved?'已保存到共享成果':'待保存'}</Tag></Space>
       <Typography.Paragraph>{result.result.summary}</Typography.Paragraph>
       <Table size="small" rowKey={(_,index)=>String(index)} dataSource={result.result.rows} columns={result.result.columns.map(column=>({title:`${column.label}${column.unit?` / ${column.unit}`:''}`,dataIndex:column.key}))} pagination={{pageSize:10}} scroll={{x:true}} />
       <Space wrap><Button onClick={()=>save()} loading={busy} disabled={saved}>保存演示成果</Button>
-        {onSavedAndReturn && <Button type="primary" onClick={()=>save(true)} loading={busy}>{saved?'返回试验工作台':'保存并返回试验工作台'}</Button>}
+        {onSavedAndReturn && <Button type="primary" onClick={()=>save(true)} loading={busy}>{saved?'返回工作台':'保存并返回工作台'}</Button>}
       </Space>
     </Card>}
   </div>;

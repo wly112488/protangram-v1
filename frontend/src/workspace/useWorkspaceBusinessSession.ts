@@ -11,6 +11,7 @@ import { usePhysicalObjectStore } from './physicalObjectStore';
 import { resolvePhysicalSource } from './physicalBusinessContext';
 import { captureResultContext } from './analysisResultModel';
 import { getProfessionalSources, professionalDataContext } from './professionalContext';
+import { saveOwnedArtifact } from './sessionResourceStore';
 
 export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null) => {
   const location = useLocation();
@@ -49,7 +50,9 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
   const sourceSessions = useSessionStore(state => state.sessions);
   const physicalSource = useMemo(() => resolvePhysicalSource(objects, session), [objects, session]);
   const sources = useMemo(() => getProfessionalSources(objects, projects, sourceSessions, session), [objects, projects, sourceSessions, session]);
-  const dataContext = useMemo(() => session.physicalObjectId && !physicalSource.missing ? professionalDataContext(sources) : undefined, [sources, session.physicalObjectId, physicalSource.missing]);
+  const dataContext = useMemo(() => session.physicalObjectId && !physicalSource.missing ? {
+    ...professionalDataContext(sources), scope: { ...professionalDataContext(sources).scope, cfgId: session.cfgId ?? physicalSource.trial?.cfgId },
+  } : undefined, [sources, session.physicalObjectId, session.cfgId, physicalSource.missing, physicalSource.trial?.cfgId]);
   const addArtifact = useCallback((projectId: string, input: Parameters<ReturnType<typeof useProjectStore.getState>['addArtifact']>[1]) => {
     if (physicalSource.missing) return null;
     const model = input.payload.model as { modelId?: string } | undefined;
@@ -63,7 +66,7 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     const previousProjects = useProjectStore.getState().projects;
     const upstream = dataContext?.results.filter(result => !(result.artifactRef?.projectId === projectId && result.artifactRef.artifactId === input.id)) ?? [];
     const upstreamRefs = input.payload.upstreamArtifactRefs as Array<{ projectId: string; artifactId: string }> | undefined;
-    const artifact = useProjectStore.getState().addArtifact(projectId, { ...input, payload: {
+    const prepared = { ...input, payload: {
       ...input.payload,
       sourceCapability: capability,
       resultMode: input.payload.resultMode ?? (input.type === 'design' && (input.payload.designSummary || input.payload.designMethod) ? 'configuration' : 'demo'),
@@ -73,7 +76,13 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
       upstreamArtifactRefs: upstreamRefs ?? [...new Map([...upstream.flatMap(result => result.artifactRef ? [result.artifactRef] : []), ...projects.flatMap(project => project.artifacts.filter(artifact => incoming?.artifactIds?.includes(artifact.id) && artifact.id !== input.id).map(artifact => ({ projectId: project.id, artifactId: artifact.id })))].map(reference => [`${reference.projectId}/${reference.artifactId}`, reference])).values()],
       upstreamResultKeys: input.payload.upstreamResultKeys ?? upstream.map(result => result.key),
       modelInputs: model?.modelId ? draft?.[`modelInputs:${model.modelId}`] : undefined,
-    } });
+    } };
+    let artifact;
+    try {
+      artifact = session.sessionId && session.cfgId
+        ? saveOwnedArtifact(session.sessionId, {kind:'cfg',cfgId:session.cfgId}, prepared)
+        : useProjectStore.getState().addArtifact(projectId, prepared);
+    } catch { return null; }
     const saveError = useSessionStore.getState().saveError;
     if (saveError) {
       useProjectStore.setState({ projects: previousProjects });

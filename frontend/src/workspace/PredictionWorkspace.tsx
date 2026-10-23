@@ -1,161 +1,106 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Card, Empty, Form, Input, InputNumber, Modal, Space, Table, Tag, Typography } from 'antd';
-import { ReloadOutlined, SaveOutlined } from '@ant-design/icons';
-import { runPredictionPreview, savePredictionPreview } from '../services/predictionPreview';
-import { useSessionRouteState, useSessionState } from './useSessionState';
-import { useWorkspaceBusinessSession } from './useWorkspaceBusinessSession';
-import { predictionInputs, predictionUserFields, type PredictionPreparation, type PredictionPreviewTask, type PredictionRequest, type PredictionService, type PredictionTarget, type PredictionValue } from './predictionContract';
-import type { ProfessionalDataContext } from './professionalContext';
-import PreparationChecklist from './PreparationChecklist';
-import { predictionArtifactInput } from './analysisResultModel';
-import { predictionParameterError, predictionPreparation } from './predictionParameters';
-import CfgPredictionForm from './CfgPredictionForm';
+import { useMemo, useState } from 'react';
+import { Alert, Button, Card, Empty, Input, Modal, Select, Space, Tag, Typography } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
-import FeatureCfgPicker from './FeatureCfgPicker';
-import { beginCfgChoice, confirmCfgChoice, requireCfgChoice } from './featureCfgChoiceModel';
+import CfgPredictionForm from './CfgPredictionForm';
+import TrialConfigurationEditor from './TrialConfigurationEditor';
+import { MODEL_FLOW_FIXTURES } from './modelFlowFixtures';
+import { useGlobalModelStore } from './globalModelStore';
 import { useTrialConfigurationStore } from './trialConfigurationStore';
+import { usePhysicalObjectStore } from './physicalObjectStore';
+import { useSessionStore } from './sessionStore';
+import { cfgOperationScope } from './professionalScopeModel';
+import { ProfessionalScopeContext } from './professionalScopeContext';
+import { useSessionRouteState } from './useSessionState';
+import { useWorkspaceBusinessSession } from './useWorkspaceBusinessSession';
+import { predictionArtifactInput } from './analysisResultModel';
 import { getSessionPath } from './sessionModel';
+import type { PredictionPreviewTask, PredictionService, PredictionTarget } from './predictionContract';
 
-const { Text } = Typography;
-
-function PredictionForm({ service, target, context, archive }: {
-  service: PredictionService; target: PredictionTarget; context: ProfessionalDataContext; archive: (task: PredictionPreviewTask) => boolean;
-}) {
-  const [form] = Form.useForm();
-  const preparation = useMemo(() => predictionPreparation(service, context), [service, context]);
-  const [error, setError] = useState('');
-  const [conditionsOpen, setConditionsOpen] = useState(false);
-  const [conditionsError, setConditionsError] = useState('');
-  const [draft, setDraft] = useSessionState<{ inputs: Record<string, PredictionValue>; confirmedSignature?: string }>('predictionBusinessDraftV2', { inputs: {} });
-  const [busy, setBusy] = useState<'run' | 'save' | null>(null);
-  const [result, setResult] = useState<PredictionPreviewTask>();
-  const [archivedTaskId, setArchivedTaskId] = useState<string>();
-  const controller = useRef<AbortController | null>(null);
-  const fields = predictionUserFields(preparation);
-  const signature = (spec: PredictionPreparation, inputs: Record<string, PredictionValue>) => JSON.stringify([context.scope, spec.inputFields, spec.inheritedInputs, inputs]);
-  const inputs = predictionInputs(preparation, draft.inputs);
-  const confirmed = !fields.length || draft.confirmedSignature === signature(preparation, inputs);
-  useEffect(() => () => controller.current?.abort(), []);
-
-  const confirmConditions = async () => {
-    let values;
-    try { values = await form.validateFields(); } catch { return; }
-    const next = predictionInputs(preparation, values.inputs);
-    const invalid = predictionParameterError(next);
-    if (invalid) { setConditionsError(invalid); return; }
-    setConditionsError('');
-    setDraft({ inputs: next, confirmedSignature: signature(preparation, next) });
-    setResult(undefined); setError(''); setConditionsOpen(false);
+function ConfiguredPrediction({service,modelId,cfgId}:{service:PredictionService;modelId:string;cfgId:string}) {
+  const {sessionId}=useParams();
+  const navigate=useNavigate();
+  const {physicalSource,session,dataContext,addArtifact,recordArtifactForTaskItem}=useWorkspaceBusinessSession(useSessionRouteState());
+  const target:PredictionTarget | undefined=physicalSource.configuration && !physicalSource.missing ? {
+    physicalObjectId:physicalSource.configuration.id,physicalObjectName:physicalSource.configuration.name,
+    experimentId:physicalSource.experiment?.id ?? '',experimentName:physicalSource.experiment?.name ?? '',
+    testType:physicalSource.experiment?.testType,objectParameters:physicalSource.configuration.parameters,
+    configurationParameters:physicalSource.experiment?.parameters ?? [],
+  } : undefined;
+  if(!target || !dataContext) return <Alert type="error" title="构型装备来源不可用，请重新选择 CFG" />;
+  const archive=(task:PredictionPreviewTask)=>{
+    if(!session.targetProjectId) return false;
+    const input=predictionArtifactInput(task);
+    const artifact=addArtifact(session.targetProjectId,{...input,title:`${target.physicalObjectName} · ${service==='virtualCondition'?'虚拟工况':'数字孪生'}`});
+    if(!artifact) return false;
+    recordArtifactForTaskItem({projectId:artifact.projectId,artifactId:artifact.id});return true;
   };
-  const predict = async () => {
-    if (busy || !confirmed) return;
-    const active = new AbortController(); controller.current = active;
-    setBusy('run'); setError(''); setResult(undefined);
+  return <CfgPredictionForm modelId={modelId} service={service} target={target} context={dataContext} cfgId={cfgId}
+    trialId={physicalSource.trial?.id} archive={archive} onSavedAndReturn={sessionId?()=>navigate(getSessionPath(sessionId)):undefined} />;
+}
+
+export default function PredictionWorkspace({service}:{service:PredictionService}) {
+  const {sessionId}=useParams();
+  const session=useSessionStore(state=>state.sessions.find(item=>item.id===sessionId));
+  const configurations=useTrialConfigurationStore(state=>state.configurations);
+  const objects=usePhysicalObjectStore(state=>state.objects);
+  const archivedModels=useGlobalModelStore(state=>state.models);
+  const [modelId,setModelId]=useState<string>();
+  const [cfgId,setCfgId]=useState<string>();
+  const [query,setQuery]=useState('');
+  const [creating,setCreating]=useState(false);
+  const [error,setError]=useState('');
+  const selectedModel=MODEL_FLOW_FIXTURES.find(item=>item.id===modelId);
+  const cfg=configurations.find(item=>item.id===cfgId);
+  const base=session?.businessScope;
+  const resolved=useMemo(()=>{
+    if(!cfg) return {scope:undefined,error:cfgId?'所选 CFG 已失效，请重新选择':''};
+    try {return {scope:cfgOperationScope(cfg,objects,base),error:''};}
+    catch(cause) {return {scope:undefined,error:cause instanceof Error?cause.message:'构型来源不可用'};}
+  },[cfg,cfgId,objects,base]);
+  const selectCfg=(id:string)=>{
     try {
-      if (active.signal.aborted) return;
-      const input: PredictionRequest = { requestId: globalThis.crypto?.randomUUID?.() ?? `prediction-${Date.now()}-${Math.random().toString(36).slice(2)}`, service, targetConfiguration: structuredClone(target), context: structuredClone(context), inputs };
-      const task = await runPredictionPreview(input, active.signal);
-      if (!active.signal.aborted) {
-        setResult(task);
-        if (task.saved) {
-          if (archive(task)) setArchivedTaskId(task.taskId);
-          else setError('本次成果未保存，请重试保存');
-        }
-      }
-    } catch { if (!active.signal.aborted) setError('本次计算未完成，请稍后重试'); }
-    finally { if (!active.signal.aborted) setBusy(null); }
+      const chosen=useTrialConfigurationStore.getState().getConfiguration(id);
+      if(!chosen) throw new Error('所选 CFG 已失效');
+      cfgOperationScope(chosen,objects,base);
+      if(sessionId) useSessionStore.getState().linkConfiguration(sessionId,id);
+      if(useSessionStore.getState().saveError) throw new Error(useSessionStore.getState().saveError!);
+      setCfgId(id);setError('');
+    } catch(cause) {setError(cause instanceof Error?cause.message:'构型不可用');}
   };
-  const save = async () => {
-    if (busy || !result || archivedTaskId === result.taskId) return;
-    const active = new AbortController(); controller.current = active;
-    setBusy('save'); setError('');
-    try {
-      const task = result.saved ? result : await savePredictionPreview(result, active.signal);
-      if (!active.signal.aborted) {
-        setResult(task);
-        if (archive(task)) setArchivedTaskId(task.taskId);
-        else setError('本次成果未保存，请重试保存');
-      }
-    } catch { if (!active.signal.aborted) setError('本次成果未保存，请重试保存'); }
-    finally { if (!active.signal.aborted) setBusy(null); }
-  };
-  const reset = () => {
-    const next = predictionInputs(preparation);
-    setDraft({ inputs: next }); form.setFieldsValue({ inputs: next }); setResult(undefined); setError('');
-  };
-  return <div className="workspace-business-page">
-    {error && <Alert type="error" showIcon title={error} />}
-    <PreparationChecklist title="计算准备" items={[
-      { key: 'conditions', label: '计算条件', value: fields.length ? fields.map(field => `${field.label}：${inputs[field.key] ?? '待填写'} ${field.unit ?? ''}`).join('；') : '已继承当前试验条件', confirmed,
-        onClick: fields.length && !busy ? () => { form.setFieldsValue({ inputs }); setConditionsError(''); setConditionsOpen(true); } : undefined,
-        preview: <Space wrap>{fields.length ? fields.map(field => <Tag key={field.key}>{field.label}：{inputs[field.key]} {field.unit}</Tag>) : <Text>无需补充输入</Text>}</Space>,
-      },
-    ]} actions={<Space size={6}><Button type="primary" loading={busy === 'run'} disabled={!confirmed || Boolean(busy)} onClick={predict}>执行预测</Button><Button type="text" size="small" className="workspace-reset-action" icon={<ReloadOutlined />} disabled={Boolean(busy)} onClick={reset}>重置</Button></Space>} />
-    <Card id="business-result" title="计算结果" size="small" className="workspace-business-card">
-      {result ? <><Space><Tag>{service === 'virtualCondition' ? '虚拟预测结果' : '数字孪生结果'}</Tag><Tag color="orange">演示结果</Tag><Tag color={archivedTaskId === result.taskId ? 'green' : 'blue'}>{archivedTaskId === result.taskId ? '已保存到共享成果' : '待保存'}</Tag></Space>
-        <Typography.Paragraph>{result.result.summary}</Typography.Paragraph>
-        <Table size="small" rowKey={(_, index) => String(index)} scroll={{ x: true }} pagination={{ pageSize: 10 }} dataSource={result.result.rows} columns={result.result.columns.map(column => ({ title: `${column.label}${column.unit ? ` / ${column.unit}` : ''}`, dataIndex: column.key, render: value => value ?? '—' }))} />
-        <div className="workspace-result-actions"><Button icon={<SaveOutlined />} onClick={save} loading={busy === 'save'} disabled={archivedTaskId === result.taskId || Boolean(busy)}>保存成果</Button></div>
-      </> : <Text type="secondary">{busy === 'run' ? '正在计算…' : '确认计算条件后执行，结果可保存到共享成果。'}</Text>}
-    </Card>
-    <Modal title="计算条件" open={conditionsOpen} onCancel={() => setConditionsOpen(false)} onOk={confirmConditions} okText="确认" cancelText="取消" destroyOnHidden>
-      {conditionsError && <Alert type="error" showIcon title={conditionsError} />}
-      <Form form={form} layout="vertical">{fields.map(field => <Form.Item key={field.key} name={['inputs', field.key]} label={`${field.label}${field.unit ? ` / ${field.unit}` : ''}`} rules={[
-        { required: field.required, type: field.type === 'number' ? 'number' : 'string', message: `请输入${field.label}`, ...(field.type === 'text' ? { whitespace: true } : {}) },
-        ...(field.type === 'number' ? [{ type: 'number' as const, min: field.min, max: field.max, message: '请输入要求范围内的数值' }] : []),
-        { validator: async (_rule, value) => {
-          if (field.key === 'count' && !Number.isInteger(value)) throw new Error('工况数量请输入正整数');
-          if (field.key.endsWith('Max')) {
-            const minimum = form.getFieldValue(['inputs', field.key.replace(/Max$/, 'Min')]);
-            if (typeof value === 'number' && typeof minimum === 'number' && value < minimum) throw new Error('上限不能小于下限');
-          }
-        } },
-      ]}>{field.type === 'number' ? <InputNumber style={{ width: '100%' }} min={field.min} max={field.max} /> : <Input />}</Form.Item>)}</Form>
+  const available=MODEL_FLOW_FIXTURES.filter(item=>item.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  const other=archivedModels.filter(item=>item.modelName.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  return <div className="workspace-business-page model-library-workspace">
+    {!selectedModel ? <>
+      <Typography.Title level={4}>{service==='virtualCondition'?'虚拟工况':'数字孪生'} · 通用模型</Typography.Title>
+      <Input.Search aria-label="搜索通用模型" placeholder="搜索通用模型" value={query} onChange={event=>setQuery(event.target.value)} />
+      <div className="general-model-grid">
+        {available.map(model=><Card key={model.id} title={model.name} extra={<Tag>演示</Tag>}>
+          <Typography.Paragraph type="secondary">配置装备组合和模型参数，执行本次工况预览。</Typography.Paragraph>
+          <Button type="primary" aria-label={`配置 ${model.name}`} onClick={()=>{setModelId(model.id);setCfgId(undefined);setError('');}}>配置模型</Button>
+        </Card>)}
+        {other.map(model=><Card key={model.modelId} title={model.modelName} extra={<Tag>{model.version}</Tag>}>
+          <Typography.Paragraph type="secondary">尚无可用的计算配置。</Typography.Paragraph><Button disabled>暂不可用</Button>
+        </Card>)}
+      </div>
+      {!available.length && !other.length && <Empty description="没有匹配的通用模型" />}
+    </> : <>
+      <Button onClick={()=>{setModelId(undefined);setCfgId(undefined);}}>返回通用模型</Button>
+      <Card title={`${selectedModel.name} · 配置`} className="model-configuration-card">
+        <div className="model-cfg-field"><Typography.Text strong>试验构型 CFG</Typography.Text>
+          <Space.Compact style={{width:'100%'}}><Select aria-label="模型配置 CFG" showSearch optionFilterProp="label" placeholder="选择本次使用的试验构型" value={cfgId} style={{flex:1}}
+            options={configurations.map(item=>({value:item.id,label:`${item.name} · ${item.id}`}))} onChange={selectCfg} />
+            <Button onClick={()=>setCreating(true)}>新建 CFG</Button></Space.Compact>
+        </div>
+        {(error || resolved.error) && <Alert type="error" title={error || resolved.error} />}
+        {resolved.scope && cfgId ? <ProfessionalScopeContext.Provider key={`${modelId}:${cfgId}`} value={resolved.scope}>
+          <ConfiguredPrediction service={service} modelId={modelId!} cfgId={cfgId} />
+        </ProfessionalScopeContext.Provider> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="选择 CFG 后填写模型配置与本次工况" />}
+      </Card>
+    </>}
+    <Modal title="新建试验构型" open={creating} footer={null} onCancel={()=>setCreating(false)} destroyOnHidden width={780}>
+      <TrialConfigurationEditor onCancel={()=>setCreating(false)} onSaved={()=>{setCreating(false);setError('');
+        Modal.info({title:'CFG 已保存',content:'请在模型配置中选择本次使用的试验构型。',okText:'知道了'});
+      }} />
     </Modal>
   </div>;
-}
-
-function ExplicitCfgPrediction({ service, target, context, trialId, archive, suggestedCfgId, onSavedAndReturn }: {
-  service: PredictionService; target: PredictionTarget; context: ProfessionalDataContext; trialId: string;
-  archive: (task: PredictionPreviewTask) => boolean; suggestedCfgId?: string; onSavedAndReturn?: () => void;
-}) {
-  const [history, setHistory] = useSessionState<{ lastCfgId?: string }>('featureCfgHistoryV1', {});
-  const [choice, setChoice] = useState(() => beginCfgChoice(history.lastCfgId ?? suggestedCfgId));
-  const [picking, setPicking] = useState(true);
-  return <>
-    {picking && <FeatureCfgPicker suggestedCfgId={choice.confirmedCfgId ?? choice.suggestedCfgId}
-      onCancel={() => setPicking(false)} onConfirm={id => {
-        const next = confirmCfgChoice(choice, id, new Set(useTrialConfigurationStore.getState().configurations.map(cfg => cfg.id)));
-        setChoice(next); setHistory({lastCfgId: requireCfgChoice(next)}); setPicking(false);
-      }} />}
-    {!picking && <Button onClick={() => setPicking(true)}>{choice.confirmedCfgId ? '更换本次 CFG' : '选择 CFG'}</Button>}
-    {!picking && !choice.confirmedCfgId && <Empty description="请明确选择试验构型 CFG 后填写模型输入" />}
-    {choice.confirmedCfgId && <div hidden={picking}>
-      <CfgPredictionForm key={choice.confirmedCfgId} service={service} target={target} context={context}
-        cfgId={requireCfgChoice(choice)} trialId={trialId} archive={archive} onSavedAndReturn={onSavedAndReturn} />
-    </div>}
-  </>;
-}
-
-export default function PredictionWorkspace({ service }: { service: PredictionService }) {
-  const { sessionId } = useParams();
-  const navigate = useNavigate();
-  const { physicalSource, session, dataContext, addArtifact, recordArtifactForTaskItem } = useWorkspaceBusinessSession(useSessionRouteState());
-  const target = useMemo<PredictionTarget | undefined>(() => physicalSource.configuration && physicalSource.experiment && !physicalSource.missing ? {
-    physicalObjectId: physicalSource.configuration.id, physicalObjectName: physicalSource.configuration.name,
-    experimentId: physicalSource.experiment.id, experimentName: physicalSource.experiment.name,
-    testType: physicalSource.experiment.testType, objectParameters: physicalSource.configuration.parameters, configurationParameters: physicalSource.experiment.parameters,
-  } : undefined, [physicalSource]);
-  if (!target || !dataContext) return <Card title="计算准备" size="small"><Empty description="请从已有试验构型、具体试验或执行记录进入此功能" /></Card>;
-  const archive = (task: PredictionPreviewTask) => {
-    if (!session.targetProjectId) return false;
-    const artifact = addArtifact(session.targetProjectId, predictionArtifactInput(task));
-    if (!artifact) return false;
-    recordArtifactForTaskItem({ projectId: artifact.projectId, artifactId: artifact.id });
-    return true;
-  };
-  return physicalSource.trial ? <ExplicitCfgPrediction key={`${service}:${physicalSource.trial.id}`} service={service} target={target} context={dataContext}
-      trialId={physicalSource.trial.id} archive={archive} suggestedCfgId={physicalSource.trial.cfgId}
-      onSavedAndReturn={sessionId ? () => navigate(getSessionPath(sessionId,'doe')) : undefined} />
-    : <PredictionForm key={JSON.stringify([service, target, dataContext.scope, dataContext.rawFiles])} service={service} target={target} context={dataContext} archive={archive} />;
 }

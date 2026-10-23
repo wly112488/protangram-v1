@@ -1,0 +1,810 @@
+{
+  "baselineCommit": "858e508",
+  "baselineErrors": 36,
+  "baselineWarnings": 4,
+  "currentErrors": 36,
+  "currentWarnings": 4,
+  "addedMessages": [],
+  "baseline": [
+    {
+      "file": "src/components/FullscreenPanel.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 28,
+          "column": 7,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/modules/ModuleManagement.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 2,
+          "column": 87,
+          "severity": 2,
+          "message": "'Space' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 10,
+          "column": 15,
+          "severity": 2,
+          "message": "'CalculationModule' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/projects/AnalysisExecution.tsx",
+      "errors": 8,
+      "warnings": 2,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 52,
+          "severity": 2,
+          "message": "'Space' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 72,
+          "severity": 2,
+          "message": "'Tabs' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 6,
+          "column": 22,
+          "severity": 2,
+          "message": "'PlayCircleOutlined' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 193,
+          "column": 43,
+          "severity": 2,
+          "message": "'nodeId' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 214,
+          "column": 10,
+          "severity": 2,
+          "message": "'activeNodeId' is assigned a value but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 226,
+          "column": 10,
+          "severity": 2,
+          "message": "'selectedCompareVar' is assigned a value but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 226,
+          "column": 30,
+          "severity": 2,
+          "message": "'setSelectedCompareVar' is assigned a value but never used."
+        },
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "line": 280,
+          "column": 6,
+          "severity": 1,
+          "message": "React Hook useEffect has a missing dependency: 'handleOutNodeClick'. Either include it or remove the dependency array."
+        },
+        {
+          "ruleId": "react-hooks/immutability",
+          "line": 326,
+          "column": 7,
+          "severity": 2,
+          "message": "Error: Cannot access variable before it is declared"
+        },
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "line": 328,
+          "column": 6,
+          "severity": 1,
+          "message": "React Hook useCallback has a missing dependency: 'completeCurrentNode'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/projects/AnalysisProjectCreate.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 17,
+          "column": 16,
+          "severity": 2,
+          "message": "'Text' is assigned a value but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/projects/AnalysisProjects.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "line": 334,
+          "column": 6,
+          "severity": 1,
+          "message": "React Hook useEffect has missing dependencies: 'analyzed' and 'startAnalysis'. Either include them or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/templates/TemplateCreate.tsx",
+      "errors": 4,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 73,
+          "severity": 2,
+          "message": "'Drawer' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 8,
+          "column": 3,
+          "severity": 2,
+          "message": "'PlayCircleOutlined' is defined but never used."
+        },
+        {
+          "ruleId": "react-hooks/purity",
+          "line": 249,
+          "column": 28,
+          "severity": 2,
+          "message": "Error: Cannot call impure function during render"
+        },
+        {
+          "ruleId": "react-hooks/purity",
+          "line": 249,
+          "column": 58,
+          "severity": 2,
+          "message": "Error: Cannot call impure function during render"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/experiment/design/ExperimentCreate.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 119,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 138,
+          "column": 9,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/experiment/design/IntelligentExperimentDesign.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "line": 243,
+          "column": 6,
+          "severity": 1,
+          "message": "React Hook useEffect has missing dependencies: 'generatePlan' and 'generated'. Either include them or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/experiment/design/OutlineDesign.tsx",
+      "errors": 4,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 36,
+          "severity": 2,
+          "message": "'Form' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 69,
+          "severity": 2,
+          "message": "'Select' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 118,
+          "severity": 2,
+          "message": "'Popconfirm' is defined but never used."
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 87,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/experiment/info/BOMManagement.tsx",
+      "errors": 3,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 67,
+          "column": 9,
+          "severity": 2,
+          "message": "'fileInputRef' is assigned a value but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 74,
+          "column": 14,
+          "severity": 2,
+          "message": "'err' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 104,
+          "column": 16,
+          "severity": 2,
+          "message": "'err' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/report/ReportTemplates.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 2,
+          "column": 50,
+          "severity": 2,
+          "message": "'message' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/workbench/EquipmentManagerWindow.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/purity",
+          "line": 174,
+          "column": 36,
+          "severity": 2,
+          "message": "Error: Cannot call impure function during render"
+        },
+        {
+          "ruleId": "react-hooks/purity",
+          "line": 210,
+          "column": 19,
+          "severity": 2,
+          "message": "Error: Cannot call impure function during render"
+        }
+      ]
+    },
+    {
+      "file": "src/workbench/ExperimentWorkbench.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 299,
+          "column": 7,
+          "severity": 2,
+          "message": "'LegacyPlatformPrototypeView' is assigned a value but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/workbench/FreeCanvas.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 2,
+          "column": 10,
+          "severity": 2,
+          "message": "'Button' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/workbench/FunctionBar.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 220,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/workspace/TaskWorkbench.tsx",
+      "errors": 3,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/preserve-manual-memoization",
+          "line": 67,
+          "column": 36,
+          "severity": 2,
+          "message": "Compilation Skipped: Existing memoization could not be preserved"
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 184,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 286,
+          "column": 44,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/workspace/WorkspaceShell.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 18,
+          "severity": 2,
+          "message": "'Space' is defined but never used."
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 98,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    }
+  ],
+  "current": [
+    {
+      "file": "src/components/FullscreenPanel.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 28,
+          "column": 7,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/modules/ModuleManagement.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 2,
+          "column": 87,
+          "severity": 2,
+          "message": "'Space' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 10,
+          "column": 15,
+          "severity": 2,
+          "message": "'CalculationModule' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/projects/AnalysisExecution.tsx",
+      "errors": 8,
+      "warnings": 2,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 52,
+          "severity": 2,
+          "message": "'Space' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 72,
+          "severity": 2,
+          "message": "'Tabs' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 6,
+          "column": 22,
+          "severity": 2,
+          "message": "'PlayCircleOutlined' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 193,
+          "column": 43,
+          "severity": 2,
+          "message": "'nodeId' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 214,
+          "column": 10,
+          "severity": 2,
+          "message": "'activeNodeId' is assigned a value but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 226,
+          "column": 10,
+          "severity": 2,
+          "message": "'selectedCompareVar' is assigned a value but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 226,
+          "column": 30,
+          "severity": 2,
+          "message": "'setSelectedCompareVar' is assigned a value but never used."
+        },
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "line": 280,
+          "column": 6,
+          "severity": 1,
+          "message": "React Hook useEffect has a missing dependency: 'handleOutNodeClick'. Either include it or remove the dependency array."
+        },
+        {
+          "ruleId": "react-hooks/immutability",
+          "line": 326,
+          "column": 7,
+          "severity": 2,
+          "message": "Error: Cannot access variable before it is declared"
+        },
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "line": 328,
+          "column": 6,
+          "severity": 1,
+          "message": "React Hook useCallback has a missing dependency: 'completeCurrentNode'. Either include it or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/projects/AnalysisProjectCreate.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 17,
+          "column": 16,
+          "severity": 2,
+          "message": "'Text' is assigned a value but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/projects/AnalysisProjects.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "line": 334,
+          "column": 6,
+          "severity": 1,
+          "message": "React Hook useEffect has missing dependencies: 'analyzed' and 'startAnalysis'. Either include them or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/analysis/templates/TemplateCreate.tsx",
+      "errors": 4,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 73,
+          "severity": 2,
+          "message": "'Drawer' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 8,
+          "column": 3,
+          "severity": 2,
+          "message": "'PlayCircleOutlined' is defined but never used."
+        },
+        {
+          "ruleId": "react-hooks/purity",
+          "line": 249,
+          "column": 28,
+          "severity": 2,
+          "message": "Error: Cannot call impure function during render"
+        },
+        {
+          "ruleId": "react-hooks/purity",
+          "line": 249,
+          "column": 58,
+          "severity": 2,
+          "message": "Error: Cannot call impure function during render"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/experiment/design/ExperimentCreate.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 119,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 138,
+          "column": 9,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/experiment/design/IntelligentExperimentDesign.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "messages": [
+        {
+          "ruleId": "react-hooks/exhaustive-deps",
+          "line": 243,
+          "column": 6,
+          "severity": 1,
+          "message": "React Hook useEffect has missing dependencies: 'generatePlan' and 'generated'. Either include them or remove the dependency array."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/experiment/design/OutlineDesign.tsx",
+      "errors": 4,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 36,
+          "severity": 2,
+          "message": "'Form' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 69,
+          "severity": 2,
+          "message": "'Select' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 118,
+          "severity": 2,
+          "message": "'Popconfirm' is defined but never used."
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 87,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/experiment/info/BOMManagement.tsx",
+      "errors": 3,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 67,
+          "column": 9,
+          "severity": 2,
+          "message": "'fileInputRef' is assigned a value but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 74,
+          "column": 14,
+          "severity": 2,
+          "message": "'err' is defined but never used."
+        },
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 104,
+          "column": 16,
+          "severity": 2,
+          "message": "'err' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/pages/report/ReportTemplates.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 2,
+          "column": 50,
+          "severity": 2,
+          "message": "'message' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/workbench/EquipmentManagerWindow.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/purity",
+          "line": 174,
+          "column": 36,
+          "severity": 2,
+          "message": "Error: Cannot call impure function during render"
+        },
+        {
+          "ruleId": "react-hooks/purity",
+          "line": 210,
+          "column": 19,
+          "severity": 2,
+          "message": "Error: Cannot call impure function during render"
+        }
+      ]
+    },
+    {
+      "file": "src/workbench/ExperimentWorkbench.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 299,
+          "column": 7,
+          "severity": 2,
+          "message": "'LegacyPlatformPrototypeView' is assigned a value but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/workbench/FreeCanvas.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 2,
+          "column": 10,
+          "severity": 2,
+          "message": "'Button' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/workbench/FunctionBar.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 220,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/workspace/TaskWorkbench.tsx",
+      "errors": 3,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "react-hooks/preserve-manual-memoization",
+          "line": 67,
+          "column": 36,
+          "severity": 2,
+          "message": "Compilation Skipped: Existing memoization could not be preserved"
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 184,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 286,
+          "column": 44,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    },
+    {
+      "file": "src/workspace/WorkspaceShell.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "line": 3,
+          "column": 18,
+          "severity": 2,
+          "message": "'Space' is defined but never used."
+        },
+        {
+          "ruleId": "react-hooks/set-state-in-effect",
+          "line": 98,
+          "column": 5,
+          "severity": 2,
+          "message": "Error: Calling setState synchronously within an effect can trigger cascading renders"
+        }
+      ]
+    }
+  ]
+}

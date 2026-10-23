@@ -51,7 +51,7 @@ export default function TrialConfigurationLibrary() {
     {creating ? <Card title="新建试验构型 CFG"><TrialConfigurationEditor key={categoryId ?? 'all'} initialCategoryId={categories.some(item=>item.id===categoryId)?categoryId!:undefined} onSaved={()=>setCreating(false)} onCancel={()=>setCreating(false)} /></Card>
       : <Button type="primary" disabled={invalidCategory} onClick={()=>setCreating(true)}>新建 CFG</Button>}
     <List dataSource={filtered} locale={{emptyText:<Empty description={invalidCategory?'请重新选择分类':'此分类下尚未创建 CFG'} />}} renderItem={cfg=><List.Item>
-      <Card size="small" title={cfg.name} style={{width:'100%'}} extra={<Button onClick={()=>navigate(`/trials/new?cfgId=${encodeURIComponent(cfg.id)}`)}>使用此 CFG 创建试验</Button>}>
+      <Card size="small" title={cfg.name} style={{width:'100%'}} extra={<Space wrap><Button onClick={()=>navigate(`/shared?cfgId=${encodeURIComponent(cfg.id)}`)}>数据与成果</Button><Button onClick={()=>navigate(`/trials/new?cfgId=${encodeURIComponent(cfg.id)}`)}>使用此 CFG 创建试验</Button></Space>}>
         <Typography.Text type="secondary">{cfg.id}</Typography.Text><p>{cfg.description}</p>
         <div style={{marginBottom:12}}><Select aria-label={`调整 ${cfg.name} 的分类`} allowClear placeholder="未分类" style={{minWidth:220}}
           value={categories.some(item=>item.id===cfg.categoryId)?cfg.categoryId:undefined}

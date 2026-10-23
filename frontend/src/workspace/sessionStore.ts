@@ -48,6 +48,8 @@ interface SessionStore {
   updateDraft: (id: string, capability: SessionCapability, key: string, value: unknown) => void;
   setHandoff: (id: string, capability: SessionCapability, value: Record<string, unknown>, resetDraft?: boolean) => void;
   retrySave: () => void;
+  linkConfiguration: (id: string, cfgId: string) => void;
+  linkResource: (id: string, reference: { projectId: string; artifactId: string }) => void;
   reloadFromStorage: () => void;
 }
 
@@ -85,6 +87,14 @@ export const useSessionStore = create<SessionStore>((set, get) => {
   return {
     ...load(),
     createSession: (input = {}) => create(input),
+    linkConfiguration: (id, cfgId) => {
+      if (get().sessions.find(session => session.id === id)?.cfgIds?.includes(cfgId)) return;
+      update(id, session => ({ ...session, cfgIds: [...(session.cfgIds ?? []), cfgId] }));
+    },
+    linkResource: (id, reference) => {
+      if (get().sessions.find(session => session.id === id)?.resourceRefs?.some(ref => ref.projectId === reference.projectId && ref.artifactId === reference.artifactId)) return;
+      update(id, session => ({ ...session, resourceRefs: [...(session.resourceRefs ?? []), reference] }));
+    },
     ensureTaskTrialSession: (taskId, draftId, scope, projectId) => {
       const existing = get().sessions.find(session => session.taskWork?.taskId === taskId && session.taskWork.trialDraftId === draftId && samePhysicalSource(session.businessScope, scope));
       if (existing) return existing.id;

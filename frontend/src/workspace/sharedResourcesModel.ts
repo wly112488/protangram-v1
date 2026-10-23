@@ -8,10 +8,8 @@ export const projectWorkspacePath = (projectId: string, view: 'trials' | 'resour
   `/projects?${new URLSearchParams({ projectId, view, ...(trialId ? { trialId } : {}) })}`;
 
 export function sessionResourcesPath(session: WorkSession, projects: Project[]) {
-  const owner = projects.find(item => !item.sessionOwnerId && item.id === session.projectId)
-    ?? projects.find(item => !item.sessionOwnerId && item.id === session.storageProjectId);
-  return owner ? projectWorkspacePath(owner.id, 'resources', session.businessScope?.trialId)
-    : `/shared?${new URLSearchParams({ sessionId: session.id })}`;
+  void projects; // Retained for existing project and task navigation callers.
+  return `/shared?${new URLSearchParams({sessionId:session.id})}`;
 }
 
 export function artifactResourcesPath(artifact: ProjectArtifact, projects: Project[], sessions: WorkSession[]) {

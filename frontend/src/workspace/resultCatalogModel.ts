@@ -12,7 +12,7 @@ export interface CatalogRecord { key: string; record?: TestRecord; files: Catalo
 export interface CatalogSpectrum { key: string; name: string; trialName?: string; records: CatalogRecord[]; results: CatalogResult[] }
 
 // The directory is a view of the original trial/record/file IDs, never a second store.
-export function buildResultCatalog(entries: ResultEntry[], trials: ConcreteTrial[] = [], recordId?: string): CatalogSpectrum[] {
+export function buildResultCatalog(entries: ResultEntry[], trials: ConcreteTrial[] = [], recordId?: string, looseFiles: RawDataFile[] = []): CatalogSpectrum[] {
   const spectra: CatalogSpectrum[] = [];
   const spectrum = (key: string, name: string, trialName?: string) => {
     let node = spectra.find(item => item.key === key);
@@ -39,6 +39,7 @@ export function buildResultCatalog(entries: ResultEntry[], trials: ConcreteTrial
       for (const file of record.rawFiles.filter(file => file.status !== 'removed')) fileNode(run, file);
     }
   }
+  for (const file of looseFiles) fileNode(recordNode(spectrum('context','')),file);
   const seen = new Set<string>();
   for (const entry of entries) {
     if (seen.has(entry.key)) continue;

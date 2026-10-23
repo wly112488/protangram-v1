@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import type { BusinessRouteState } from '../types/businessContext';
 import { getCapabilityFromPath, getLegacySessionPath, getSessionIdFromLocation, getSessionWorkspaceContext, getSessionDraftKey, readSessionDraft, resolveSessionHandoff } from './sessionModel';
 import { useSessionStore } from './sessionStore';
+import { useProfessionalScope } from './professionalScopeContext';
 
 // The shell remounts professional pages when the session or capability changes.
 // Only serializable work state uses this hook; loading flags and open dialogs
@@ -10,13 +11,18 @@ import { useSessionStore } from './sessionStore';
 export const useSessionState = <T,>(name: string, initial: T | (() => T)): [T, Dispatch<SetStateAction<T>>] => {
   const location = useLocation();
   const routeState = useSessionRouteState();
-  const key = getSessionDraftKey(name, routeState?.workspaceSession);
+  const scope = useProfessionalScope();
+  const draftName = scope?.cfgId ? `cfg:${scope.cfgId}:${name}` : name;
+  const key = getSessionDraftKey(draftName, routeState?.workspaceSession);
   const id = getSessionIdFromLocation(location.pathname, location.search);
   const capability = getCapabilityFromPath(id ? getLegacySessionPath(location.pathname, id) ?? location.pathname : location.pathname);
-  const [value, setValue] = useState<T>(() => readSessionDraft(
-    useSessionStore.getState().sessions.find(session => session.id === id), capability, key,
-    typeof initial === 'function' ? (initial as () => T)() : initial,
-  ));
+  const [value, setValue] = useState<T>(() => {
+    const session=useSessionStore.getState().sessions.find(item=>item.id===id);
+    const fallback=typeof initial==='function'?(initial as ()=>T)():initial;
+    const legacy=scope?.cfgId && session?.businessScope?.cfgId===scope.cfgId
+      ? readSessionDraft(session,capability,getSessionDraftKey(name,routeState?.workspaceSession),fallback) : fallback;
+    return readSessionDraft(session,capability,key,legacy);
+  });
   const valueRef = useRef(value);
   const update = useCallback<Dispatch<SetStateAction<T>>>((action) => {
     const next = typeof action === 'function' ? (action as (previous: T) => T)(valueRef.current) : action;
@@ -34,6 +40,7 @@ export const useSessionState = <T,>(name: string, initial: T | (() => T)): [T, D
 };
 
 export const useSessionRouteState = (): BusinessRouteState | null => {
+  const professionalScope = useProfessionalScope();
   const location = useLocation();
   const id = getSessionIdFromLocation(location.pathname, location.search);
   const session = useSessionStore(state => state.sessions.find(item => item.id === id));
@@ -44,5 +51,9 @@ export const useSessionRouteState = (): BusinessRouteState | null => {
     // Draft edits must not change the navigation context or assistant callbacks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [session?.id, session?.storageProjectId, session?.taskId, session?.businessScope]);
-  return useMemo(() => !context ? incoming : resolveSessionHandoff(context, handoff, incoming), [context, handoff, incoming]);
+  return useMemo(() => {
+    const resolved = !context ? incoming : resolveSessionHandoff(context, handoff, incoming);
+    return professionalScope && resolved?.workspaceSession
+      ? { ...resolved, workspaceSession: { ...resolved.workspaceSession, ...professionalScope } } : resolved;
+  }, [context, handoff, incoming, professionalScope]);
 };

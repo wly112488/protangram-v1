@@ -2,7 +2,7 @@ import type { BusinessRouteState, WorkspaceSessionState } from '../types/busines
 import type { TaskRecord } from './taskTypes';
 import { samePhysicalSource } from './physicalBusinessContext';
 
-export type SessionCapability = 'overview' | 'doe' | 'doeMethods' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | 'resources' | 'task';
+export type SessionCapability = 'overview' | 'doe' | 'doeMethods' | 'analysis' | 'digitalTwin' | 'virtualCondition' | 'report' | 'resources' | 'task' | 'tools';
 export type SessionCreationSource = 'standalone' | 'project' | 'task';
 export interface PhysicalBusinessScope { physicalObjectId?: string; physicalObjectName?: string; experimentId?: string; experimentName?: string; cfgId?: string; trialId?: string; trialName?: string; testRecordId?: string; testRecordName?: string; modelId?: string; modelName?: string; taskBookId?: string; taskBookName?: string }
 export interface WorkSession {
@@ -16,6 +16,8 @@ export interface WorkSession {
   storageProjectId: string;
   capability: SessionCapability;
   businessScope?: PhysicalBusinessScope;
+  cfgIds?: string[];
+  resourceRefs?: Array<{ projectId: string; artifactId: string }>;
   pinned: boolean;
   archived: boolean;
   createdAt: string;
@@ -48,7 +50,7 @@ export const getSessionIdFromLocation = (pathname: string, search = '') => {
 export const getCapabilityFromPath = (pathname: string): SessionCapability => {
   const path = pathname.replace(/^\/sessions\/[^/]+\/?/, '').split('/')[0];
   return sessionCapabilities.find(item => item.path === path)?.key
-    ?? (path === 'doe-design' ? 'doe' : path === 'resources' ? 'resources' : path === 'tasks' ? 'task' : 'overview');
+    ?? (path === 'doe-design' ? 'doe' : path === 'resources' ? 'resources' : path === 'tools' ? 'tools' : path === 'tasks' ? 'task' : 'overview');
 };
 
 export const getLegacySessionPath = (pathname: string, id: string): string | null => {

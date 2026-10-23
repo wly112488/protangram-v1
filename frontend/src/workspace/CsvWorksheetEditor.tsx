@@ -12,11 +12,24 @@ import { readTrialFile, saveTrialFile, type ParsedRawFile } from './trialDataFil
 import { createTrialChartOption } from './trialChartOutput';
 import { editWorksheetCell, renameWorksheetField, selectWorksheetColumn, serializeWorksheet, WORKSHEET_PAGE_SIZE } from './csvWorksheetModel';
 
-export default function CsvWorksheetEditor({ file, trial, record, tabName, onSavedCopy, onDirtyChange, capability, previewTarget, active }: {
-  file: RawDataFile; trial: ConcreteTrial; record: TestRecord; tabName: string;
+export interface WorksheetStorage {
+  files: RawDataFile[];
+  saveChart: (config: ChartInput, option: Record<string, unknown>) => void;
+  saveTable: (name: string, fields: string[], data: ParsedRawFile) => void;
+  addFile: (file: RawDataFile) => void;
+}
+
+export default function CsvWorksheetEditor({ file, trial, record, owner, tabName, onSavedCopy, onDirtyChange, capability, previewTarget, active }: {
+  file: RawDataFile; trial?: ConcreteTrial; record?: TestRecord; owner?: WorksheetStorage; tabName: string;
   capability: string; previewTarget: HTMLElement | null; active: boolean;
   onSavedCopy: (fileId: string) => void; onDirtyChange: (id: string, dirty: boolean) => void;
 }) {
+  const storage: WorksheetStorage = owner ?? {
+    files: record?.rawFiles ?? [],
+    saveChart: config => { if(!trial || !record) throw new Error('数据保存范围不可用'); usePhysicalObjectStore.getState().saveChart(trial.id,record.id,config); },
+    saveTable: (name,fields) => { if(!trial || !record) throw new Error('数据保存范围不可用'); usePhysicalObjectStore.getState().saveTable(trial.id,record.id,{name,rawFileId:file.id,fields,startRow:0,endRow:0}); },
+    addFile: next => { if(!trial || !record) throw new Error('数据保存范围不可用'); usePhysicalObjectStore.getState().addRawFile(trial.id,record.id,next); },
+  };
   const [data, setData] = useState<ParsedRawFile>();
   const originalData = useRef<ParsedRawFile | undefined>(undefined);
   const [error, setError] = useState('');
@@ -56,14 +69,14 @@ export default function CsvWorksheetEditor({ file, trial, record, tabName, onSav
     if (dirty) return message.warning('请先保存编辑后的 CSV 工作副本，再保存成果');
     if (!currentPreview) return;
     try {
-      usePhysicalObjectStore.getState().saveChart(trial.id, record.id, currentPreview.config);
+      storage.saveChart(currentPreview.config,currentPreview.option);
       message.success('图表已保存到本机，可在左侧共享数据与成果中查看');
     } catch (reason) { message.error(reason instanceof Error ? reason.message : '保存失败'); }
   };
   const saveTable = () => {
     if (dirty) return message.warning('请先保存编辑后的 CSV 工作副本，再保存成果');
     try {
-      usePhysicalObjectStore.getState().saveTable(trial.id, record.id, { name: tableName?.trim() || `${tabName} · 数据表`, rawFileId: file.id, fields: selectedFields, startRow: 0, endRow: 0 });
+      storage.saveTable(tableName?.trim() || `${tabName} · 数据表`,selectedFields,data!);
       setTableName(undefined); message.success('数据表已保存到本机，可在左侧共享数据与成果中查看');
     } catch (reason) { message.error(reason instanceof Error ? reason.message : '保存失败'); }
   };
@@ -71,13 +84,13 @@ export default function CsvWorksheetEditor({ file, trial, record, tabName, onSav
     if (!data) return;
     if (!copyName?.trim()) return message.warning('请填写工作副本文件名');
     const filename = copyName.trim().toLowerCase().endsWith('.csv') ? copyName.trim() : `${copyName.trim()}.csv`;
-    if (record.rawFiles.some(item => item.status !== 'removed' && item.name.toLocaleLowerCase() === filename.toLocaleLowerCase())) return message.warning('当前执行记录已有同名 CSV，请修改名称');
+    if (storage.files.some(item => item.status !== 'removed' && item.name.toLocaleLowerCase() === filename.toLocaleLowerCase())) return message.warning('已有同名 CSV，请修改名称');
     setSaving(true);
     try {
       const id = `raw-${uuid()}`, contents = serializeWorksheet(data);
       const blob = new File([contents], filename, { type: 'text/csv' });
       await saveTrialFile(id, blob);
-      usePhysicalObjectStore.getState().addRawFile(trial.id, record.id, { id, name: filename, sourceRawFileId: file.id, headers: data.headers, rowCount: data.rows.length, mimeType: 'text/csv', size: blob.size, addedAt: new Date().toISOString(), status: 'available' });
+      storage.addFile({ id, name: filename, sourceRawFileId: file.id, headers: data.headers, rowCount: data.rows.length, mimeType: 'text/csv', size: blob.size, addedAt: new Date().toISOString(), status: 'available' });
       // Editing helpers are immutable. Restore the already loaded original snapshot
       // before unlocking; no delayed read may overwrite edits made after saving.
       setData(originalData.current); setSelected([]); setPreviews({});
@@ -119,6 +132,6 @@ export default function CsvWorksheetEditor({ file, trial, record, tabName, onSav
       try { modify(renameWorksheetField(data, renaming.field, renaming.name)); setSelected(selected.map(field => field === renaming.field ? renaming.name.trim() : field)); setRenaming(undefined); }
       catch (reason) { message.error(reason instanceof Error ? reason.message : '重命名失败'); }
     }}><Input aria-label="新字段名称" value={renaming?.name} onChange={event => renaming && setRenaming({ ...renaming, name: event.target.value })} /></Modal>
-    <Modal title="保存 CSV 工作副本" open={copyName !== undefined} confirmLoading={saving} closable={!saving} maskClosable={!saving} keyboard={!saving} cancelButtonProps={{ disabled: saving }} okText="保存到本机" cancelText="取消" onCancel={() => { if (!saving) setCopyName(undefined); }} onOk={() => { if (!saving) void saveCopy(); }}><Typography.Paragraph>原始文件保留，修改后的 CSV 会保存为同一执行记录下的新文件。</Typography.Paragraph><Input aria-label="工作副本文件名" value={copyName} onChange={event => setCopyName(event.target.value)} /></Modal>
+    <Modal title="保存 CSV 工作副本" open={copyName !== undefined} confirmLoading={saving} closable={!saving} maskClosable={!saving} keyboard={!saving} cancelButtonProps={{ disabled: saving }} okText="保存到本机" cancelText="取消" onCancel={() => { if (!saving) setCopyName(undefined); }} onOk={() => { if (!saving) void saveCopy(); }}><Typography.Paragraph>原始文件保留，修改后的 CSV 会保存为工作副本。</Typography.Paragraph><Input aria-label="工作副本文件名" value={copyName} onChange={event => setCopyName(event.target.value)} /></Modal>
   </div>;
 }

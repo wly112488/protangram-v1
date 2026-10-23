@@ -11,14 +11,27 @@ const objects = [{ id: 'category', name: '涵道风扇', legacyCategories: [{ id
 ] }];
 const query = (patch = {}) => new URLSearchParams({ objectId: 'category', configurationId: 'device-a', experimentId: 'setup-a', trialId: 'trial-a', recordId: 'record-a', ...patch });
 
-test('the physical browser tree retains category, object and test-configuration levels', () => {
+test('the physical browser tree contains categories and equipment, with legacy setups reachable only by their original routes', () => {
   assert.equal(typeof api.buildPhysicalTreeModel, 'function');
   const tree = api.buildPhysicalTreeModel(objects);
   assert.equal(tree[0].kind, 'category'); assert.equal(tree[0].id, 'category');
   assert.equal(tree[0].children[0].kind, 'object'); assert.equal(tree[0].children[0].id, 'device-a');
-  assert.equal(tree[0].children[0].children[0].kind, 'configuration'); assert.equal(tree[0].children[0].children[0].id, 'setup-a');
-  assert.deepEqual(tree[0].children[0].children[0].children, []);
+  assert.deepEqual(tree[0].children[0].children, []);
+  const kinds = items => items.flatMap(n => [n.kind, ...kinds(n.children)]);
+  assert.deepEqual([...new Set(kinds(tree))].sort(), ['category','object']);
+  assert.equal(resolvePhysicalNavigation(objects, query()).experiment.id, 'setup-a');
   assert.equal(tree[0].children[1].id, 'device-b');
+});
+
+test('merged demo equipment retains the original category IDs for objects and parts', () => {
+  const demo = {id:'demo-category-fan',name:'涵道风扇（演示）',configurations:[{id:'demo-fan-A',name:'A',experiments:[],children:[{id:'demo-rotor',name:'转子',experiments:[]}]}]};
+  const items = [{...objects[0],id:'category-fan'},demo];
+  const tree = api.buildPhysicalTreeModel(items);
+  assert.equal(tree.length,1);
+  const fan = tree[0].children.find(n=>n.id==='demo-fan-A');
+  assert.equal(fan.categoryId,demo.id);
+  assert.equal(fan.children[0].categoryId,demo.id);
+  assert.equal(resolvePhysicalNavigation(items,new URLSearchParams({objectId:demo.id,configurationId:fan.id})).configuration.id,fan.id);
 });
 
 test('composition parts are nested by identity while internal trial containers are not presented as CFGs',()=>{

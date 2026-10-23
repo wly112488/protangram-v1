@@ -55,8 +55,11 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     const model = input.payload.model as { modelId?: string } | undefined;
     const draft = useSessionStore.getState().sessions.find(item => item.id === session.sessionId)?.drafts[capability];
     const inheritedContext = session.physicalObjectId ? captureResultContext(objects, session) : undefined;
+    const modelPlan = input.payload.modelPlan as { trialId?: string; cfgId?: string } | undefined;
+    const resultScope = inheritedContext && modelPlan?.trialId === inheritedContext.scope.trialId && modelPlan?.cfgId
+      ? { ...inheritedContext.scope, cfgId: modelPlan.cfgId } : inheritedContext?.scope;
     const capturedFiles = (input.payload.sourceContext as { rawFiles?: NonNullable<typeof dataContext>['rawFiles'] } | undefined)?.rawFiles;
-    const sourceContext = inheritedContext ? { ...inheritedContext, rawFiles: capturedFiles ?? dataContext?.rawFiles ?? inheritedContext.rawFiles } : undefined;
+    const sourceContext = inheritedContext ? { ...inheritedContext, scope: resultScope!, rawFiles: capturedFiles ?? dataContext?.rawFiles ?? inheritedContext.rawFiles } : undefined;
     const previousProjects = useProjectStore.getState().projects;
     const upstream = dataContext?.results.filter(result => !(result.artifactRef?.projectId === projectId && result.artifactRef.artifactId === input.id)) ?? [];
     const upstreamRefs = input.payload.upstreamArtifactRefs as Array<{ projectId: string; artifactId: string }> | undefined;

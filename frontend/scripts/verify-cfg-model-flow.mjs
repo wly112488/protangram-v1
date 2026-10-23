@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 if (!process.env.PROTANGRAM_PLAYWRIGHT_ROOT) throw new Error('Set PROTANGRAM_PLAYWRIGHT_ROOT to the installed Playwright package.json');
 const { chromium } = createRequire(process.env.PROTANGRAM_PLAYWRIGHT_ROOT)('playwright');
 const baseURL = process.env.PROTANGRAM_TEST_URL ?? 'http://127.0.0.1:5193';
-const output = resolve(process.env.PROTANGRAM_VERIFY_OUTPUT ?? 'node_modules/.tmp/cfg-model-flow');
+const output = resolve(process.env.PROTANGRAM_VERIFY_OUTPUT ?? '/tmp/protangram-verification/cfg-model-flow');
 await mkdir(output, { recursive: true });
 const profile=await mkdtemp(join(tmpdir(),'protangram-cfg-profile-'));
 const launch=()=>chromium.launchPersistentContext(profile,{headless:true,executablePath:process.env.PROTANGRAM_CHROMIUM_PATH,args:['--no-sandbox'],viewport:{width:1440,height:1100}});
@@ -28,6 +28,12 @@ const choose = async (input, label) => {
   const controls = await input.getAttribute('aria-controls');
   const dropdown = controls ? page.locator('.ant-select-dropdown').filter({has:page.locator(`[id="${controls}"]`)}) : page.locator('.ant-select-dropdown:visible');
   await dropdown.locator('.ant-select-item-option:visible').filter({hasText:label}).first().click();
+};
+const confirmCfg = async label => {
+  await page.getByRole('combobox',{name:'本次选择 CFG',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'执行演示预览',exact:true}).count(),0);
+  await choose(page.getByRole('combobox',{name:'本次选择 CFG',exact:true}),label);
+  await page.getByRole('button',{name:'确认使用',exact:true}).click();
 };
 try {
   await go('/');
@@ -68,7 +74,7 @@ try {
   await choose(editor().getByRole('combobox',{name:'CFG 装备 2',exact:true}),'CFG 验收装备 / 验收试验台');
   await choose(editor().getByRole('combobox',{name:'CFG 角色 2',exact:true}),'试验台');
   await editor().getByRole('button',{name:'保存 CFG',exact:true}).click();
-  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('dialog').last().waitFor({state:'hidden'});
   assert.equal(await cfgCount(),count+1);
   await page.getByText('弹窗新建 CFG',{exact:true}).waitFor();
   assert.equal(await page.getByLabel('具体试验名称',{exact:true}).inputValue(),'起飞设计点性能试验');
@@ -81,25 +87,28 @@ try {
   const trialSession = new URL(page.url()).pathname.split('/')[2];
   const firstScope=await page.evaluate(id=>JSON.parse(localStorage.getItem('protangram-work-sessions-v1')).sessions.find(s=>s.id===id).businessScope,trialSession);
   assert.equal(firstScope.taskBookId,seed.task);
+  await page.getByRole('button',{name:'试验设置',exact:true}).click();
   for (const name of ['0D','0.25D','0.5D','0.75D']) {
     await page.getByRole('button',{name:'新增设置',exact:true}).click();
-    await page.getByRole('dialog').getByLabel('设置名称',{exact:true}).fill(name);
-    await page.getByRole('dialog').getByRole('button',{name:'保存设置',exact:true}).click();
-    await page.getByRole('dialog').waitFor({state:'hidden'});
+    await page.getByRole('dialog').last().getByLabel('设置名称',{exact:true}).fill(name);
+    await page.getByRole('dialog').last().getByRole('button',{name:'保存设置',exact:true}).click();
+    await page.getByLabel('设置名称',{exact:true}).waitFor({state:'hidden'});
   }
   await page.getByRole('button',{name:'编辑设置 0D',exact:true}).click();
-  await page.getByRole('dialog').getByLabel('设置名称',{exact:true}).fill('0D 已修改');
-  await page.getByRole('dialog').getByRole('button',{name:'添加设置字段',exact:true}).click();
-  await page.getByRole('dialog').getByLabel('字段名称',{exact:true}).fill('探针位置');
-  await page.getByRole('dialog').getByLabel('内容',{exact:true}).fill('0');
-  await page.getByRole('dialog').getByLabel('单位',{exact:true}).fill('D');
-  await page.getByRole('dialog').getByRole('button',{name:'保存设置',exact:true}).click();
-  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('dialog').last().getByLabel('设置名称',{exact:true}).fill('0D 已修改');
+  await page.getByRole('dialog').last().getByRole('button',{name:'添加设置字段',exact:true}).click();
+  await page.getByRole('dialog').last().getByLabel('字段名称',{exact:true}).fill('探针位置');
+  await page.getByRole('dialog').last().getByLabel('内容',{exact:true}).fill('0');
+  await page.getByRole('dialog').last().getByLabel('单位',{exact:true}).fill('D');
+  await page.getByRole('dialog').last().getByRole('button',{name:'保存设置',exact:true}).click();
+  await page.getByLabel('设置名称',{exact:true}).waitFor({state:'hidden'});
   await page.reload({waitUntil:'networkidle'});
+  await page.getByRole('button',{name:'试验设置',exact:true}).click();
   for (const name of ['0D 已修改','0.25D','0.5D','0.75D']) await page.locator('.trial-settings-panel').getByText(name,{exact:true}).waitFor();
   await page.screenshot({path:resolve(output,'trial-settings.png'),fullPage:true});
   console.log('PASS four manual SETs remain independent and survive reload');
   await go(`/sessions/${trialSession}/digital-twin`);
+  await confirmCfg('CFG-07 验收');
   await page.getByRole('combobox',{name:'通用模型 MODEL',exact:true}).waitFor();
   await choose(page.getByRole('combobox',{name:'通用模型 MODEL',exact:true}),'气动性能通用模型（演示）');
   await page.getByRole('button',{name:/执行演示预览$/}).click();
@@ -128,10 +137,14 @@ try {
   await page.waitForURL(/\/sessions\//);
   const zeroSession=new URL(page.url()).pathname.split('/')[2];
   await go(`/sessions/${zeroSession}/virtual-condition`);
+  await confirmCfg('弹窗新建 CFG');
   await page.getByRole('button',{name:/执行演示预览$/}).click();
   await page.locator('.cfg-model-result').getByText('演示结果',{exact:true}).waitFor();
   assert.equal((await schemes()).length,2);
-  assert.equal(await page.locator('.trial-settings-panel').getByText('尚无试验设置',{exact:true}).count(),1);
+  assert.equal(await page.locator('.trial-settings-panel').count(),0);
+  await page.getByRole('button',{name:'试验设置',exact:true}).click();
+  await page.getByText('尚无试验设置',{exact:true}).waitFor();
+  await page.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).click();
   console.log('PASS zero SETs allow model preview and a different CFG gets its own scheme');
   await go(`/trials/new?cfgId=${encodeURIComponent(seed.cfg)}`);
   await page.getByLabel('具体试验名称',{exact:true}).fill('同 CFG 复用试验');
@@ -139,6 +152,7 @@ try {
   await page.waitForURL(/\/sessions\//);
   const reuseSession=new URL(page.url()).pathname.split('/')[2];
   await go(`/sessions/${reuseSession}/digital-twin`);
+  await confirmCfg('CFG-07 验收');
   await page.getByText('复用已保存模型方案',{exact:true}).waitFor();
   await page.getByRole('button',{name:/执行演示预览$/}).click();
   await page.locator('.cfg-model-result').getByText(`方案：${firstScheme.id}`,{exact:true}).waitFor();
@@ -146,6 +160,7 @@ try {
   const normalSchemes=await schemes();
   await page.evaluate(async scheme=>{const {useModelSchemeStore:s}=await import('/src/workspace/modelSchemeStore.ts');s.setState(state=>({schemes:[...state.schemes,{...scheme,id:'om-acceptance-duplicate',name:'历史重复候选'}]}));},firstScheme);
   await page.reload({waitUntil:'networkidle'});
+  await confirmCfg('CFG-07 验收');
   await page.getByText('存在多个匹配方案，请明确选择',{exact:true}).waitFor();
   await page.getByRole('button',{name:/执行演示预览$/}).click();
   await page.getByText('存在多个候选，请明确选择',{exact:true}).waitFor();
@@ -195,17 +210,17 @@ try {
   await page.getByText('0 个历史试验布置 · 3 项具体试验',{exact:true}).waitFor();
   for(const name of ['验收转子','验收叶片']) {
     await page.getByRole('button',{name:'新增组成对象',exact:true}).click();
-    await page.getByRole('dialog').getByLabel('名称',{exact:true}).fill(name);
-    await page.getByRole('dialog').getByRole('button',{name:/保\s*存/}).click();
-    await page.getByRole('dialog').waitFor({state:'hidden'});
+    await page.getByRole('dialog').last().getByLabel('名称',{exact:true}).fill(name);
+    await page.getByRole('dialog').last().getByRole('button',{name:/保\s*存/}).click();
+    await page.getByRole('dialog').last().waitFor({state:'hidden'});
     await page.getByRole('heading',{name,exact:true}).waitFor();
   }
   await page.getByRole('button',{name:'新增参数',exact:true}).click();
-  await page.getByRole('dialog').getByRole('textbox',{name:'参数名称',exact:true}).fill('弦长');
-  await page.getByRole('dialog').getByRole('textbox',{name:'参数内容',exact:true}).fill('12');
-  await page.getByRole('dialog').getByRole('textbox',{name:'单位',exact:true}).fill('mm');
-  await page.getByRole('dialog').getByRole('button',{name:/保\s*存/}).click();
-  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('dialog').last().getByRole('textbox',{name:'参数名称',exact:true}).fill('弦长');
+  await page.getByRole('dialog').last().getByRole('textbox',{name:'参数内容',exact:true}).fill('12');
+  await page.getByRole('dialog').last().getByRole('textbox',{name:'单位',exact:true}).fill('mm');
+  await page.getByRole('dialog').last().getByRole('button',{name:/保\s*存/}).click();
+  await page.getByRole('dialog').last().waitFor({state:'hidden'});
   await page.getByRole('button',{name:/⌄ 物理对象/}).click();
   await page.locator('.business-object-tree').getByText('验收转子',{exact:true}).waitFor();
   await page.locator('.business-object-tree').getByText('验收叶片',{exact:true}).waitFor();
@@ -227,8 +242,8 @@ try {
   await go(`/task-center?taskId=${seed.task}`);
   await page.getByRole('button',{name:'关联已有试验',exact:true}).click();
   await choose(page.getByRole('combobox',{name:'选择尚未关联任务书的具体试验',exact:true}),'叶片自主试验');
-  await page.getByRole('dialog').getByRole('button',{name:'关联已有试验',exact:true}).click();
-  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('dialog').last().getByRole('button',{name:'关联已有试验',exact:true}).click();
+  await page.getByRole('dialog').last().waitFor({state:'hidden'});
   await page.locator('.taskbook-trial').getByText('叶片自主试验',{exact:true}).waitFor();
   await page.locator('.taskbook-configuration').getByRole('heading',{name:'CFG-07 验收',exact:true}).waitFor();
   await page.locator('.taskbook-configuration').getByRole('heading',{name:'部件 CFG',exact:true}).waitFor();
@@ -245,8 +260,8 @@ try {
   await sheet.locator('th').filter({hasText:'thrust_n'}).click({modifiers:['Control']});
   await sheet.getByRole('button',{name:'绘图',exact:true}).click();
   await page.getByRole('menuitem',{name:'多曲线折线图',exact:true}).click();
-  await page.getByRole('dialog').getByRole('textbox',{name:'图表名称',exact:true}).fill('CFG 来源验收图');
-  await page.getByRole('dialog').getByRole('button',{name:'生成预览',exact:true}).click();
+  await page.getByRole('dialog').last().getByRole('textbox',{name:'图表名称',exact:true}).fill('CFG 来源验收图');
+  await page.getByRole('dialog').last().getByRole('button',{name:'生成预览',exact:true}).click();
   await page.locator('.worksheet-chart-preview').waitFor();
   await dock.getByRole('button',{name:'关闭工作表区',exact:true}).first().click();
   await page.locator('.worksheet-chart-preview').getByRole('button',{name:'保存图表',exact:true}).click();
@@ -276,6 +291,7 @@ try {
   const beforeClose=await readSaved();
   await context.close();context=await launch();await attach();
   await go(`/sessions/${trialSession}/digital-twin`);
+  await confirmCfg('CFG-07 验收');
   assert.equal(await page.getByLabel('目标转速 / rpm',{exact:true}).inputValue(),'6000');
   const afterClose=await readSaved();
   assert.deepEqual(afterClose,beforeClose);

@@ -12,6 +12,9 @@ import { projectWorkspacePath } from './sharedResourcesModel';
 import comacLogo from '@/assets/comac_logo.png';
 import { usePhysicalObjectStore } from './physicalObjectStore';
 import { buildPhysicalTreeModel, resolvePhysicalNavigation } from './physicalNavigation';
+import { getEquipmentCategoryViews } from './equipmentTreeProjection';
+import { useTrialConfigurationStore } from './trialConfigurationStore';
+import { listCfgCategoryGroups } from './cfgCategoryModel';
 
 const { Text } = Typography;
 const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }> = ({ mobileOpen, onNavigate }) => {
@@ -23,8 +26,11 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
   const sessions = useSessionStore(state => state.sessions);
   const tasks = useTaskStore(state => state.tasks);
   const objects = usePhysicalObjectStore(state => state.objects);
+  const cfgCategories = useTrialConfigurationStore(state => state.categories);
+  const cfgs = useTrialConfigurationStore(state => state.configurations);
+  const cfgGroups = listCfgCategoryGroups(cfgCategories, cfgs);
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState({ objects: false, recent: true, projects: true, tasks: true });
+  const [expanded, setExpanded] = useState({ objects: false, cfgs: true, recent: true, projects: true, tasks: true });
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const content = useMemo(() => getSessionSidebarContent(projects, sessions, tasks, search, false), [projects, sessions, tasks, search]);
@@ -36,17 +42,16 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
   const collectTreeNodes = (nodes: typeof treeModel) => nodes.forEach(node => { treeNodeByKey.set(node.key, node); collectTreeNodes(node.children); });
   collectTreeNodes(treeModel);
   const physicalSource = location.pathname === '/physical-objects' ? resolvePhysicalNavigation(objects, new URLSearchParams(location.search)) : undefined;
-  const selectedTreeKey = physicalSource?.experiment
-    ? JSON.stringify(['configuration', physicalSource.family?.id, physicalSource.configuration?.id, physicalSource.experiment.id])
-    : physicalSource?.configuration ? JSON.stringify(['object', physicalSource.family?.id, physicalSource.configuration.id])
-      : physicalSource?.family ? JSON.stringify(['category', physicalSource.family.id]) : undefined;
+  const displayCategory = getEquipmentCategoryViews(objects).find(category => category.sourceCategoryIds.includes(physicalSource?.family?.id ?? ''));
+  const selectedTreeKey = physicalSource?.configuration ? JSON.stringify(['object', physicalSource.family?.id, physicalSource.configuration.id])
+      : displayCategory ? JSON.stringify(['category', displayCategory.id]) : undefined;
   const renderTreeNode=(node:(typeof treeModel)[number]):TreeDataNode=>({
     key:node.key,children:node.children.map(renderTreeNode),
-    title:<span className="physical-tree-node-title">{node.name}{node.kind!=='configuration'&&<button type="button" className="business-tree-add"
+    title:<span className="physical-tree-node-title">{node.name}<button type="button" className="business-tree-add"
       aria-label={node.kind==='category'?`在${node.name}下新建具体物理对象`:`在${node.name}下新增组成对象`}
       title={node.kind==='category'?'新建具体物理对象':'新增组成对象'} onClick={event=>{
         event.stopPropagation();open(`/physical-objects?${new URLSearchParams(node.kind==='category'?{objectId:node.id,create:'configuration'}:{objectId:node.categoryId!,configurationId:node.id,create:'component'})}`);
-      }}><PlusOutlined /></button>}</span>,
+      }}><PlusOutlined /></button></span>,
   });
   const treeData=treeModel.map(renderTreeNode);
   const open = (path: string) => { navigate(path); onNavigate(); };
@@ -68,8 +73,7 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
     const node = treeNodeByKey.get(String(keys[0] ?? ''));
     if (!node) return;
     const query: Record<string, string> = node.kind === 'category' ? { objectId: node.id }
-      : node.kind === 'object' ? { objectId: node.categoryId!, configurationId: node.id }
-        : { objectId: node.categoryId!, configurationId: node.parentId!, experimentId: node.id };
+      : { objectId: node.categoryId!, configurationId: node.id };
     open(`/physical-objects?${new URLSearchParams(query)}`);
   };
   const saveProject = () => {
@@ -113,9 +117,13 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
       </section>
       <section className="session-nav-section session-nav-section--label-highlight business-object-nav">
         <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, objects: !value.objects }))} aria-expanded={expanded.objects}>⌄ 物理对象</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建对象类别" title="新建对象类别" onClick={() => open('/physical-objects?create=family')} /></div>
-        {expanded.objects && (treeData.length ? <Tree className="business-object-tree" blockNode defaultExpandAll treeData={treeData} selectedKeys={selectedTreeKey ? [selectedTreeKey] : []} onSelect={selectTreeNode} /> : <p className="session-nav-empty">暂无对象类别</p>)}
+        {expanded.objects && (treeData.length ? <Tree className="business-object-tree" blockNode defaultExpandAll treeData={treeData} selectedKeys={selectedTreeKey ? [selectedTreeKey] : []} onSelect={(_keys, info) => selectTreeNode([info.node.key])} /> : <p className="session-nav-empty">暂无对象类别</p>)}
       </section>
-
+      <section className="session-nav-section session-nav-section--label-highlight business-cfg-nav" aria-label="试验构型分类">
+        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({...value,cfgs:!value.cfgs}))} aria-expanded={expanded.cfgs}>⌄ 试验构型</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="管理 CFG 分类" onClick={() => open('/trial-configurations')} /></div>
+        {expanded.cfgs && cfgGroups.map(group => <button key={group.id} className={`session-sidebar-link business-child-link ${location.pathname === '/trial-configurations' && new URLSearchParams(location.search).get('categoryId') === group.id ? 'is-active' : ''}`}
+          onClick={() => open(`/trial-configurations?categoryId=${encodeURIComponent(group.id)}`)}>{group.name}<Text type="secondary"> {group.cfgIds.length}</Text></button>)}
+      </section>
     </div>
     <Modal title="新建项目" open={newProjectOpen} onCancel={() => setNewProjectOpen(false)} onOk={saveProject} okText="创建" cancelText="取消">
       <Input autoFocus aria-label="项目名称" placeholder="项目名称" value={projectName} onChange={event => setProjectName(event.target.value)} onPressEnter={saveProject} />

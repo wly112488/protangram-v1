@@ -1,0 +1,302 @@
+{
+  "baseURL": "http://127.0.0.1:5193",
+  "profile": "/tmp/protangram-explicit-cfg-13IbfZ",
+  "seed": {
+    "fan": "config-b186e617-c752-42c3-880d-6d16159b591d",
+    "rotor": "object-5c75d6f2-f148-4ba1-89b2-33ffb275cb5b",
+    "blade": "object-bf2357b2-154e-4821-9c23-91c29a3ef0e4",
+    "second": "object-3df73fda-401a-4298-ad2c-2b6886ec99bb",
+    "rig": "config-41ac629f-fb44-4105-8d40-47d92c7a26a4",
+    "cfgA": "cfg-44cf73fa-337f-4e19-8f6d-7541db421603",
+    "cfgB": "cfg-849716ee-51db-472c-8b60-147974b7b2ea"
+  },
+  "categoryId": "cfg-category-cce85e3e-2461-477e-8e11-22205063c112",
+  "nested": {
+    "name": "三级部件 CFG",
+    "categoryId": "cfg-category-cce85e3e-2461-477e-8e11-22205063c112",
+    "members": [
+      {
+        "objectId": "object-bf2357b2-154e-4821-9c23-91c29a3ef0e4",
+        "role": "tested"
+      },
+      {
+        "objectId": "config-41ac629f-fb44-4105-8d40-47d92c7a26a4",
+        "role": "other"
+      }
+    ],
+    "primaryObjectId": "object-bf2357b2-154e-4821-9c23-91c29a3ef0e4",
+    "id": "cfg-4963ffe5-f784-4b26-a33c-70713e795910"
+  },
+  "sessionId": "session-07efcdda-3aef-4e12-bbbc-52de49ef9f5f",
+  "scope": {
+    "physicalObjectId": "config-b186e617-c752-42c3-880d-6d16159b591d",
+    "physicalObjectName": "用户风扇",
+    "experimentId": "trial-configuration-6b24067e-d073-4aaa-b08e-4f172d22583d",
+    "experimentName": "手选 CFG A",
+    "trialId": "trial-32581fa8-0182-4622-810f-e19ca86378f0",
+    "trialName": "显式 CFG 流程试验",
+    "cfgId": "cfg-44cf73fa-337f-4e19-8f6d-7541db421603"
+  },
+  "legacyRoute": "/physical-objects?objectId=demo-category-fan&configurationId=demo-fan-A&experimentId=demo-configuration-0&trialId=demo-trial-0&recordId=demo-record-0-0",
+  "artifacts": [
+    {
+      "id": "prediction:digitalTwin:preview:digitalTwin:2deb3a59-a4a9-4f7e-a031-84930fcee615",
+      "type": "calibration",
+      "title": "具体试验 · 数字孪生预测",
+      "source": "数字孪生预测",
+      "summary": "数字孪生演示计算完成，共 1 组目标工况。",
+      "payload": {
+        "resultMode": "demo",
+        "resultNature": "digitalTwin",
+        "predictionTaskId": "preview:digitalTwin:2deb3a59-a4a9-4f7e-a031-84930fcee615",
+        "inputs": {
+          "speed": 5400,
+          "temperature": 25,
+          "pressure": 101.3
+        },
+        "targetConfiguration": {
+          "physicalObjectId": "config-b186e617-c752-42c3-880d-6d16159b591d",
+          "physicalObjectName": "用户风扇",
+          "experimentId": "trial-configuration-6b24067e-d073-4aaa-b08e-4f172d22583d",
+          "experimentName": "具体试验",
+          "objectParameters": [],
+          "configurationParameters": []
+        },
+        "modelPlan": {
+          "modelId": "MOD-01",
+          "cfgId": "cfg-44cf73fa-337f-4e19-8f6d-7541db421603",
+          "objectIds": [
+            "config-b186e617-c752-42c3-880d-6d16159b591d"
+          ],
+          "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"mesh\",\"演示标准网格\"]],[]]",
+          "schemeId": "om-47649ce5-8e23-4d82-882c-a3532aecb449",
+          "trialId": "trial-32581fa8-0182-4622-810f-e19ca86378f0",
+          "configurationInputs": {
+            "mesh": "演示标准网格",
+            "$modelVersion": "demo-v1"
+          },
+          "bindings": [],
+          "equipmentInputs": {},
+          "runtimeInputs": {
+            "speed": 5400,
+            "temperature": 25,
+            "pressure": 101.3
+          }
+        },
+        "sourceContext": {
+          "scope": {
+            "physicalObjectId": "config-b186e617-c752-42c3-880d-6d16159b591d",
+            "experimentId": "trial-configuration-6b24067e-d073-4aaa-b08e-4f172d22583d",
+            "cfgId": "cfg-44cf73fa-337f-4e19-8f6d-7541db421603",
+            "trialId": "trial-32581fa8-0182-4622-810f-e19ca86378f0"
+          },
+          "physicalObjectName": "用户风扇",
+          "experimentName": "具体试验",
+          "trialName": "显式 CFG 流程试验",
+          "loadSpectrum": "",
+          "objectParameters": [],
+          "configurationParameters": [],
+          "rawFiles": []
+        },
+        "upstreamResultKeys": [],
+        "upstreamArtifactRefs": [],
+        "results": [
+          {
+            "id": "prediction",
+            "name": "数字孪生预测",
+            "kind": "table",
+            "summary": "数字孪生演示计算完成，共 1 组目标工况。",
+            "columns": [
+              {
+                "key": "condition",
+                "label": "工况"
+              },
+              {
+                "key": "speed",
+                "label": "转速",
+                "unit": "rpm"
+              },
+              {
+                "key": "temperature",
+                "label": "温度",
+                "unit": "℃"
+              },
+              {
+                "key": "pressure",
+                "label": "压力",
+                "unit": "kPa"
+              },
+              {
+                "key": "thrust",
+                "label": "示例推力",
+                "unit": "N"
+              }
+            ],
+            "rows": [
+              {
+                "condition": 1,
+                "speed": 5400,
+                "temperature": 25,
+                "pressure": 101.3,
+                "thrust": 43.32
+              }
+            ],
+            "basis": [
+              "输入条件：目标转速：5400 rpm；环境温度：25 ℃；环境压力：101.3 kPa",
+              "前端演示数据；关联的 CSV 和已有成果仅作为业务上下文，未参与物理预测计算。"
+            ]
+          }
+        ],
+        "sourceCapability": "digitalTwin",
+        "sourceScope": {
+          "physicalObjectId": "config-b186e617-c752-42c3-880d-6d16159b591d",
+          "experimentId": "trial-configuration-6b24067e-d073-4aaa-b08e-4f172d22583d",
+          "cfgId": "cfg-44cf73fa-337f-4e19-8f6d-7541db421603",
+          "trialId": "trial-32581fa8-0182-4622-810f-e19ca86378f0"
+        },
+        "upstreamArtifactIds": []
+      },
+      "projectId": "project-77a1b587-3d9f-4cee-b70e-576f7bce7a30",
+      "createdAt": "2026-10-23T07:44:51.829Z",
+      "updatedAt": "2026-10-23T07:44:51.829Z"
+    },
+    {
+      "id": "prediction:digitalTwin:preview:digitalTwin:e09c58ac-f4f2-4ddf-aa94-404e5cc14bcd",
+      "type": "calibration",
+      "title": "具体试验 · 数字孪生预测",
+      "source": "数字孪生预测",
+      "summary": "数字孪生演示计算完成，共 1 组目标工况。",
+      "payload": {
+        "resultMode": "demo",
+        "resultNature": "digitalTwin",
+        "predictionTaskId": "preview:digitalTwin:e09c58ac-f4f2-4ddf-aa94-404e5cc14bcd",
+        "inputs": {
+          "speed": 6200,
+          "temperature": 25,
+          "pressure": 101.3
+        },
+        "targetConfiguration": {
+          "physicalObjectId": "config-b186e617-c752-42c3-880d-6d16159b591d",
+          "physicalObjectName": "用户风扇",
+          "experimentId": "trial-configuration-6b24067e-d073-4aaa-b08e-4f172d22583d",
+          "experimentName": "具体试验",
+          "objectParameters": [],
+          "configurationParameters": []
+        },
+        "modelPlan": {
+          "modelId": "MOD-01",
+          "cfgId": "cfg-849716ee-51db-472c-8b60-147974b7b2ea",
+          "objectIds": [
+            "config-b186e617-c752-42c3-880d-6d16159b591d"
+          ],
+          "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"mesh\",\"演示标准网格\"]],[]]",
+          "schemeId": "om-506cf86d-5fc6-403d-8b6f-8a12436b12c2",
+          "trialId": "trial-32581fa8-0182-4622-810f-e19ca86378f0",
+          "configurationInputs": {
+            "mesh": "演示标准网格",
+            "$modelVersion": "demo-v1"
+          },
+          "bindings": [],
+          "equipmentInputs": {},
+          "runtimeInputs": {
+            "speed": 6200,
+            "temperature": 25,
+            "pressure": 101.3
+          }
+        },
+        "sourceContext": {
+          "scope": {
+            "physicalObjectId": "config-b186e617-c752-42c3-880d-6d16159b591d",
+            "experimentId": "trial-configuration-6b24067e-d073-4aaa-b08e-4f172d22583d",
+            "cfgId": "cfg-849716ee-51db-472c-8b60-147974b7b2ea",
+            "trialId": "trial-32581fa8-0182-4622-810f-e19ca86378f0"
+          },
+          "physicalObjectName": "用户风扇",
+          "experimentName": "具体试验",
+          "trialName": "显式 CFG 流程试验",
+          "loadSpectrum": "",
+          "objectParameters": [],
+          "configurationParameters": [],
+          "rawFiles": []
+        },
+        "upstreamResultKeys": [
+          "artifact:project-77a1b587-3d9f-4cee-b70e-576f7bce7a30:prediction:digitalTwin:preview:digitalTwin:2deb3a59-a4a9-4f7e-a031-84930fcee615:prediction"
+        ],
+        "upstreamArtifactRefs": [
+          {
+            "projectId": "project-77a1b587-3d9f-4cee-b70e-576f7bce7a30",
+            "artifactId": "prediction:digitalTwin:preview:digitalTwin:2deb3a59-a4a9-4f7e-a031-84930fcee615"
+          }
+        ],
+        "results": [
+          {
+            "id": "prediction",
+            "name": "数字孪生预测",
+            "kind": "table",
+            "summary": "数字孪生演示计算完成，共 1 组目标工况。",
+            "columns": [
+              {
+                "key": "condition",
+                "label": "工况"
+              },
+              {
+                "key": "speed",
+                "label": "转速",
+                "unit": "rpm"
+              },
+              {
+                "key": "temperature",
+                "label": "温度",
+                "unit": "℃"
+              },
+              {
+                "key": "pressure",
+                "label": "压力",
+                "unit": "kPa"
+              },
+              {
+                "key": "thrust",
+                "label": "示例推力",
+                "unit": "N"
+              }
+            ],
+            "rows": [
+              {
+                "condition": 1,
+                "speed": 6200,
+                "temperature": 25,
+                "pressure": 101.3,
+                "thrust": 57.11
+              }
+            ],
+            "basis": [
+              "输入条件：目标转速：6200 rpm；环境温度：25 ℃；环境压力：101.3 kPa",
+              "前端演示数据；关联的 CSV 和已有成果仅作为业务上下文，未参与物理预测计算。"
+            ]
+          }
+        ],
+        "sourceCapability": "digitalTwin",
+        "sourceScope": {
+          "physicalObjectId": "config-b186e617-c752-42c3-880d-6d16159b591d",
+          "experimentId": "trial-configuration-6b24067e-d073-4aaa-b08e-4f172d22583d",
+          "cfgId": "cfg-849716ee-51db-472c-8b60-147974b7b2ea",
+          "trialId": "trial-32581fa8-0182-4622-810f-e19ca86378f0"
+        },
+        "upstreamArtifactIds": [
+          "prediction:digitalTwin:preview:digitalTwin:2deb3a59-a4a9-4f7e-a031-84930fcee615"
+        ]
+      },
+      "projectId": "project-77a1b587-3d9f-4cee-b70e-576f7bce7a30",
+      "createdAt": "2026-10-23T07:44:55.150Z",
+      "updatedAt": "2026-10-23T07:44:55.150Z"
+    }
+  ],
+  "passed": [
+    "demo A/B and user equipment share one tree group; original IDs, legacy setup links and CSV still resolve",
+    "CFG category create/rename/filter/reassign and missing-category recovery preserve cross-level object IDs and unclassified CFGs",
+    "explicit choice, create-before-confirm, cancellation, save failure, save-and-return, shared results and immutable CFG A/B snapshots",
+    "functions select CFG independently; CSV is unblocked, SET is optional, browser reopening restores drafts and preserves original CSV/data"
+  ],
+  "errors": [],
+  "writes": []
+}

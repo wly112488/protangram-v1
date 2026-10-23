@@ -1,9 +1,10 @@
 import { findObjectCategory, type PhysicalConfiguration, type PhysicalObject } from './physicalObjectStore';
 import { flattenEquipment } from './equipmentCompositionModel';
+import { getEquipmentCategoryViews } from './equipmentTreeProjection';
 
 export interface PhysicalTreeNodeModel {
   key: string;
-  kind: 'category' | 'object' | 'configuration';
+  kind: 'category' | 'object';
   id: string;
   categoryId?: string;
   parentId?: string;
@@ -12,17 +13,15 @@ export interface PhysicalTreeNodeModel {
 }
 
 export function buildPhysicalTreeModel(objects: PhysicalObject[]): PhysicalTreeNodeModel[] {
+  const sourceCategoryIds = new Map(flattenEquipment(objects).map(item => [item.id, item.categoryId]));
   const buildObject=(object:PhysicalConfiguration,categoryId:string,parentId:string):PhysicalTreeNodeModel=>({
     key:JSON.stringify(['object',categoryId,object.id]),kind:'object',id:object.id,categoryId,parentId,name:object.name,
     children:[...(object.children ?? []).map(child=>buildObject(child,categoryId,object.id)),
-      ...('configurations' in object ? (object as PhysicalObject).configurations ?? [] : []).map(child=>buildObject(child,categoryId,object.id)),
-      ...object.experiments.filter(item=>item.category!=='internal:cfg-trials').map(configuration=>({
-        key:JSON.stringify(['configuration',categoryId,object.id,configuration.id]),kind:'configuration' as const,id:configuration.id,categoryId,parentId:object.id,name:configuration.name,children:[],
-      }))],
+      ...('configurations' in object ? (object as PhysicalObject).configurations ?? [] : []).map(child=>buildObject(child,categoryId,object.id))],
   });
-  return objects.map(category => ({
+  return getEquipmentCategoryViews(objects).map(category => ({
     key: JSON.stringify(['category', category.id]), kind: 'category', id: category.id, name: category.name,
-    children: category.configurations.map(object=>buildObject(object,category.id,category.id)),
+    children: category.configurations.map(object=>buildObject(object,sourceCategoryIds.get(object.id)!,sourceCategoryIds.get(object.id)!)),
   }));
 }
 

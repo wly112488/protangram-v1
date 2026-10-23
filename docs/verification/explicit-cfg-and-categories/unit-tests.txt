@@ -1,0 +1,413 @@
+✔ record results and shared results reference the exact same charts, tables and professional objects (6.472699ms)
+✔ removing a source CSV preserves its saved result and marks it unavailable in shared results (0.8234ms)
+✔ removing a CSV used by a professional result keeps the result but invalidates its source (0.7224ms)
+✔ context is inherited, saved artifacts survive session deletion and refresh, and sources never cross trials or executions (1.293ms)
+✔ saving the same result again updates its identity without making another shared object (1.0404ms)
+✔ legacy results retain their data without displaying a title-only chart as a real plot (0.5839ms)
+✔ legacy artifacts without an explicit source are not assigned to two different trials in a shared project (0.8114ms)
+✔ prediction archive accepts only saved results and retains computed provenance in the common table structure (0.5698ms)
+✔ professional sources inherit the exact execution CSV and all shared results without crossing trials or copying objects (1.713099ms)
+✔ existing design references and object-level inputs remain available inside professional functions (1.4781ms)
+✔ frontend preview persists in the existing shared structure with demo provenance and a single identity (1.8138ms)
+✔ single-CSV diagnoses exclude other files, multi-source contexts and demo artifacts (0.9121ms)
+✔ reports retain the same removed-source warning as charts and analysis results (0.3636ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.165193
+✔ automatic analysis can restart after React StrictMode clears its first timer (1.661699ms)
+✔ automatic experiment design can restart after React StrictMode clears its first timer (0.2727ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.528199
+✔ CFG categories are explicit; legacy and stale assignments stay unclassified (2.1197ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 37.714596
+✔ shared CFG creates distinct trials using one compatibility container and keeps original source IDs (3.780599ms)
+✔ missing and ambiguous references fail before creating a trial/container, never selecting the first member (2.1815ms)
+✔ nested primary equipment works through record writes, source navigation and task projections (1.7762ms)
+✔ legacy trials remain unchanged and task draft confirmation propagates CFG once without requiring spectrum (1.7993ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65.563294
+✔ professional entry identity ignores capability, names and task-book association (4.2307ms)
+✔ shared source resolves current parameters without copying or crossing records (0.857ms)
+✔ explicit record and trial IDs never fall back and a renamed configuration keeps source identity (0.8684ms)
+✔ same-source legacy artifacts remain references and explicit provenance wins over project membership (1.6889ms)
+✔ cross-source handoff cannot clear drafts or import another model calibration (1.4817ms)
+✔ explicit calibration adoption is persisted as a patch and leaves other capabilities untouched (0.9147ms)
+✔ record chart references resolve independent configurations and never cross sources (1.3709ms)
+✔ known legacy demo results stay demo while manually configured DOE stays configuration (0.2901ms)
+✔ a design artifact can supply a new experiment by reference without making another record or dataset (0.7323ms)
+✔ task association follows the concrete trial and sibling executions keep independent sessions and report references (0.8847ms)
+✔ category consolidation preserves professional sessions and artifact references for each device record (1.424ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 70.404294
+✔ demo sources, execution records, CSV, charts, sessions and task references form one consistent dataset (4.7528ms)
+✔ demo fixture IDs and CSV values are reproducible across clean installs (3.4258ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 72.771798
+✔ composition keeps three levels and distinct same-name objects selectable by stable ID (3.3595ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 54.285298
+✔ only the known demo category joins the official fan view, in either order (2.5429ms)
+✔ missing demo or official category and user names stay visible without guessing (0.2012ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39.536999
+✔ a historical CFG is only a suggestion; each entry requires confirmation (1.2871ms)
+✔ empty and stale choices cannot be confirmed (0.201ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34.684599
+✔ MODEL+CFG+OBJ+configuration identity is order-independent and runtime-independent (9.944399ms)
+✔ parameter binding uses exact object+parameter IDs and units; names cannot guess a source (2.1705ms)
+✔ confirmed scheme persists once, repeats reuse it and stale CFG/object sources cannot confirm (1.0293ms)
+✔ preview and saved artifact retain immutable model configuration and runtime source snapshots (1.5517ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 75.346598
+✔ the physical browser tree contains categories and equipment, with legacy setups reachable only by their original routes (2.3558ms)
+✔ merged demo equipment retains the original category IDs for objects and parts (0.4978ms)
+✔ composition parts are nested by identity while internal trial containers are not presented as CFGs (0.2313ms)
+✔ the workspace and tree resolve the full parent chain by stable IDs (0.2199ms)
+✔ conflicting explicit parents never select a different object by experiment ID (0.2608ms)
+✔ a missing or empty record ID cannot fall back to an existing execution (0.266ms)
+✔ a trial list or trial detail does not implicitly select its first execution (0.2062ms)
+✔ legacy category/device links and record-only links preserve ownership (0.4661ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 59.931498
+✔ repeat executions have distinct records; records own raw files and tables while the trial owns attributed shared charts (6.325ms)
+✔ write operations require the exact record and never route files or results to another execution (0.9763ms)
+✔ shared table names are unique across executions and updating a table preserves its identity (0.6251ms)
+✔ removing a CSV marks it unavailable but preserves its identity and existing result references (0.5155ms)
+✔ load spectrum is only an identifier and different spectrum after execution requires a different trial (0.615ms)
+✔ trial configurations have independent parameters and used setup cannot silently overwrite historical meaning (0.6125ms)
+✔ CSV chart points respect fields, ranges and blank cells (2.4824ms)
+✔ v0 migration keeps configuration identity, task association and all original measurement records (1.4051ms)
+✔ v2 record and archives migrate to a stable trial with all CSV and chart references intact (0.9723ms)
+✔ v3 migration retains existing trial IDs and references, merges fields without losing conflicting contents (0.7142ms)
+✔ legacy trial may acquire a missing spectrum once; new execution still uses a new record ID (0.6745ms)
+✔ partly migrated legacy records join the existing stable trial without duplicate entities or input mutation (0.632ms)
+✔ an old task association without records still becomes a concrete trial association (0.2118ms)
+✔ the first store import hydrates v3 data before any page action, without an initialization-order failure (11.6372ms)
+✔ categories stay available and each concrete object owns its parameters and test configurations (0.4567ms)
+✔ v4 grouping uses category instead of an extra equipment layer and preserves old links and record identities (1.356399ms)
+✔ mixed legacy devices and parent business fields are retained without duplicating on another migration (1.4476ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 113.961097
+✔ target inputs are available without backend preparation and remain editable independently of context (2.5383ms)
+✔ prediction inputs stay specific to each function and reject ambiguous inherited values (0.5959ms)
+✔ backend chooses the model while requests carry execution context and real CSV data (32.847799ms)
+✔ demo, incomplete, wrong target, wrong execution, wrong inputs and stale requests cannot become saved results (0.9822ms)
+✔ failed requests remain business failures and never become demo fallback or technical status UI (1.7836ms)
+✔ frontend preview runs both functions without network, model choices or raw CSV access (1.6663ms)
+✔ frontend preview respects cancellation and rejects invalid target ranges (0.5687ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 83.875798
+✔ workspace sidebar groups workbench sessions, projects and formal tasks (3.5113ms)
+✔ recent-session plus opens independent trial creation without persisting an empty session (0.8237ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24.045799
+✔ project trial view deduplicates sessions and retains nested execution records (3.2586ms)
+✔ a trial without taskBookId remains visible in its project (0.3438ms)
+✔ project trial lists remain scoped to project-local sessions (0.5399ms)
+✔ a project artifact source can expose its real trial without copying it (0.4132ms)
+✔ project navigation exposes the work-and-trials view even when empty (0.4605ms)
+✔ invalid source IDs do not fall back to a different trial (0.2998ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48.667299
+✔ catalog retains trial/record/file identity, including files with no saved charts (1.8168ms)
+✔ professional results retain multi-file provenance at trial scope without cloning into CSV nodes (0.5205ms)
+✔ worksheet edits preserve the original CSV and reject ambiguous field names (4.609399ms)
+✔ column clicks select plotting inputs in click order and shift selects a range (0.3903ms)
+✔ one CSV contains results from different capabilities and execution nodes remain distinct (0.646ms)
+✔ a design carrying available CSV context is not falsely presented as derived from that CSV (1.4505ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 81.938098
+✔ a task association keeps the organizational project visible without duplicating its task sessions (15.2837ms)
+✔ sidebar task entries respect search and the archive view (0.5991ms)
+✔ session navigation follows creation source rather than a later project association (2.3717ms)
+✔ session entry skips the redundant overview and opens the proper workbench (0.6077ms)
+✔ a legacy session without a concrete trial retains access to its saved resources (0.9895ms)
+✔ project and task sessions carry the concrete trial source created in context (1.6483ms)
+✔ template experiment creation clones its starting DOE draft into a separate session (1.6165ms)
+✔ DOE template loading preserves legacy templates and carries saved configuration into a detached draft (1.834299ms)
+✔ new experiment entry offers blank and existing-template paths into the same DOE workbench (1.5033ms)
+✔ DOE methods share the intelligent experiment design capability and legacy routes resume there (1.0583ms)
+✔ DOE keeps business design methods and preparation without a model choice or model confirmation gate (0.7495ms)
+✔ session sidebar separates navigation sections and exposes collapsible section and tree controls (0.6067ms)
+✔ independent sessions own separate artifact spaces without changing active organizational project (1.3974ms)
+✔ drafts remain separated by session and capability and restore after rehydration (1.4779ms)
+✔ moving sessions into a project preserves draft and artifact ownership (2.8896ms)
+✔ formal task sessions reuse existing task artifacts and are idempotent (0.3944ms)
+✔ continuing an existing project reuses its artifact space without replacing it (0.7806ms)
+✔ different concrete trials in one project keep separate sessions and their original source scopes (0.4958ms)
+✔ session navigation preserves all legacy task item context (0.5274ms)
+✔ storage failure is surfaced instead of reporting saved (0.7429ms)
+✔ opening capability tabs retains useful inputs but clears focused execution (0.4488ms)
+✔ explicit cross-capability handoff resets destination draft and keeps other work (1.7021ms)
+✔ deleting a session removes its persisted conversation but preserves referenced artifact space (1.1577ms)
+✔ deleting the last project session preserves trial membership without copying trial data (2.219ms)
+✔ project rename and archive preserve nested sessions and restore original project status (1.5788ms)
+✔ deleting a project group removes its sessions and preserves unrelated sessions (2.5592ms)
+✔ project deletion cannot remove the artifact space still used by a session in another group (0.5329ms)
+✔ project deletion protects formal task ownership and cross-project evidence references (1.6933ms)
+✔ free task work preserves overall scope unless an item is explicitly selected (0.8511ms)
+✔ focused task entry wins over free association and preserves satisfied evidence (0.6453ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 153.495996
+✔ analysis pre-fills explicit source values and uniquely matches existing objects without creating business records (2.895399ms)
+✔ unknown object, configuration and load spectrum stay empty instead of inventing values (0.64ms)
+✔ ambiguous matches stay unresolved rather than choosing the first physical object (0.6804ms)
+✔ confirmed task trials are idempotent, hidden while working, and published only after valid completion (3.913ms)
+✔ missing required template data does not create a trial or session (0.7163ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 89.598497
+✔ task-book references resolve a single page or an inclusive page range (57.144099ms)
+✔ task workbench opens the cited original PDF in a right-side viewer (0.5306ms)
+✔ task creation persists the selected PDF so it can be reopened later (0.2419ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 332.740892
+✔ adding or editing a task item reopens plan review without losing other item data (60.760398ms)
+✔ changing a satisfied task-item description reopens that item for completion (11.0435ms)
+✔ deleting a task item also removes its dependency references and reopens review (7.7906ms)
+✔ top-level module navigation keeps the task but does not inherit a focused task item (12.0059ms)
+✔ shared resources never fall back to a second project or session overview (0.348ms)
+✔ task plan exposes add, edit, and remove controls for human review (1.6435ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 351.600891
+✔ mock AI completes empty report sections from linked task artifacts and preserves authored text (89.725498ms)
+✔ task report workflow stays in TaskWorkbench and does not navigate to legacy report generation (0.5097ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 371.41719
+✔ manual task-item satisfaction requires a note or linked artifact and keeps evidence when reopened (66.333798ms)
+✔ editing requirement text clears its prior satisfaction evidence (12.7561ms)
+✔ task report project selection is restricted to the associated project (7.5074ms)
+✔ report warning counts unfinished task items but excludes the report item being generated (6.1576ms)
+✔ task report and final report controls distinguish drafting, generation, and task completion (0.6948ms)
+✔ task workbench uses explicit evidence confirmation and separates taskbook source from the plan (0.364ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 396.278289
+✔ trial-scoped results appear in TASK/report before records exist and never become another trial record (6.5883ms)
+✔ association candidates include component-owned autonomous trials and preserve exact parent identity (1.7425ms)
+✔ task overview groups devices and configurations and counts actual records, files and cross-project results (1.890999ms)
+✔ all report chart references resolve the original device, trial and execution even with identical chart names (1.3286ms)
+✔ different trial configurations of one device remain separate inside a task summary (1.9353ms)
+✔ independent CFG groups do not expose or merge their shared compatibility container (1.208ms)
+✔ reassignment updates both task projections without copying records or retaining moved results as current report sources (1.2794ms)
+✔ overview is read-only and report editing persists existing drafts without AI completion or trial data changes (1.3461ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 81.986098
+✔ CSV import and analysis live in the current analysis workspace, not the physical object tree (3.4109ms)
+✔ session shared results render trial data in place instead of redirecting into object navigation (0.395ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.5387
+✔ records produce results in one trial collection with explicit provenance and without copying raw data (4.395599ms)
+✔ shared name validation rejects duplicates across records, whitespace/case variations and overwrites (1.2008ms)
+✔ different concrete trials allow the same chart name (0.8244ms)
+✔ editing excludes its own identity but cannot rename over another result or move a result to a sibling record (0.8155ms)
+✔ v5 migration keeps historical duplicate names, duplicate IDs across records, configurations and old report references (1.7359ms)
+✔ persisted migration and refresh retain the one shared collection and original CSV IDs (1.3784ms)
+✔ task books and report references read the canonical trial results for every execution (0.904ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 63.977798
+✔ CFG supports cross-equipment members, optional companions and independent roles (1.9102ms)
+✔ user categories validate names and IDs, preserve members and persist on reload (2.0077ms)
+✔ legacy CFG storage hydrates without categories and retains stable references (0.3224ms)
+✔ CFG create/get/reload preserves equipment and legacy storage, invalid members cause no writes (0.7689ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 49.947199
+✔ trial creation from a formal task locks the association to that task (1.4594ms)
+✔ project and independent creation both keep task optional; independent trials have no project (0.3177ms)
+✔ task association can be independent and accepts an explicitly selected project without inventing one (0.2876ms)
+✔ stale task and project links remain errors instead of falling back to independent creation (0.1908ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34.024199
+✔ manual SET updates and field arrays are independent; missing ID fails without mutation (1.3689ms)
+✔ trial SETs persist independently of other trials and preserve original records (3.1026ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51.888299
+✔ shared views retain all results and source IDs, including session-owned and historical report results (2.8693ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 37.166499
+✔ multiple selected columns produce independent named series without coercing blank cells to zero (1.922ms)
+✔ sample means use complete paired rows and preserve the chosen grouping (0.288ms)
+✔ bubble charts bind a third numeric field and histogram works with one column (0.4142ms)
+✔ missing mapped fields and unconfigured third field do not silently generate an unrelated chart (0.5088ms)
+✔ legacy two-column graphs keep the existing scale/offset behavior (0.467ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 379.89289

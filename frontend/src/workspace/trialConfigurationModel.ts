@@ -5,7 +5,7 @@ export const CFG_ROLES = [
 ] as const;
 export type CfgRole = typeof CFG_ROLES[number]['value'];
 export interface CfgMember { objectId: string; role: CfgRole }
-export interface TrialConfiguration { id: string; name: string; members: CfgMember[]; description?: string; primaryObjectId?: string }
+export interface TrialConfiguration { id: string; name: string; members: CfgMember[]; description?: string; primaryObjectId?: string; categoryId?: string }
 
 export function validateTrialConfiguration(input: TrialConfiguration, availableIds: Set<string>): string[] {
   const errors: string[] = [];

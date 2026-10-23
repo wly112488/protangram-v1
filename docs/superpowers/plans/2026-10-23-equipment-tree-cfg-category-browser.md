@@ -1,5 +1,7 @@
 # ProTangram 物理对象树与 CFG 分类浏览 Implementation Plan
 
+**执行状态（2026-10-23）：当前前端范围已完成。** 物理对象树与 CFG 分类已实现；173 个单元用例、构建及三组隔离浏览器脚本通过。Lint 保留基线 13 个错误、2 个警告，无新增。原步骤保留为计划模板，实际命令、合并实施批次及未逐条执行的 RED/提交步骤以[验收记录](../../verification/2026-10-23-equipment-tree-cfg-category-browser.md)为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 左侧物理对象按装备类别→具体对象→组成对象展示，演示风扇 A/B 归入现有“涵道风扇”类别视图；试验构型在独立分类区浏览，通过引用上面任意层级的物理对象组合生成，而不是被当成物理对象树的子节点。

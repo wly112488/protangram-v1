@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Table, Tag, Typography } from 'antd';
 import { flattenEquipment } from './equipmentCompositionModel';
 import { usePhysicalObjectStore } from './physicalObjectStore';
@@ -7,7 +7,10 @@ import { validateTrialConfiguration } from './trialConfigurationModel';
 import { MODEL_FLOW_FIXTURES } from './modelFlowFixtures';
 import { modelConfigurationKey, readModelEquipmentInputs, resolveModelPlan, type ModelInputBinding, type ModelPlanRequest } from './modelPlanModel';
 import { useModelSchemeStore } from './modelSchemeStore';
-import { useSessionState } from './useSessionState';
+import { useSessionRouteState, useSessionState } from './useSessionState';
+import { useLocation } from 'react-router-dom';
+import { getCapabilityFromPath, getSessionDraftKey, getSessionIdFromLocation, readSessionDraft } from './sessionModel';
+import { useSessionStore } from './sessionStore';
 import { predictionInputs, type PredictionPreviewTask, type PredictionService, type PredictionTarget, type PredictionValue } from './predictionContract';
 import { predictionParameterError, predictionPreparation } from './predictionParameters';
 import { runPredictionPreview, savePredictionPreview } from '../services/predictionPreview';
@@ -18,19 +21,29 @@ interface Draft {
   bindingKeys:Record<string,string>; selectedSchemeId?:string;
 }
 
-export default function CfgPredictionForm({service,target,context,cfgId,trialId,archive}:{
+export default function CfgPredictionForm({service,target,context,cfgId,trialId,archive,onSavedAndReturn}:{
   service:PredictionService; target:PredictionTarget; context:ProfessionalDataContext; cfgId:string; trialId:string;
   archive:(task:PredictionPreviewTask)=>boolean;
+  onSavedAndReturn?:()=>void;
 }) {
   const [form]=Form.useForm<Draft>();
   const objects=usePhysicalObjectStore(state=>state.objects);
   const cfg=useTrialConfigurationStore(state=>state.configurations.find(item=>item.id===cfgId));
   const schemes=useModelSchemeStore(state=>state.schemes);
-  const [draft,setDraft]=useSessionState<Draft>('cfgModelFlowV1',{
-    modelId:MODEL_FLOW_FIXTURES[0].id,configurationInputs:{mesh:'演示标准网格'},inputs:{},bindingKeys:{},
+  const location=useLocation();
+  const routeState=useSessionRouteState();
+  const [draft,setDraft]=useSessionState<Draft>(`cfgModelFlowV2:${cfgId}`,()=>{
+    const initial:Draft={modelId:MODEL_FLOW_FIXTURES[0].id,configurationInputs:{mesh:'演示标准网格'},inputs:{},bindingKeys:{}};
+    // Preserve pre-picker drafts for their original CFG; each CFG then keeps
+    // separate manual inputs without changing or deleting the legacy draft.
+    if(context.scope.cfgId!==cfgId) return initial;
+    const session=useSessionStore.getState().sessions.find(item=>item.id===getSessionIdFromLocation(location.pathname,location.search));
+    return readSessionDraft(session,getCapabilityFromPath(location.pathname),getSessionDraftKey('cfgModelFlowV1',routeState?.workspaceSession),initial);
   });
   const [error,setError]=useState(''),[busy,setBusy]=useState(false),[saved,setSaved]=useState(false);
   const [result,setResult]=useState<PredictionPreviewTask>();
+  const controller=useRef<AbortController | null>(null);
+  useEffect(()=>()=>controller.current?.abort(),[]);
   const equipment=flattenEquipment(objects);
   const model=MODEL_FLOW_FIXTURES.find(item=>item.id===draft.modelId);
   // Runtime values are manual inputs. Similar parameter names never bind equipment implicitly.
@@ -72,22 +85,27 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
         name:`${target.physicalObjectName} · 气动模型（演示）`,configurationInputs,bindings,
       },plan?.action==='ambiguous'?value.selectedSchemeId:undefined);
       setBusy(true);
-      const task=await runPredictionPreview({requestId:crypto.randomUUID(),service,targetConfiguration:structuredClone(target),context:structuredClone(context),inputs,
+      const active=new AbortController();controller.current=active;
+      const task=await runPredictionPreview({requestId:crypto.randomUUID(),service,targetConfiguration:structuredClone(target),context:structuredClone({...context,scope:{...context.scope,cfgId}}),inputs,
         modelPlan:{...request,schemeId:scheme.id,trialId,configurationInputs:structuredClone(configurationInputs),bindings:structuredClone(bindings),equipmentInputs,runtimeInputs:structuredClone(inputs)},
-      },new AbortController().signal);
-      setResult(task);
-    } catch(cause) {setError(cause instanceof Error?cause.message:'本次演示未完成');}
-    finally {setBusy(false);}
+      },active.signal);
+      if(!active.signal.aborted) setResult(task);
+    } catch(cause) {if(!controller.current?.signal.aborted) setError(cause instanceof Error?cause.message:'本次演示未完成');}
+    finally {if(!controller.current?.signal.aborted) setBusy(false);}
   };
-  const save=async()=>{
-    if(!result||busy||saved) return;
+  const save=async(shouldReturn=false)=>{
+    if(!result||busy) return;
+    if(saved) {if(shouldReturn) onSavedAndReturn?.();return;}
     setBusy(true);setError('');
+    const active=new AbortController();controller.current=active;
     try {
-      const task=await savePredictionPreview(result,new AbortController().signal);
+      const task=await savePredictionPreview(result,active.signal);
+      if(active.signal.aborted) return;
       if(!archive(task)) throw new Error('本次成果未保存，请重试');
       setResult(task);setSaved(true);
-    } catch(cause) {setError(cause instanceof Error?cause.message:'本次成果未保存');}
-    finally {setBusy(false);}
+      if(shouldReturn) onSavedAndReturn?.();
+    } catch(cause) {if(!active.signal.aborted) setError(cause instanceof Error?cause.message:'本次成果未保存');}
+    finally {if(!active.signal.aborted) setBusy(false);}
   };
   if(cfgErrors.length) return <Alert type="error" showIcon title="CFG 来源已失效，不能规划或运行模型" description={cfgErrors.join('；')} />;
   return <div className="workspace-business-page cfg-prediction-flow">
@@ -121,7 +139,9 @@ export default function CfgPredictionForm({service,target,context,cfgId,trialId,
       <Space wrap><Tag color="orange">演示结果</Tag><Tag>MODEL：{result.modelPlan!.modelId}</Tag><Tag>方案：{result.modelPlan!.schemeId}</Tag><Tag>{saved?'已保存到共享成果':'待保存'}</Tag></Space>
       <Typography.Paragraph>{result.result.summary}</Typography.Paragraph>
       <Table size="small" rowKey={(_,index)=>String(index)} dataSource={result.result.rows} columns={result.result.columns.map(column=>({title:`${column.label}${column.unit?` / ${column.unit}`:''}`,dataIndex:column.key}))} pagination={{pageSize:10}} scroll={{x:true}} />
-      <Button onClick={save} loading={busy} disabled={saved}>保存演示成果</Button>
+      <Space wrap><Button onClick={()=>save()} loading={busy} disabled={saved}>保存演示成果</Button>
+        {onSavedAndReturn && <Button type="primary" onClick={()=>save(true)} loading={busy}>{saved?'返回试验工作台':'保存并返回试验工作台'}</Button>}
+      </Space>
     </Card>}
   </div>;
 }

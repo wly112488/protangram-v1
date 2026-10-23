@@ -19,6 +19,7 @@ import { taskBookPath } from './taskTrialModel';
 import { resolvePhysicalNavigation, trialListQueryKeys } from './physicalNavigation';
 import './physicalObjects.css';
 import TrialSettingsPanel from './TrialSettingsPanel';
+import { getEquipmentCategoryViews } from './equipmentTreeProjection';
 
 const { Text, Title } = Typography;
 type Dialog = 'family' | 'configuration' | 'component' | 'parameter' | 'experiment' | 'trial' | 'record' | 'chart' | 'table' | null;
@@ -208,22 +209,32 @@ const PhysicalObjectsPage: React.FC = () => {
   const backTarget = record ? { label: '返回具体试验', route: trialRoute }
     : trial ? { label: experiment?.category==='internal:cfg-trials'?'返回试验列表':'返回历史试验布置', route: experimentRoute }
       : experiment ? { label: '返回具体物理对象', route: objectRoute } : undefined;
+  const displayCategory = getEquipmentCategoryViews(objects).find(category => category.sourceCategoryIds.includes(family?.id ?? ''));
   const crumbs = [
-    ...(family ? [{ title: family.name }] : []),
+    ...(family ? [{ title: displayCategory?.name ?? family.name }] : []),
     ...(configuration ? [{ title: experiment ? <Button type="link" onClick={() => setRoute(objectRoute)}>{configuration.name}</Button> : configuration.name }] : []),
     ...(experiment ? [{ title: trial ? <Button type="link" onClick={() => setRoute(experimentRoute)}>{experiment.name}</Button> : experiment.name }] : []),
     ...(trial ? [{ title: record ? <Button type="link" onClick={() => setRoute(trialRoute)}>{trial.name}</Button> : trial.name }] : []),
     ...(record ? [{ title: recordLabel(record) }] : []),
   ];
-  const familyPage = (item: NonNullable<typeof family>) => <>
-    <div className="physical-config-title"><div><Text type="secondary">对象类别</Text><Title level={4}>{item.name}</Title>{item.description && <Text>{item.description}</Text>}<div><Text type="secondary">{item.configurations.length} 个具体物理对象</Text></div></div><Button type="primary" onClick={() => startDialog('configuration')}>新建具体物理对象</Button></div>
-    {item.configurations.length > 0 && <Card size="small" title="类别中的物理对象">{item.configurations.map(config => <div className="physical-list-row" key={config.id}><Button type="link" onClick={() => setRoute({ objectId: item.id, configurationId: config.id })}>{config.name}</Button><Text type="secondary">{config.experiments.filter(entry=>entry.category!=='internal:cfg-trials').length} 个历史试验布置</Text></div>)}</Card>}
-  </>;
+  const familyPage = (item: NonNullable<typeof family>) => {
+    const view = displayCategory ?? item;
+    return <>
+      <div className="physical-config-title"><div><Text type="secondary">对象类别</Text><Title level={4}>{view.name}</Title>{item.description && <Text>{item.description}</Text>}<div><Text type="secondary">{view.configurations.length} 个具体物理对象</Text></div></div><Button type="primary" onClick={() => startDialog('configuration')}>新建具体物理对象</Button></div>
+      {view.configurations.length > 0 && <Card size="small" title="类别中的物理对象">{view.configurations.map(config => <div className="physical-list-row" key={config.id}><Button type="link" onClick={() => setRoute({ objectId: objects.find(category=>category.configurations.some(object=>object.id===config.id))?.id ?? item.id, configurationId: config.id })}>{config.name}</Button><Text type="secondary">{config.experiments.filter(entry=>entry.category!=='internal:cfg-trials').length} 个历史试验布置</Text></div>)}</Card>}
+    </>;
+  };
   const configPage = (config: PhysicalConfiguration) => <>
     <Space wrap><Button onClick={()=>startDialog('component')}>新增组成对象</Button><Button onClick={()=>navigate('/trial-configurations')}>管理试验构型 CFG</Button></Space>
     {config.children.length>0&&<Card size="small" title="组成对象">{config.children.map(child=><Button key={child.id} type="link" onClick={()=>setRoute({objectId:family!.id,configurationId:child.id})}>{child.name}</Button>)}</Card>}
     {config.experiments.filter(item=>item.category==='internal:cfg-trials').map(item=><Card key={item.id} size="small" title="具体试验">{item.trials.map(trial=><div key={trial.id}><Button type="link" onClick={()=>setRoute({objectId:family!.id,configurationId:config.id,experimentId:item.id,trialId:trial.id})}>{trial.name}</Button></div>)}</Card>)}
     <div className="physical-config-title"><div><Text type="secondary">具体物理对象</Text><Title level={4}>{config.name}</Title>{config.description && <Text>{config.description}</Text>}<div><Text type="secondary">{config.experiments.filter(item=>item.category!=='internal:cfg-trials').length} 个历史试验布置 · {config.experiments.reduce((count, item) => count + item.trials.length, 0)} 项具体试验</Text></div></div><Button type="primary" onClick={() => startDialog('experiment', { parameters: [{ name: '', value: '', unit: '', description: '' }] })}>新建历史试验布置</Button></div>
+    {config.experiments.some(item=>item.category!=='internal:cfg-trials') && <Card size="small" title="历史试验布置">
+      {config.experiments.filter(item=>item.category!=='internal:cfg-trials').map(item=><div className="physical-list-row" key={item.id}>
+        <Button type="link" onClick={()=>setRoute({objectId:family!.id,configurationId:config.id,experimentId:item.id})}>{item.name}</Button>
+        <Text type="secondary">{item.trials.length} 项具体试验</Text>
+      </div>)}
+    </Card>}
     <Card size="small" title="技术参数" extra={<Button size="small" onClick={() => startDialog('parameter', { parameters: [{ name: '', value: '', unit: '', description: '' }] })}>新增参数</Button>}>{config.parameters.length ? <div className="physical-field-list">{config.parameters.map(item => <div className="physical-field-row" key={item.id}><Tooltip title={item.description || undefined}><span className={item.description ? 'physical-field-name has-description' : ''}>{item.name}</span></Tooltip><strong>{item.value || '—'} {item.unit}</strong><Button className="physical-parameter-edit" type="link" size="small" onClick={() => { startDialog('parameter', { parameters: [{ ...item }] }); setEditingParameterId(item.id); }}>编辑</Button></div>)}</div> : <Text type="secondary">暂无参数</Text>}</Card>
     {config.designs.length > 0 && <Card size="small" title="对象通用要求">{config.designs.map(design => <div key={design.id} className="physical-design-case"><strong>{design.name}</strong>{design.fields.map(field => <div className="physical-field-row" key={field.id}><Tag>{field.usage}</Tag><span>{field.name}</span><strong>{field.comparison ? `${field.comparison} ` : ''}{field.value} {field.unit}</strong></div>)}</div>)}</Card>}
   </>;
@@ -275,7 +286,7 @@ const PhysicalObjectsPage: React.FC = () => {
       <AnalysisResults trial={entry} activeKind={params.get('result') ?? 'chart'} onKindChange={kind => { const next = new URLSearchParams(params); next.set('result', kind); setParams(next, { replace: true }); }} entries={results} shared={!record} actions={result => result.record && <Button type="link" onClick={() => setRoute({ ...trialRoute, recordId: result.record!.id })}>前往来源记录</Button>} />
     </>;
   };
-  const objectPage = () => <Empty description={objects.length ? '从左侧对象树选择类别、物理对象或试验构型' : '请先创建对象类别'} />;
+  const objectPage = () => <Empty description={objects.length ? '从左侧对象树选择类别或物理对象' : '请先创建对象类别'} />;
   if (activeTab === 'taskbooks') return <Navigate to={params.get('taskId') ? taskBookPath(params.get('taskId')!) : '/task-center'} replace />;
   return <div className="physical-page">
     <div className="physical-heading"><div><div className="workspace-kicker">试验工作表</div><Title level={3}>物理对象与试验数据</Title></div></div>

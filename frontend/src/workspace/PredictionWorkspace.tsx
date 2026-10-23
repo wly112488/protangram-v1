@@ -10,6 +10,11 @@ import PreparationChecklist from './PreparationChecklist';
 import { predictionArtifactInput } from './analysisResultModel';
 import { predictionParameterError, predictionPreparation } from './predictionParameters';
 import CfgPredictionForm from './CfgPredictionForm';
+import { useNavigate, useParams } from 'react-router-dom';
+import FeatureCfgPicker from './FeatureCfgPicker';
+import { beginCfgChoice, confirmCfgChoice, requireCfgChoice } from './featureCfgChoiceModel';
+import { useTrialConfigurationStore } from './trialConfigurationStore';
+import { getSessionPath } from './sessionModel';
 
 const { Text } = Typography;
 
@@ -110,7 +115,31 @@ function PredictionForm({ service, target, context, archive }: {
   </div>;
 }
 
+function ExplicitCfgPrediction({ service, target, context, trialId, archive, suggestedCfgId, onSavedAndReturn }: {
+  service: PredictionService; target: PredictionTarget; context: ProfessionalDataContext; trialId: string;
+  archive: (task: PredictionPreviewTask) => boolean; suggestedCfgId?: string; onSavedAndReturn?: () => void;
+}) {
+  const [history, setHistory] = useSessionState<{ lastCfgId?: string }>('featureCfgHistoryV1', {});
+  const [choice, setChoice] = useState(() => beginCfgChoice(history.lastCfgId ?? suggestedCfgId));
+  const [picking, setPicking] = useState(true);
+  return <>
+    {picking && <FeatureCfgPicker suggestedCfgId={choice.confirmedCfgId ?? choice.suggestedCfgId}
+      onCancel={() => setPicking(false)} onConfirm={id => {
+        const next = confirmCfgChoice(choice, id, new Set(useTrialConfigurationStore.getState().configurations.map(cfg => cfg.id)));
+        setChoice(next); setHistory({lastCfgId: requireCfgChoice(next)}); setPicking(false);
+      }} />}
+    {!picking && <Button onClick={() => setPicking(true)}>{choice.confirmedCfgId ? '更换本次 CFG' : '选择 CFG'}</Button>}
+    {!picking && !choice.confirmedCfgId && <Empty description="请明确选择试验构型 CFG 后填写模型输入" />}
+    {choice.confirmedCfgId && <div hidden={picking}>
+      <CfgPredictionForm key={choice.confirmedCfgId} service={service} target={target} context={context}
+        cfgId={requireCfgChoice(choice)} trialId={trialId} archive={archive} onSavedAndReturn={onSavedAndReturn} />
+    </div>}
+  </>;
+}
+
 export default function PredictionWorkspace({ service }: { service: PredictionService }) {
+  const { sessionId } = useParams();
+  const navigate = useNavigate();
   const { physicalSource, session, dataContext, addArtifact, recordArtifactForTaskItem } = useWorkspaceBusinessSession(useSessionRouteState());
   const target = useMemo<PredictionTarget | undefined>(() => physicalSource.configuration && physicalSource.experiment && !physicalSource.missing ? {
     physicalObjectId: physicalSource.configuration.id, physicalObjectName: physicalSource.configuration.name,
@@ -125,6 +154,8 @@ export default function PredictionWorkspace({ service }: { service: PredictionSe
     recordArtifactForTaskItem({ projectId: artifact.projectId, artifactId: artifact.id });
     return true;
   };
-  return physicalSource.trial?.cfgId ? <CfgPredictionForm key={JSON.stringify([service,physicalSource.trial.id,physicalSource.trial.cfgId])} service={service} target={target} context={dataContext} cfgId={physicalSource.trial.cfgId} trialId={physicalSource.trial.id} archive={archive} />
+  return physicalSource.trial ? <ExplicitCfgPrediction key={`${service}:${physicalSource.trial.id}`} service={service} target={target} context={dataContext}
+      trialId={physicalSource.trial.id} archive={archive} suggestedCfgId={physicalSource.trial.cfgId}
+      onSavedAndReturn={sessionId ? () => navigate(getSessionPath(sessionId,'doe')) : undefined} />
     : <PredictionForm key={JSON.stringify([service, target, dataContext.scope, dataContext.rawFiles])} service={service} target={target} context={dataContext} archive={archive} />;
 }

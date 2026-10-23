@@ -15,6 +15,45 @@ test('CFG supports cross-equipment members, optional companions and independent 
   assert.ok(validate({ ...input, members:[{ objectId:'fan', role:'unsupported' }] }, ids).length);
 });
 
+test('user categories validate names and IDs, preserve members and persist on reload', async () => {
+  cfg.setState({ categories: [], configurations: [] });
+  const s = physical.getState();
+  const category = s.addRoot({ name:'分类测试装备',type:'装备' });
+  const fan = s.addConfiguration(category,{name:'同名装备'});
+  const id = cfg.getState().createConfiguration({name:'分类测试 CFG',members:[{objectId:fan,role:'tested'}]});
+  const before = structuredClone(cfg.getState().getConfiguration(id));
+  const aero = cfg.getState().createCategory(' 气动试验 ');
+  const structural = cfg.getState().createCategory('结构试验');
+  assert.equal(cfg.getState().categories[0].name,'气动试验');
+  for (const name of ['', ' ', '气动试验', '未分类']) assert.throws(()=>cfg.getState().createCategory(name));
+  cfg.getState().setConfigurationCategory(id,aero);
+  cfg.getState().renameCategory(aero,'气动验收');
+  assert.throws(()=>cfg.getState().renameCategory(aero,'结构试验'),/已存在/);
+  assert.throws(()=>cfg.getState().renameCategory(aero,' '));
+  assert.throws(()=>cfg.getState().renameCategory('missing','测试'),/不存在/);
+  assert.throws(()=>cfg.getState().setConfigurationCategory('missing',aero),/不存在/);
+  assert.throws(()=>cfg.getState().setConfigurationCategory(id,'missing'),/不存在/);
+  assert.throws(()=>cfg.getState().createConfiguration({name:'错误分类',categoryId:'missing',members:before.members}),/不存在/);
+  assert.deepEqual(cfg.getState().getConfiguration(id),{...before,categoryId:aero});
+  const saved = localStorage.getItem('protangram-trial-configurations-v1');
+  cfg.setState({categories:[],configurations:[]});
+  localStorage.setItem('protangram-trial-configurations-v1',saved);
+  await cfg.persist.rehydrate();
+  assert.deepEqual(cfg.getState().categories,[{id:aero,name:'气动验收'},{id:structural,name:'结构试验'}]);
+  assert.equal(cfg.getState().getConfiguration(id).categoryId,aero);
+  cfg.getState().setConfigurationCategory(id);
+  assert.deepEqual(cfg.getState().getConfiguration(id),{...before,categoryId:undefined});
+});
+
+test('legacy CFG storage hydrates without categories and retains stable references', async () => {
+  const legacy = {id:'legacy-cfg',name:'旧构型',members:[{objectId:'legacy-equipment',role:'tested'}]};
+  cfg.setState({categories:[],configurations:[]});
+  localStorage.setItem('protangram-trial-configurations-v1',JSON.stringify({version:1,state:{configurations:[legacy]}}));
+  await cfg.persist.rehydrate();
+  assert.deepEqual(cfg.getState().categories,[]);
+  assert.deepEqual(cfg.getState().getConfiguration(legacy.id),legacy);
+});
+
 test('CFG create/get/reload preserves equipment and legacy storage, invalid members cause no writes', async () => {
   physical.setState({ objects: [] }); cfg.setState({ configurations: [] });
   const s = physical.getState();

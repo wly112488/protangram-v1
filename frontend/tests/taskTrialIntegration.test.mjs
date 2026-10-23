@@ -30,6 +30,34 @@ function fixture() {
 }
 const entries = taskId => api.getTaskTrials(physical.getState().objects, projects.getState().projects, [], taskId);
 
+test('trial-scoped results appear in TASK/report before records exist and never become another trial record',()=>{
+  const f=fixture();
+  const trialId=physical.getState().addConcreteTrial(f.setupA,{name:'零记录模型试验',loadSpectrum:'',taskBookId:f.task1});
+  const scope={physicalObjectId:f.objectA,experimentId:f.setupA,trialId};
+  const projectId=projects.getState().createProject({name:'试验模型成果',status:'进行中'});
+  const result=projects.getState().addArtifact(projectId,{type:'calibration',title:'试验模型演示',source:'数字孪生',summary:'演示',payload:{resultMode:'demo',sourceScope:scope}});
+  const projected=entries(f.task1), sources=api.getTaskTrialSources(projected);
+  assert.equal(sources.artifacts.filter(item=>item.id===result.id).length,1);
+  assert.ok(api.getTaskReportArtifacts(tasks.getState().tasks.find(t=>t.id===f.task1),projected,projects.getState().projects).some(item=>item.id===result.id));
+  assert.equal(projected.find(entry=>entry.trial.id===trialId).records.length,0);
+  physical.getState().addTrialRecord(trialId,{});
+  assert.equal(api.getTaskTrialSources(entries(f.task1)).artifacts.filter(item=>item.id===result.id).length,1);
+  tasks.getState().addArtifactToReport(f.task1,{projectId,artifactId:result.id});
+  physical.getState().updateConcreteTrial(trialId,{taskBookId:f.task2});
+  assert.equal(api.getTaskReportArtifacts(tasks.getState().tasks.find(t=>t.id===f.task1),entries(f.task1),projects.getState().projects).some(item=>item.id===result.id),false);
+});
+
+test('association candidates include component-owned autonomous trials and preserve exact parent identity',()=>{
+  const f=fixture(),s=physical.getState();
+  const rotor=s.addComponent(f.objectA,{name:'转子'}),setup=s.addExperiment(rotor,{name:'部件内部试验容器',category:'internal:cfg-trials',parameters:[]});
+  const trial=s.addConcreteTrial(setup,{name:'转子自主试验',loadSpectrum:''});
+  const candidate=api.getAutonomousTrials(physical.getState().objects).find(item=>item.trial.id===trial);
+  assert.equal(candidate.object.id,rotor);assert.equal(candidate.category.id,f.category);assert.equal(candidate.configuration.id,setup);
+  s.updateConcreteTrial(trial,{taskBookId:f.task1});
+  assert.equal(api.getAutonomousTrials(physical.getState().objects).some(item=>item.trial.id===trial),false);
+  assert.equal(entries(f.task1).find(item=>item.trial.id===trial).object.id,rotor);
+});
+
 test('task overview groups devices and configurations and counts actual records, files and cross-project results', () => {
   const f = fixture(), related = entries(f.task1), groups = api.groupTaskTrials(related), sources = api.getTaskTrialSources(related);
   assert.equal(related.length, 2); assert.equal(groups.length, 2); assert.equal(groups[0].configurations.length, 1);

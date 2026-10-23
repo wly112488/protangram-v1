@@ -11,12 +11,18 @@ export const taskBookPath = (taskId: string, view?: string) => `/task-center?${n
 export function getTaskTrials(objects: PhysicalObject[], projects: Project[], sessions: WorkSession[], taskId: string) {
   return flattenEquipment(objects).flatMap(ref => ref.equipment.experiments.flatMap(configuration => configuration.trials
     .filter(trial => Boolean(taskId) && trial.taskBookId === taskId)
-    .map(trial => ({ category:objects.find(category=>category.id===ref.categoryId)!, object:ref.equipment, configuration, trial, records: trial.records.map(record => ({
+    .map(trial => ({ category:objects.find(category=>category.id===ref.categoryId)!, object:ref.equipment, configuration, trial,
+      artifacts:getSourceArtifacts(projects,sessions,{physicalObjectId:ref.id,experimentId:configuration.id,trialId:trial.id}), records: trial.records.map(record => ({
       record, charts: getRecordCharts(trial, record.id),
       artifacts: getSourceArtifacts(projects, sessions, { physicalObjectId: ref.id, experimentId: configuration.id, trialId: trial.id, testRecordId: record.id }),
     })) }))));
 }
 export type TaskTrialEntry = ReturnType<typeof getTaskTrials>[number];
+
+export function getAutonomousTrials(objects:PhysicalObject[]) {
+  return flattenEquipment(objects).flatMap(ref=>ref.equipment.experiments.flatMap(configuration=>configuration.trials
+    .filter(trial=>!trial.taskBookId).map(trial=>({category:objects.find(category=>category.id===ref.categoryId)!,object:ref.equipment,configuration,trial}))));
+}
 
 export function groupTaskTrials(entries: TaskTrialEntry[]) {
   const groups = new Map<string, { object: TaskTrialEntry['object']; category: TaskTrialEntry['category']; configurations: Array<{ configuration: TaskTrialEntry['configuration']; entries: TaskTrialEntry[] }> }>();
@@ -34,11 +40,14 @@ export function getTaskTrialSources(entries: TaskTrialEntry[]) {
   const artifacts = new Map<string, ProjectArtifact>();
   const charts: Array<{ reference: RecordChartReference; chart: TaskTrialEntry['records'][number]['charts'][number]; label: string }> = [];
   let records = 0, files = 0, tables = 0;
-  for (const entry of entries) for (const item of entry.records) {
+  for (const entry of entries) {
+    for(const artifact of entry.artifacts ?? []) artifacts.set(`${artifact.projectId}/${artifact.id}`,artifact);
+    for (const item of entry.records) {
     records++; files += item.record.rawFiles.length; tables += item.record.tables.length;
     for (const artifact of item.artifacts) artifacts.set(`${artifact.projectId}/${artifact.id}`, artifact);
     for (const chart of item.charts) charts.push({ chart, label: `${entry.object.name} / ${entry.configuration.name} / ${entry.trial.name} / ${item.record.name} / ${chart.name}`,
       reference: { physicalObjectId: entry.object.id, experimentId: entry.configuration.id, trialId: entry.trial.id, testRecordId: item.record.id, chartId: chart.id } });
+    }
   }
   return { artifacts: [...artifacts.values()], charts, records, files, tables };
 }
@@ -51,9 +60,9 @@ export function getTaskReportArtifacts(task: TaskRecord, entries: TaskTrialEntry
     const artifact = projects.find(project => project.id === reference.projectId)?.artifacts.find(item => item.id === reference.artifactId);
     if (!artifact) continue;
     const scope = artifact.payload.sourceScope as PhysicalBusinessScope | undefined;
-    if (scope?.testRecordId && !entries.some(entry => entry.records.some(({ record }) => samePhysicalSource(scope, {
-      physicalObjectId: entry.object.id, experimentId: entry.configuration.id, trialId: entry.trial.id, testRecordId: record.id,
-    })))) continue;
+    if ((scope?.trialId||scope?.testRecordId) && !entries.some(entry => (!scope.testRecordId||entry.records.some(({record})=>record.id===scope.testRecordId))&&samePhysicalSource(scope,{
+      physicalObjectId:entry.object.id,experimentId:entry.configuration.id,trialId:entry.trial.id,testRecordId:scope.testRecordId,
+    }))) continue;
     artifacts.set(`${artifact.projectId}/${artifact.id}`, artifact);
   }
   return [...artifacts.values()];

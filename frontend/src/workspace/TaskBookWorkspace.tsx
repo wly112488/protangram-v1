@@ -9,7 +9,7 @@ import { useSessionStore } from './sessionStore';
 import { getSessionPath } from './sessionModel';
 import { artifactResourcesPath } from './sharedResourcesModel';
 import { artifactResultLabel, recordLabel } from './physicalBusinessContext';
-import { getTaskReportArtifacts, getTaskTrials, getTaskTrialSources, groupTaskTrials, taskBookPath, type TaskTrialEntry } from './taskTrialModel';
+import { getAutonomousTrials, getTaskReportArtifacts, getTaskTrials, getTaskTrialSources, groupTaskTrials, taskBookPath, type TaskTrialEntry } from './taskTrialModel';
 import { loadTaskBookFile, saveTaskBookFile } from './taskBookStorage';
 import { loadAnalysisReports } from '@/utils/storage';
 import useAppStore from '@/stores/useAppStore';
@@ -45,8 +45,7 @@ export default function TaskBookWorkspace({ taskId }: { taskId: string }) {
   const [pdfRevision, setPdfRevision] = useState(0);
   const [uploading, setUploading] = useState(false);
   const pdfInput = useRef<HTMLInputElement>(null);
-  const targets = objects.flatMap(category => category.configurations.flatMap(object => object.experiments.map(configuration => ({ category, object, configuration }))));
-  const autonomous = targets.flatMap(target => target.configuration.trials.filter(trial => !trial.taskBookId).map(trial => ({ ...target, trial })));
+  const autonomous = getAutonomousTrials(objects);
 
   useEffect(() => { useAppStore.getState().setAnalysisReports(loadAnalysisReports()); }, []);
   useEffect(() => {
@@ -114,6 +113,7 @@ export default function TaskBookWorkspace({ taskId }: { taskId: string }) {
         <div className="physical-book-tests">{groups.length ? groups.map(group => <Card className="taskbook-object" key={group.object.id} title={group.object.name} extra={<Text type="secondary">{group.category.name}</Text>}>
           {group.configurations.map(({ configuration, entries: related }) => <section className="taskbook-configuration" key={configuration.id}><Title level={5}>{configuration.name}</Title>{related.map(entry => <Card className="taskbook-trial" size="small" key={entry.trial.id} title={entry.trial.name} extra={<Button type="link" onClick={() => openTrial(entry)}>管理具体试验</Button>}>
             <Text type="secondary">载荷谱：{entry.trial.loadSpectrum || '待补充'}</Text>
+            {entry.artifacts.map(artifact=><div key={`${artifact.projectId}/${artifact.id}`}><Button type="link" onClick={()=>openArtifact(artifact)}>{artifact.title}</Button><Tag>{artifactResultLabel(artifact)}</Tag></div>)}
             {!entry.records.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚无执行记录" />}
             {entry.records.map(({ record, artifacts, charts }) => <div className="physical-task-record" key={record.id}><div><strong>{recordLabel(record)}</strong>
               <div className="taskbook-record-items"><Text type="secondary">CSV：</Text>{record.rawFiles.length ? record.rawFiles.map(file => <Tag key={file.id}>{file.name} · {file.rowCount} 行</Tag>) : <Text type="secondary">暂无</Text>}</div>

@@ -70,3 +70,10 @@ Threat boundary for all tasks: normal UI/store operations, persisted legacy stat
 - Preview and archived artifact tests verify immutable CFG/trial/MODEL/scheme/configuration/runtime snapshots and demo nature; a mismatched source is rejected.
 - Actual browser flow creates a scheme, changes speed to 6000 without adding a scheme, saves the demo result, and previews another CFG's zero-SET trial using its own scheme. No page errors. Legacy trials retain their original prediction interface.
 - Acceptance audit closed for Task 5. Full journey and stale/ambiguous UI paths are audited again in Task 6.
+
+### Task 6 — integration review corrections
+
+- Independent pre-landing review identified two `IN_SCOPE_DEFECT` findings within the established task/source invariant: trial-scoped MODEL results were absent from TASK/report projections, and component-owned autonomous trials were absent from the task association picker.
+- RED: the two added tests in `taskTrialIntegration.test.mjs` failed (missing artifact, missing recursive candidate helper). GREEN: `node --test --test-reporter=dot tests/taskTrialIntegration.test.mjs tests/cfgTrialBridge.test.mjs tests/crossFunctionSharing.test.mjs tests/taskAnalysisWorkflow.test.mjs` passed 27 tests; `npx tsc -b` and targeted ESLint passed, exit 0.
+- Trial-scoped results are projected separately from record-scoped results, deduplicated in totals, and removed from the original task's current report sources after reassignment. Component trials retain their real parent IDs during association.
+- Read-only independent re-review closed both findings and reran 16 related tests, exit 0. Affected Task 3/5 audits reopened and closed with the above direct regression evidence; no unrelated behavior was added.

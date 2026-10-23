@@ -85,6 +85,18 @@ test('different trial configurations of one device remain separate inside a task
   assert.equal(groups[0].configurations[1].entries[0].trial.id, trial);
   assert.equal(api.getTaskTrialSources(entries(f.task1)).records, 4);
 });
+test('independent CFG groups do not expose or merge their shared compatibility container',()=>{
+  const f=fixture(),store=physical.getState();
+  const internal=store.addExperiment(f.objectA,{name:'兼容容器',category:'internal:cfg-trials',parameters:[]});
+  const a=store.addConcreteTrial(internal,{name:'CFG A 试验',cfgId:'cfg-a',taskBookId:f.task1});
+  const b=store.addConcreteTrial(internal,{name:'CFG B 试验',cfgId:'cfg-b',taskBookId:f.task1});
+  const cfgs=[{id:'cfg-a',name:'组合 A',members:[]},{id:'cfg-b',name:'组合 B',members:[]}];
+  const groups=api.groupTaskTrials(entries(f.task1).filter(entry=>[a,b].includes(entry.trial.id)),cfgs);
+  assert.equal(groups[0].configurations.length,2);
+  assert.deepEqual(groups[0].configurations.map(item=>item.displayName),['组合 A','组合 B']);
+  assert.ok(groups[0].configurations.every(item=>item.configuration.id===internal));
+  assert.equal(api.groupTaskTrials(entries(f.task1).filter(entry=>entry.trial.id===a),[])[0].configurations[0].displayName,'CFG 来源已失效');
+});
 test('reassignment updates both task projections without copying records or retaining moved results as current report sources', () => {
   const f = fixture(), before = structuredClone(entries(f.task1)[0].trial.records);
   tasks.getState().addArtifactToReport(f.task1, { projectId: f.artifact.projectId, artifactId: f.artifact.id });

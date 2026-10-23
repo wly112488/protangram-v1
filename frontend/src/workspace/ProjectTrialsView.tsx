@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
 import { useSessionStore } from './sessionStore';
 import { usePhysicalObjectStore } from './physicalObjectStore';
+import { useTrialConfigurationStore } from './trialConfigurationStore';
 import { useTaskStore } from './taskStore';
 import { getProjectTrialEntries, type ProjectTrialEntry } from './projectTrialModel';
 import { getSessionPath } from './sessionModel';
@@ -14,6 +15,7 @@ export default function ProjectTrialsView({ projectId }: { projectId: string }) 
   const projects = useProjectStore(state => state.projects);
   const sessions = useSessionStore(state => state.sessions);
   const objects = usePhysicalObjectStore(state => state.objects);
+  const cfgs = useTrialConfigurationStore(state => state.configurations);
   const tasks = useTaskStore(state => state.tasks);
   const project = projects.find(item => item.id === projectId);
   const entries = useMemo(() => getProjectTrialEntries(projectId, objects, projects, sessions), [projectId, objects, projects, sessions]);
@@ -22,6 +24,7 @@ export default function ProjectTrialsView({ projectId }: { projectId: string }) 
     const scope = { physicalObjectId: entry.object.id, physicalObjectName: entry.object.name,
       experimentId: entry.experiment.id, experimentName: entry.experiment.name, trialId: entry.trial.id,
       trialName: entry.trial.name, taskBookId: entry.trial.taskBookId,
+      ...(entry.trial.cfgId ? { cfgId:entry.trial.cfgId } : {}),
       ...(recordId ? { testRecordId: recordId, testRecordName: entry.trial.records.find(item => item.id === recordId)?.name } : {}),
     };
     const id = useSessionStore.getState().ensureProjectSession(projectId, scope);
@@ -32,7 +35,7 @@ export default function ProjectTrialsView({ projectId }: { projectId: string }) 
     <Table rowKey={entry => entry.trial.id} dataSource={entries} scroll={{ x: 800 }} pagination={{ defaultPageSize: 10 }} locale={{ emptyText: '当前项目还没有具体试验' }} columns={[
       { title: '试验名称', render: (_, entry) => <Button type="link" onClick={() => openTrial(entry)}>{entry.trial.name}</Button> },
       { title: '物理对象', render: (_, entry) => entry.object.name },
-      { title: '试验构型', render: (_, entry) => entry.experiment.name },
+      { title: '试验构型', render: (_, entry) => entry.trial.cfgId ? cfgs.find(cfg=>cfg.id===entry.trial.cfgId)?.name ?? 'CFG 来源已失效' : entry.experiment.name },
       { title: '载荷谱', render: (_, entry) => entry.trial.loadSpectrum || '待补充' },
       { title: '任务书', render: (_, entry) => entry.trial.taskBookId ? tasks.find(task => task.id === entry.trial.taskBookId)?.title ?? '关联已失效' : '未关联' },
       { title: '执行次数', render: (_, entry) => entry.trial.records.length },

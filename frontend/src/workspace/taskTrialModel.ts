@@ -4,6 +4,7 @@ import type { PhysicalBusinessScope, WorkSession } from './sessionModel';
 import type { Project, ProjectArtifact } from './types';
 import type { TaskRecord } from './taskTypes';
 import { flattenEquipment } from './equipmentCompositionModel';
+import type { TrialConfiguration } from './trialConfigurationModel';
 
 export const taskBookPath = (taskId: string, view?: string) => `/task-center?${new URLSearchParams({ taskId, ...(view ? { view } : {}) })}`;
 
@@ -24,13 +25,15 @@ export function getAutonomousTrials(objects:PhysicalObject[]) {
     .filter(trial=>!trial.taskBookId).map(trial=>({category:objects.find(category=>category.id===ref.categoryId)!,object:ref.equipment,configuration,trial}))));
 }
 
-export function groupTaskTrials(entries: TaskTrialEntry[]) {
-  const groups = new Map<string, { object: TaskTrialEntry['object']; category: TaskTrialEntry['category']; configurations: Array<{ configuration: TaskTrialEntry['configuration']; entries: TaskTrialEntry[] }> }>();
+export function groupTaskTrials(entries: TaskTrialEntry[], cfgs:TrialConfiguration[] = []) {
+  const groups = new Map<string, { object: TaskTrialEntry['object']; category: TaskTrialEntry['category']; configurations: Array<{ key:string; displayName:string; configuration: TaskTrialEntry['configuration']; entries: TaskTrialEntry[] }> }>();
   for (const entry of entries) {
     let group = groups.get(entry.object.id);
     if (!group) { group = { object: entry.object, category: entry.category, configurations: [] }; groups.set(entry.object.id, group); }
-    let configuration = group.configurations.find(item => item.configuration.id === entry.configuration.id);
-    if (!configuration) { configuration = { configuration: entry.configuration, entries: [] }; group.configurations.push(configuration); }
+    const key=entry.trial.cfgId?`cfg:${entry.trial.cfgId}`:`legacy:${entry.configuration.id}`;
+    const displayName=entry.trial.cfgId?cfgs.find(cfg=>cfg.id===entry.trial.cfgId)?.name ?? 'CFG 来源已失效':entry.configuration.name;
+    let configuration = group.configurations.find(item => item.key === key);
+    if (!configuration) { configuration = { key,displayName,configuration: entry.configuration, entries: [] }; group.configurations.push(configuration); }
     configuration.entries.push(entry);
   }
   return [...groups.values()];

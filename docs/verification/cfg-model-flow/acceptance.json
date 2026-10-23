@@ -1,0 +1,378 @@
+{
+  "sourceCommit": "6670d459ec02e5837745315e56379ab252576934",
+  "baseURL": "http://127.0.0.1:5193",
+  "profile": "/tmp/protangram-cfg-profile-6IUenM",
+  "seed": {
+    "category": "object-360f128d-1ebb-49fd-a45d-522365fd1dfa",
+    "fan": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+    "rig": "config-c67a54d1-376b-41ae-9df2-62871206b683",
+    "cfg": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+    "task": "task-221edebb-b41d-451c-8145-da64c0e5a9f0",
+    "project": "project-eebcb4df-18f8-4a66-9023-6702693ca6b8"
+  },
+  "trialSession": "session-0e209261-abdc-4df5-bbcb-ad1c189df33f",
+  "firstScope": {
+    "physicalObjectId": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+    "physicalObjectName": "验收风扇",
+    "experimentId": "trial-configuration-4f525ade-4b68-4e81-bb82-8e0a155c5e09",
+    "experimentName": "CFG-07 验收",
+    "trialId": "trial-f9fb16b9-7c2a-453f-8cce-72e7ff659add",
+    "trialName": "起飞设计点性能试验",
+    "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+    "taskBookId": "task-221edebb-b41d-451c-8145-da64c0e5a9f0"
+  },
+  "recordScope": {
+    "physicalObjectId": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+    "physicalObjectName": "验收风扇",
+    "experimentId": "trial-configuration-4f525ade-4b68-4e81-bb82-8e0a155c5e09",
+    "experimentName": "具体试验",
+    "trialId": "trial-f9fb16b9-7c2a-453f-8cce-72e7ff659add",
+    "trialName": "起飞设计点性能试验",
+    "taskBookId": "task-221edebb-b41d-451c-8145-da64c0e5a9f0",
+    "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+    "testRecordId": "record-3e8f049b-230d-4763-a831-f373f823b9d8"
+  },
+  "projectScope": {
+    "physicalObjectId": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+    "physicalObjectName": "验收风扇",
+    "experimentId": "trial-configuration-4f525ade-4b68-4e81-bb82-8e0a155c5e09",
+    "experimentName": "具体试验",
+    "trialId": "trial-f9fb16b9-7c2a-453f-8cce-72e7ff659add",
+    "trialName": "起飞设计点性能试验",
+    "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+    "taskBookId": "task-221edebb-b41d-451c-8145-da64c0e5a9f0"
+  },
+  "legacyRoute": "/physical-objects?objectId=demo-category-fan&configurationId=demo-fan-A&experimentId=demo-configuration-0&trialId=demo-trial-0",
+  "trial": {
+    "name": "起飞设计点性能试验",
+    "loadSpectrum": "",
+    "taskBookId": "task-221edebb-b41d-451c-8145-da64c0e5a9f0",
+    "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+    "id": "trial-f9fb16b9-7c2a-453f-8cce-72e7ff659add",
+    "records": [
+      {
+        "id": "record-3e8f049b-230d-4763-a831-f373f823b9d8",
+        "name": "第 1 次试验记录",
+        "executionNumber": 1,
+        "createdAt": "2026-10-23T04:51:15.363Z",
+        "actualConditions": [],
+        "measurements": [],
+        "rawFiles": [
+          {
+            "id": "raw-15544d2d-5801-40b9-8c52-05139afa6dcb",
+            "name": "A01_main.csv",
+            "mimeType": "text/csv",
+            "size": 31,
+            "addedAt": "2026-10-23T04:51:15.508Z",
+            "headers": [
+              "time_s",
+              "thrust_n"
+            ],
+            "rowCount": 3,
+            "status": "available"
+          },
+          {
+            "id": "raw-c315a72e-c210-4922-ae74-451081e3ddd5",
+            "name": "A01_aux.csv",
+            "mimeType": "text/csv",
+            "size": 30,
+            "addedAt": "2026-10-23T04:51:15.602Z",
+            "headers": [
+              "time_s",
+              "thrust_n"
+            ],
+            "rowCount": 3,
+            "status": "available"
+          }
+        ],
+        "tables": []
+      }
+    ],
+    "charts": [
+      {
+        "rawFileId": "raw-c315a72e-c210-4922-ae74-451081e3ddd5",
+        "name": "CFG 来源验收图",
+        "plotKind": "line",
+        "chartType": "line",
+        "xField": "time_s",
+        "yField": "thrust_n",
+        "yFields": [
+          "thrust_n"
+        ],
+        "averageEvery": 1,
+        "startRow": 0,
+        "endRow": 0,
+        "scale": 1,
+        "offset": 0,
+        "color": "#1677ff",
+        "smooth": false,
+        "sourceCapability": "analysis",
+        "sourceRecordId": "record-3e8f049b-230d-4763-a831-f373f823b9d8",
+        "id": "chart-f960841a-c4cd-40a3-ae08-f9b2137bd051",
+        "createdAt": "2026-10-23T04:51:17.058Z",
+        "updatedAt": "2026-10-23T04:51:17.058Z"
+      }
+    ],
+    "settings": [
+      {
+        "id": "set-1b1a6b42-71e7-43e1-92df-32363d2ad251",
+        "name": "0D 已修改",
+        "fields": [
+          {
+            "id": "set-field-12ce4208-b4b8-419e-9928-94e16d5f38f9",
+            "name": "探针位置",
+            "value": "0",
+            "unit": "D",
+            "description": "",
+            "form": "单值"
+          }
+        ]
+      },
+      {
+        "id": "set-544a66b1-9131-4a50-adf6-50f3d45e34b9",
+        "name": "0.25D",
+        "fields": []
+      },
+      {
+        "id": "set-38ea6d36-3e6d-4945-babf-a7f71bce5188",
+        "name": "0.5D",
+        "fields": []
+      },
+      {
+        "id": "set-871f04b6-a082-4ed2-af4d-597d551a585d",
+        "name": "0.75D",
+        "fields": []
+      }
+    ]
+  },
+  "modelSchemes": [
+    {
+      "modelId": "MOD-01",
+      "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+      "objectIds": [
+        "config-f67b920c-8320-426d-9bf2-0a0d3689c003"
+      ],
+      "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"mesh\",\"演示标准网格\"]],[]]",
+      "name": "验收风扇 · 气动模型（演示）",
+      "configurationInputs": {
+        "mesh": "演示标准网格",
+        "$modelVersion": "demo-v1"
+      },
+      "bindings": [],
+      "id": "om-758e9c08-20b2-4c7b-83a2-dc7b702dd576",
+      "resultMode": "demo"
+    },
+    {
+      "modelId": "MOD-01",
+      "cfgId": "cfg-a0b2d97e-9d87-4a07-9005-1d50fc96f471",
+      "objectIds": [
+        "config-f67b920c-8320-426d-9bf2-0a0d3689c003"
+      ],
+      "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"mesh\",\"演示标准网格\"]],[]]",
+      "name": "验收风扇 · 气动模型（演示）",
+      "configurationInputs": {
+        "mesh": "演示标准网格",
+        "$modelVersion": "demo-v1"
+      },
+      "bindings": [],
+      "id": "om-d559a787-a330-4f51-931a-2393cdebe187",
+      "resultMode": "demo"
+    },
+    {
+      "modelId": "MOD-01",
+      "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+      "objectIds": [
+        "config-f67b920c-8320-426d-9bf2-0a0d3689c003"
+      ],
+      "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"equipment:referenceDiameter\",280],[\"mesh\",\"演示标准网格\"]],[[\"referenceDiameter\",\"config-f67b920c-8320-426d-9bf2-0a0d3689c003\",\"field-c2b66241-b245-4180-9ef4-3aa83c0840eb\",\"mm\"]]]",
+      "name": "验收风扇 · 气动模型（演示）",
+      "configurationInputs": {
+        "mesh": "演示标准网格",
+        "$modelVersion": "demo-v1",
+        "equipment:referenceDiameter": 280
+      },
+      "bindings": [
+        {
+          "key": "referenceDiameter",
+          "objectId": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+          "parameterId": "field-c2b66241-b245-4180-9ef4-3aa83c0840eb",
+          "unit": "mm"
+        }
+      ],
+      "id": "om-d9aa7c57-20c8-4eec-914c-b9ef1a6d6ed8",
+      "resultMode": "demo"
+    },
+    {
+      "modelId": "MOD-01",
+      "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+      "objectIds": [
+        "config-f67b920c-8320-426d-9bf2-0a0d3689c003"
+      ],
+      "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"equipment:referenceDiameter\",280],[\"mesh\",\"另一网格配置\"]],[[\"referenceDiameter\",\"config-f67b920c-8320-426d-9bf2-0a0d3689c003\",\"field-c2b66241-b245-4180-9ef4-3aa83c0840eb\",\"mm\"]]]",
+      "name": "验收风扇 · 气动模型（演示）",
+      "configurationInputs": {
+        "mesh": "另一网格配置",
+        "$modelVersion": "demo-v1",
+        "equipment:referenceDiameter": 280
+      },
+      "bindings": [
+        {
+          "key": "referenceDiameter",
+          "objectId": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+          "parameterId": "field-c2b66241-b245-4180-9ef4-3aa83c0840eb",
+          "unit": "mm"
+        }
+      ],
+      "id": "om-f24e8408-237c-413a-8d52-fdb128858cfd",
+      "resultMode": "demo"
+    }
+  ],
+  "savedDemo": {
+    "id": "prediction:digitalTwin:preview:digitalTwin:08ec9775-8fb4-4814-b417-89de38490c12",
+    "type": "calibration",
+    "title": "具体试验 · 数字孪生预测",
+    "source": "数字孪生预测",
+    "summary": "数字孪生演示计算完成，共 1 组目标工况。",
+    "payload": {
+      "resultMode": "demo",
+      "resultNature": "digitalTwin",
+      "predictionTaskId": "preview:digitalTwin:08ec9775-8fb4-4814-b417-89de38490c12",
+      "inputs": {
+        "speed": 6000,
+        "temperature": 25,
+        "pressure": 101.3
+      },
+      "targetConfiguration": {
+        "physicalObjectId": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+        "physicalObjectName": "验收风扇",
+        "experimentId": "trial-configuration-4f525ade-4b68-4e81-bb82-8e0a155c5e09",
+        "experimentName": "具体试验",
+        "objectParameters": [
+          {
+            "name": "参考直径",
+            "value": "280",
+            "unit": "mm",
+            "form": "单值",
+            "id": "field-c2b66241-b245-4180-9ef4-3aa83c0840eb"
+          }
+        ],
+        "configurationParameters": []
+      },
+      "modelPlan": {
+        "modelId": "MOD-01",
+        "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+        "objectIds": [
+          "config-f67b920c-8320-426d-9bf2-0a0d3689c003"
+        ],
+        "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"mesh\",\"演示标准网格\"]],[]]",
+        "schemeId": "om-758e9c08-20b2-4c7b-83a2-dc7b702dd576",
+        "trialId": "trial-f9fb16b9-7c2a-453f-8cce-72e7ff659add",
+        "configurationInputs": {
+          "mesh": "演示标准网格",
+          "$modelVersion": "demo-v1"
+        },
+        "bindings": [],
+        "equipmentInputs": {},
+        "runtimeInputs": {
+          "speed": 6000,
+          "temperature": 25,
+          "pressure": 101.3
+        }
+      },
+      "sourceContext": {
+        "scope": {
+          "physicalObjectId": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+          "experimentId": "trial-configuration-4f525ade-4b68-4e81-bb82-8e0a155c5e09",
+          "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+          "trialId": "trial-f9fb16b9-7c2a-453f-8cce-72e7ff659add"
+        },
+        "physicalObjectName": "验收风扇",
+        "experimentName": "具体试验",
+        "trialName": "起飞设计点性能试验",
+        "loadSpectrum": "",
+        "objectParameters": [
+          {
+            "name": "参考直径",
+            "value": "280",
+            "unit": "mm",
+            "form": "单值",
+            "id": "field-c2b66241-b245-4180-9ef4-3aa83c0840eb"
+          }
+        ],
+        "configurationParameters": [],
+        "rawFiles": []
+      },
+      "upstreamResultKeys": [],
+      "upstreamArtifactRefs": [],
+      "results": [
+        {
+          "id": "prediction",
+          "name": "数字孪生预测",
+          "kind": "table",
+          "summary": "数字孪生演示计算完成，共 1 组目标工况。",
+          "columns": [
+            {
+              "key": "condition",
+              "label": "工况"
+            },
+            {
+              "key": "speed",
+              "label": "转速",
+              "unit": "rpm"
+            },
+            {
+              "key": "temperature",
+              "label": "温度",
+              "unit": "℃"
+            },
+            {
+              "key": "pressure",
+              "label": "压力",
+              "unit": "kPa"
+            },
+            {
+              "key": "thrust",
+              "label": "示例推力",
+              "unit": "N"
+            }
+          ],
+          "rows": [
+            {
+              "condition": 1,
+              "speed": 6000,
+              "temperature": 25,
+              "pressure": 101.3,
+              "thrust": 53.49
+            }
+          ],
+          "basis": [
+            "输入条件：目标转速：6000 rpm；环境温度：25 ℃；环境压力：101.3 kPa",
+            "前端演示数据；关联的 CSV 和已有成果仅作为业务上下文，未参与物理预测计算。"
+          ]
+        }
+      ],
+      "sourceCapability": "digitalTwin",
+      "sourceScope": {
+        "physicalObjectId": "config-f67b920c-8320-426d-9bf2-0a0d3689c003",
+        "experimentId": "trial-configuration-4f525ade-4b68-4e81-bb82-8e0a155c5e09",
+        "cfgId": "cfg-f9b5bbfe-f546-4e81-b490-28e49e950010",
+        "trialId": "trial-f9fb16b9-7c2a-453f-8cce-72e7ff659add"
+      },
+      "upstreamArtifactIds": []
+    },
+    "projectId": "project-eebcb4df-18f8-4a66-9023-6702693ca6b8",
+    "createdAt": "2026-10-23T04:50:51.322Z",
+    "updatedAt": "2026-10-23T04:50:51.322Z"
+  },
+  "scenarios": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G"
+  ],
+  "errors": [],
+  "writes": []
+}

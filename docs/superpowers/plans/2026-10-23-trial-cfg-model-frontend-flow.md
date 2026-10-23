@@ -1,5 +1,7 @@
 # ProTangram 试验构型与模型分析前端流程 Implementation Plan
 
+**执行状态（2026-10-23）：已完成。** 实现位于 `feat/cfg-model-frontend-flow`；冻结代码 `6670d45` 的 165 项测试、构建和隔离浏览器 A–G 验收通过。Lint 保留既有 36 个错误、4 个警告，无新增。详见 [实际验收记录](../../verification/2026-10-23-cfg-model-frontend-flow.md)。后端统一及正式模型执行仍不在本次范围内。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在不调整后端和既有持久化机制的前提下，把 ProTangram 前端组织成可供用户验证的“试验任务 → 具体试验 → 选择/就地新建 CFG → 实测或分析/预测 → 成果”连续流程，减少重复选择，保持 XMind 中的业务对象归属。
@@ -106,7 +108,7 @@
 - CFG 独立于任一具体物理对象，可关联至少一项被试装备及任意数量的其他角色；陪试件可为空；缺失的成员 ID 必须明确报错，不能按名称自动补齐。
 - 新增 CFG 不写进旧 `PhysicalConfiguration.experiments`，旧试验不被删除或迁移。
 
-- [ ] **Step 1: Write the failing model tests.**
+- [x] **Step 1: Write the failing model tests.**
 
 在 `frontend/tests/trialConfiguration.test.mjs` 中写入以下测试，并复用 `physicalObjects.test.mjs` 的 esbuild 动态加载模式：
 
@@ -133,11 +135,11 @@ test('CFG accepts cross-equipment members and optional supporting roles', () => 
 });
 ~~~
 
-- [ ] **Step 2: Verify the test fails.**
+- [x] **Step 2: Verify the test fails.**
 
 Run: `cd frontend && node --test tests/trialConfiguration.test.mjs`。Expected: FAIL，因为 `trialConfigurationModel.ts` 尚不存在。
 
-- [ ] **Step 3: Implement pure CFG model and nested-equipment lookup.**
+- [x] **Step 3: Implement pure CFG model and nested-equipment lookup.**
 
 在 `trialConfigurationModel.ts` 中建立完整类型与验证函数：
 
@@ -160,7 +162,7 @@ export function validateTrialConfiguration(input: TrialConfiguration, availableI
 
 在 `equipmentCompositionModel.ts` 中实现 `flattenEquipment`，遍历 `PhysicalObject.configurations` 与每个对象的 `children`；按 ID 去重，区分实际组成对象与名称相同的其它对象。为它写测试：风扇-转子-叶片三级都能选中；两个同名转子仍是两个 ID；空数组安全。只读取现有树，不创建并行的“全局转子副本”。
 
-- [ ] **Step 4: Add one CFG catalog store and preserve existing physical data.**
+- [x] **Step 4: Add one CFG catalog store and preserve existing physical data.**
 
 `trialConfigurationStore.ts` 使用现有 Zustand + persist，单独保存新的 CFG 实体，不重写已有 `protangram-physical-objects-v1`；导出以下接口（实现时和测试一致）：
 
@@ -174,7 +176,7 @@ interface TrialConfigurationState {
 
 `createConfiguration` 必须先使用 `flattenEquipment` 的 ID 集执行 `validateTrialConfiguration`，校验失败不写入；成功生成唯一 `cfg-*` ID。新增本地键使用 `protangram-trial-configurations-v1`，这是**仅用于前端原型的独立 CFG 状态**，不与 `ExperimentDefinition` 双写，也不清理旧数据。为它补充新建、复用、来源失效及 reload 测试。
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: `cd frontend && node --test tests/equipmentComposition.test.mjs tests/trialConfiguration.test.mjs tests/physicalObjects.test.mjs && npm run build`。Expected: all tests PASS，TypeScript build PASS；既有存储快照和历史试验不变。Commit: `git add frontend/src/workspace/equipmentCompositionModel.ts frontend/src/workspace/trialConfigurationModel.ts frontend/src/workspace/trialConfigurationStore.ts frontend/src/workspace/physicalObjectStore.ts frontend/tests/equipmentComposition.test.mjs frontend/tests/trialConfiguration.test.mjs && git commit -m "feat: model reusable cross-equipment trial configurations"`。
 
@@ -199,11 +201,11 @@ Run: `cd frontend && node --test tests/equipmentComposition.test.mjs tests/trial
 - CFG 管理页与试验创建弹窗的字段/角色选择/校验/保存逻辑一致；成功返回当前表单并自动选中；取消无写入且已填试验草稿仍保留。
 - 试验构型可组合多个角色；没有陪试件时允许完成。对象来源失效时不能静默替换。
 
-- [ ] **Step 1: Add failing selector/validation tests.**
+- [x] **Step 1: Add failing selector/validation tests.**
 
 在 `trialConfiguration.test.mjs` 中添加对 `validateTrialConfiguration` 的无陪试件、同一对象两种不同角色、重复同角色、无被试装备、来源失效五组断言。Run: `cd frontend && node --test tests/trialConfiguration.test.mjs`；Expected: 旧界面尚不能满足业务验收（保留手动验收作为 UI 红灯）。
 
-- [ ] **Step 2: Create one reusable editor.**
+- [x] **Step 2: Create one reusable editor.**
 
 在 `TrialConfigurationEditor.tsx` 中使用 Ant Design `Form`、`Form.List`、`Select`、`Button`：字段为“名称、说明、装备成员列表（对象、角色）”；成员选择来自 `flattenEquipment`，对象按组成路径显示但保存稳定 ID。点击保存时调用同一个 `createConfiguration` 并把新 ID 交给 `onSaved`；错误保留表单，不清空。组件不自行创建 Modal 或 Page。
 
@@ -222,11 +224,11 @@ const submit = (value: { name: string; description?: string; members: CfgMember[
 };
 ~~~
 
-- [ ] **Step 3: Mount the same editor in both places.**
+- [x] **Step 3: Mount the same editor in both places.**
 
 `TrialConfigurationLibrary.tsx` 包裹编辑器作为独立 CFG 管理页面；`TrialCreatePage.tsx` 则用同一编辑器作为 `Modal` 的内容，`onSaved` 关闭弹窗并更新 `selectedCfgId`，`onCancel` 仅关闭弹窗。将管理页加到 `router/index.tsx`，例如 `/trial-configurations`；入口应出现在试验业务范围内，不单独再创建第二份表单。
 
-- [ ] **Step 4: Manual interaction gate and commit.**
+- [x] **Step 4: Manual interaction gate and commit.**
 
 在隔离浏览器中执行：从已有 CFG 直接新建试验；从试验创建弹窗新建“风扇+台架”并自动带回；从管理页创建相同内容（字段一致）；取消后重新打开确认试验草稿仍在；缺失对象和无被试装备被阻断。Run: `cd frontend && node --test tests/trialConfiguration.test.mjs && npm run build && npm run lint`。Expected: PASS。Commit: `git add frontend/src/workspace/TrialConfigurationEditor.tsx frontend/src/workspace/TrialConfigurationLibrary.tsx frontend/src/workspace/TrialCreatePage.tsx frontend/src/router/index.tsx frontend/tests/trialConfiguration.test.mjs && git commit -m "feat: reuse CFG editor for management and trial creation"`。
 
@@ -254,11 +256,11 @@ const submit = (value: { name: string; description?: string; members: CfgMember[
 - 没有载荷谱也可创建具体试验及执行记录（XMind 明确支持）。已有试验如果有载荷谱，现有程序/记录仍可使用。
 - 无法从 CFG 唯一确定被试主对象时明确阻断并要求在 CFG 编辑中标明主被试对象；不得猜测选取第一个数组成员。
 
-- [ ] **Step 1: Write failing bridge tests.**
+- [x] **Step 1: Write failing bridge tests.**
 
 `frontend/tests/cfgTrialBridge.test.mjs` 模仿 `physicalObjects.test.mjs` 的 esbuild/内存 localStorage 测试方式，至少覆盖：重复创建试验指向同一 cfgId；不同试验有各自 trialId；遗留 trial 不新增虚假的 cfgId；CFG 被删除/对象缺失不会静默回退；无载荷谱仍可创建记录；原有 `experimentId` 仍能找到对应试验。
 
-- [ ] **Step 2: Add compatible identity fields, keeping old source resolvers.**
+- [x] **Step 2: Add compatible identity fields, keeping old source resolvers.**
 
 `ConcreteTrial` 仅增加可选 `cfgId?: string`；`PhysicalBusinessScope` 仅增加可选 `cfgId?: string`，不变更其已有字段的解释。`createTrialFromCfg` 必须先验证 CFG 和主被试对象存在，再以该对象为锚点复用/建立仅用于兼容旧数据结构的内部 `ExperimentDefinition` 容器，调用现有 `addConcreteTrial` 创建真实试验，并记录 CFG ID。内部容器不作为 CFG 展示，也不能成为用户要手动填写的另一层设置。对其应使用有明确命名空间的标记（如 `internal:cfg-trials`），避免碰撞用户已有名字；重复创建时复用该内部容器，不反复创建。
 
@@ -275,11 +277,11 @@ export interface CfgTrialSource {
 
 这是一层**仅为本轮前端流程服务的兼容桥**，不是推荐的最终后端数据模型。旧容器对新试验不显示“试验构型”的业务标题，禁止双向同步出第二份 CFG。
 
-- [ ] **Step 3: Remove unintended load-spectrum hard gate and integrate entry points.**
+- [x] **Step 3: Remove unintended load-spectrum hard gate and integrate entry points.**
 
 更新 `physicalObjectStore.ts` 的 `addConcreteTrial`、`addTrialRecord`、`updateConcreteTrial` 对载荷谱的强制校验，以及 `TrialCreatePage.tsx` 中载荷谱的必填规则；无谱时 `loadSpectrum` 按空字符串兼容旧类型即可。更新 `taskTrialWorkflow.ts`：任务试验复核依然要求试验名称和合法的 CFG 关联，但不将载荷谱作为必填。新增结果将 `cfgId` 传播到会话 `businessScope`；旧数据没有该字段仍须可浏览。
 
-- [ ] **Step 4: Verify and commit.**
+- [x] **Step 4: Verify and commit.**
 
 Run: `cd frontend && node --test tests/cfgTrialBridge.test.mjs tests/physicalObjects.test.mjs tests/taskTrialIntegration.test.mjs tests/trialCreationModel.test.mjs && npm run build`。Expected: PASS；旧试验、历史记录及来源导航稳定；手动检查新建试验只显示 CFG 一次选择。Commit: `git add frontend/src/workspace/cfgTrialBridge.ts frontend/src/workspace/physicalObjectStore.ts frontend/src/workspace/TrialCreatePage.tsx frontend/src/workspace/taskTrialWorkflow.ts frontend/src/workspace/sessionModel.ts frontend/tests/cfgTrialBridge.test.mjs frontend/tests/physicalObjects.test.mjs frontend/tests/taskTrialIntegration.test.mjs && git commit -m "feat: link concrete trials to independent CFG"`。
 
@@ -309,7 +311,7 @@ Run: `cd frontend && node --test tests/cfgTrialBridge.test.mjs tests/physicalObj
 - 设置在具体试验内展示和编辑；只显示所关联 CFG 的名称/编号摘要，详细参数点击进入；没有 SET 也可以进入预测。
 - 既有 CSV/图表/执行记录归属不受影响。若未来记录按 SET 查看，本次只新增可选设置引用，不擅自搬运历史记录。
 
-- [ ] **Step 1: Write failing SET isolation tests.**
+- [x] **Step 1: Write failing SET isolation tests.**
 
 ~~~js
 import assert from 'node:assert/strict';
@@ -332,7 +334,7 @@ test('SET definitions are independent manual inputs', () => {
 
 测试已沿用仓库现有 esbuild 动态打包方式。Run: `cd frontend && node --test tests/trialSettings.test.mjs`，Expected: FAIL。
 
-- [ ] **Step 2: Implement the small pure SET operations.**
+- [x] **Step 2: Implement the small pure SET operations.**
 
 ~~~ts
 import type { ValueField } from './physicalObjectStore';
@@ -346,11 +348,11 @@ export const replaceTrialSetting = (items: TrialSetting[], id: string,
 
 将 `settings?: TrialSetting[]` 与新增/编辑方法接入 `physicalObjectStore.ts`；按 trialId 定位并单独修改，缺失 settingId 时明确失败，不影响其它试验。
 
-- [ ] **Step 3: Add the SET panel inside a trial, not a new sidebar root.**
+- [x] **Step 3: Add the SET panel inside a trial, not a new sidebar root.**
 
 `TrialSettingsPanel.tsx` 仅在具体试验页显示“试验设置 / 新增设置 / 编辑设置”，一个设置的表单允许多行名称、内容、单位、说明；初始为空，不预造四组或复制 CFG 字段。`BusinessSidebar.tsx` 将“试验”作为任务视图的入口和列表，物理对象保留独立部分，科目/SET 不放一级菜单。`PhysicalObjectsPage.tsx` 原有试验明细仍可访问，但新 CFG 必须以摘要方式展示。
 
-- [ ] **Step 4: Verify and commit.**
+- [x] **Step 4: Verify and commit.**
 
 Run: `cd frontend && node --test tests/trialSettings.test.mjs tests/physicalNavigation.test.mjs tests/physicalObjects.test.mjs tests/sessionWorkbench.test.mjs && npm run build && npm run lint`。Expected: PASS。手动操作从 TASK 打开具体试验，在内部新增四组 SET，编辑一组不影响其它三组；创建零组 SET 仍可进入预测。Commit: `git add frontend/src/workspace/trialSettingsModel.ts frontend/src/workspace/TrialSettingsPanel.tsx frontend/src/workspace/physicalObjectStore.ts frontend/src/workspace/BusinessSidebar.tsx frontend/src/workspace/PhysicalObjectsPage.tsx frontend/tests/trialSettings.test.mjs frontend/tests/physicalNavigation.test.mjs && git commit -m "feat: organize manual trial settings under task workflows"`。
 
@@ -380,7 +382,7 @@ Run: `cd frontend && node --test tests/trialSettings.test.mjs tests/physicalNavi
 - 不按模型名称推断已包含试验台；仅以 MODEL 声明的字段及显式映射决定读取哪些 CFG 装备。更改目标转速等本次输入不创建新 OM；字段名称相似但不同单位/来源时不能自动绑定。
 - 模型配置和本次输入能被单独追溯，运行结果保留 `trialId / cfgId / modelId / input snapshot`；当前预览结果必须保持 `demo` 标识，不声称执行正式 CFD。
 
-- [ ] **Step 1: Write failing matching tests.**
+- [x] **Step 1: Write failing matching tests.**
 
 ~~~js
 import assert from 'node:assert/strict';
@@ -405,7 +407,7 @@ test('same CFG/MODEL/OBJ/configuration reuses scheme, runtime speed is irrelevan
 
 另加无 CFG、缺失目标 OBJ、同型号多候选、顺序无关的成员 ID、不同模型配置 configKey 不复用、缺少必需字段/单位冲突、0 组 SET、改变运行转速不增加 OM，以及方案确认后下次可复用的存储测试。Expected: RED。
 
-- [ ] **Step 2: Implement the matching contract, not model physics.**
+- [x] **Step 2: Implement the matching contract, not model physics.**
 
 ~~~ts
 export interface ModelScheme {
@@ -435,13 +437,13 @@ export function resolveModelPlan(
 
 此函数是**交互原型的确定性方案查询**，不是对真实模型适用性的完整判断；正式模型的版本、配置参数与后端选择策略应在后续后端计划中补充。不得把单纯“同名 OM”或“相同转速”作为复用依据。
 
-- [ ] **Step 3: Integrate one prediction entry and manually editable fields.**
+- [x] **Step 3: Integrate one prediction entry and manually editable fields.**
 
 在 `PredictionWorkspace.tsx` 继承当前试验的 `cfgId`；进入时先选择功能对应的 MODEL（如 CFD 通用模型），用户同时填写分析运行参数；页面调用 `resolveModelPlan`，默认复用匹配项，或在当前表单内自动规划“方案1 气动模型”这样的可复用方案。若需要填写模型配置参数，仅在这一流程中显示需要人工确认/补充的字段。不要要求用户先到“对象模型管理”创建，也不要在主界面重复罗列已由 CFG 代表的叶尖直径/机匣/叶片清单。
 
 原有 `predictionParameters.ts` 的不同功能字段定义继续可用作前端演示；新建 `modelSchemeStore.ts` 使用独立的原型模型方案目录，以 `(modelId, cfgId, objectIds, configKey)` 去重保存自动规划并经用户确认的方案，从而下次进入可以复用；不向 `globalModelStore.ts` 双写，也不删除本地旧数据。新建 `modelFlowFixtures.ts` 只准备用于演示“MOD-01/CFG-07/OM-01”的明确样例数据，并带可识别的演示标记；不得把 `globalModelStore.ts` 中的旧“发动机模型”演示项目当成正式 CFD 目录。`services/predictionPreview.ts` 继续返回 `resultMode:'demo'`，正式后端模型运算不属于本任务。
 
-- [ ] **Step 4: Verify and commit.**
+- [x] **Step 4: Verify and commit.**
 
 Run: `cd frontend && node --test tests/modelPlanModel.test.mjs tests/prediction.test.mjs tests/crossFunctionSharing.test.mjs && npm run build && npm run lint`。Expected: PASS。手动验证“已有 OM → 自动复用”“无 OM → 同流程自动规划”“修改运行参数 → 不重建 OM”“CFG 失效 → 不使用其它 CFG 代替”“没有 SET → 可手工输入并预览”“演示结果仍显示演示”。Commit: `git add frontend/src/workspace/modelPlanModel.ts frontend/src/workspace/modelSchemeStore.ts frontend/src/workspace/modelFlowFixtures.ts frontend/src/workspace/PredictionWorkspace.tsx frontend/src/workspace/predictionContract.ts frontend/src/workspace/predictionParameters.ts frontend/tests/modelPlanModel.test.mjs frontend/tests/prediction.test.mjs && git commit -m "feat: inherit CFG and plan reusable model workflow"`。
 
@@ -468,7 +470,7 @@ Run: `cd frontend && node --test tests/modelPlanModel.test.mjs tests/prediction.
 - 模型分析不强制 SET，MODEL 与手工输入同流程，已配置的方案可复用，没有则可规划；CFG 摘要不展开内部参数，测试台是否参与模型输入由字段映射决定。
 - 本轮不得删除或覆盖用户原本浏览器数据；正式与演示结果有明确区分；旧路径及旧对象可以正常打开。
 
-- [ ] **Step 1: Run focused and full automated verification.**
+- [x] **Step 1: Run focused and full automated verification.**
 
 ~~~bash
 cd frontend
@@ -481,7 +483,7 @@ git diff --check
 
 Expected: all commands exit 0。遇到仓库既有失败须记录基线，并证明本轮没有新增回归，不允许只写“Agent 已确认通过”。
 
-- [ ] **Step 2: Verify user journey in an isolated browser profile.**
+- [x] **Step 2: Verify user journey in an isolated browser profile.**
 
 执行下列确切验收路径，保存操作截图和关键来源 ID（不可复用日常浏览器的 localStorage/IndexedDB）：
 
@@ -504,7 +506,7 @@ G. 关闭页面/重新打开隔离浏览器：当前原型数据可恢复；
    实际用户浏览器旧数据未被打开、覆盖或删除。
 ~~~
 
-- [ ] **Step 3: Save objective verification and commit.**
+- [x] **Step 3: Save objective verification and commit.**
 
 `docs/verification/2026-10-23-cfg-model-frontend-flow.md` 记录：工作树提交范围、测试命令及退出码、A–G 场景是否通过、来源 ID 样例、截图路径、尚需后端验证的行为。只可记录执行过的测试；不能预写通过结论。Commit: `git add docs/verification/2026-10-23-cfg-model-frontend-flow.md && git commit -m "test: document CFG and model frontend workflow acceptance"`。
 

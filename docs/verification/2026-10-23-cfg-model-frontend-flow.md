@@ -93,3 +93,54 @@ Task 1–5 acceptance audits are closed with the implementation, TDD and direct 
 
 - Final integration browser run of the complete harness: exit 0, A–G plus stale/ambiguous/unit/component/legacy-address assertions passed, zero page errors and zero HTTP writes. Screenshots/manifest will be regenerated at the frozen source commit below for the durable acceptance artifact.
 - Task 6 acceptance audit and Plan Execution Audit closed with no unresolved material gap after the corrections above. The remaining gate is the final repository-wide regression on frozen implementation/test sources and persistence of its objective result.
+
+## Frozen final verification and completion
+
+Implementation and verification code freeze: **`6670d459ec02e5837745315e56379ab252576934`**. All commands below exercised that commit's source in this worktree; subsequent changes only persist documentation/screenshots and checklist status.
+
+| Verification | Actual result |
+| --- | --- |
+| `node --test --test-reporter=spec tests/trialConfiguration.test.mjs tests/cfgTrialBridge.test.mjs tests/trialSettings.test.mjs tests/modelPlanModel.test.mjs` | Exit 0; 12/12 pass |
+| `node --test --test-reporter=spec tests/*.test.mjs` (frozen full regression) | Exit 0; **165/165 pass**, 0 failed/skipped/cancelled |
+| `npm run build` (frozen source) | Exit 0; existing >500 kB bundle warning remains |
+| `npm run lint` | Exit 1; baseline **36 errors / 4 warnings** remain |
+| ESLint API comparison against `cfg-model-lint-baseline.json` by file/rule/severity multiplicity | Exit 0; 36 errors / 4 warnings, **added: []** |
+| `git diff --check` | Exit 0 |
+| `node scripts/verify-cfg-model-flow.mjs` (frozen source, isolated Chromium) | Exit 0; A–G and negative paths pass; page errors `[]`, HTTP writes `[]` |
+
+Browser reproduction in this verification environment, from `frontend/`:
+
+```bash
+LD_LIBRARY_PATH=/tmp/protangram-cfg-browser-V6aviC/runtime/usr/lib/x86_64-linux-gnu \
+PROTANGRAM_PLAYWRIGHT_ROOT=/tmp/protangram-cfg-browser-V6aviC/node_modules/playwright/package.json \
+PROTANGRAM_CHROMIUM_PATH=/home/jiaxing/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell \
+PROTANGRAM_VERIFY_OUTPUT=../docs/verification/cfg-model-flow \
+node scripts/verify-cfg-model-flow.mjs
+```
+
+The environment paths are explicit dependencies, not portable defaults; the harness supports replacing them with equivalent installed Playwright/Chromium paths. Dev server: `npm run dev -- --host 127.0.0.1 --port 5193 --strictPort` in this worktree's frontend.
+
+| Journey | Observed acceptance and durable artifact |
+| --- | --- |
+| A | TASK A → 起飞设计点性能试验 → existing CFG-07 (fan + rig); four independent SETs, edited/restored. `cfg-model-flow/trial-settings.png` |
+| B | Same editor in creation modal; cancel creates nothing, save selects the new CFG and preserves the draft; second zero-SET trial uses that CFG. `acceptance.json` |
+| C | Management editor cancellation and missing tested-role rejection; successful correction. Missing equipment also rejected by store/validator tests. `cfg-model-flow/cfg-editor.png` |
+| D | Zero-SET virtual-condition preview plans its scheme; another trial of the same CFG reuses the existing scheme. MODEL and manual inputs are in one form. `acceptance.json` |
+| E | Speed 6000 reuses the same OM; another CFG/configuration does not. Multiple persisted candidates demand explicit selection; mismatched units block running; explicit equipment mapping works; stale CFG never falls back. `cfg-model-flow/model-reuse.png` |
+| F | Two CSVs and one saved chart retain trial/record/file IDs through TASK and project navigation. Trial-scoped demo results appear in TASK/report sources. Nested blade trial can associate with TASK. `cfg-model-flow/project-source.png`, `cfg-model-flow/equipment-composition.png` |
+| G | Persistent isolated browser closes/reopens; CFG/SET/OM/trial/project state and speed draft restore; original CSV is read back from IndexedDB. Original demo object snapshots remain identical and an old trial address opens. `cfg-model-flow/restored-model.png`, `acceptance.json` |
+
+All screenshots were visually inspected (SET, model reuse, CFG editor and project-source views). The complete machine-readable manifest is [`cfg-model-flow/acceptance.json`](cfg-model-flow/acceptance.json); it records the tested source commit, isolated profile, old route, all source IDs, scheme configuration and saved demo input snapshots. Example source chain from the frozen run:
+
+- CFG: `cfg-f9b5bbfe-f546-4e81-b490-28e49e950010`
+- Trial: `trial-f9fb16b9-7c2a-453f-8cce-72e7ff659add`
+- Legacy-compatible experiment ID (distinct from CFG): `trial-configuration-4f525ade-4b68-4e81-bb82-8e0a155c5e09`
+- Execution: `record-3e8f049b-230d-4763-a831-f373f823b9d8`
+- CSV: `raw-15544d2d-5801-40b9-8c52-05139afa6dcb`; chart: `chart-f960841a-c4cd-40a3-ae08-f9b2137bd051`
+- Reused OM: `om-758e9c08-20b2-4c7b-83a2-dc7b702dd576`
+
+Task Acceptance Audits **1–6: closed**, and **Plan Execution Audit: closed**, with no unresolved in-scope defect. TDD execution evidence is recorded in the per-task sections and integration corrections above. Frozen full regression and browser acceptance succeeded; `COVERAGE_COMPLETE` now describes executed evidence, not merely the plan's proposed coverage.
+
+Implementation commit range: `4a7878a..6670d45` on `feat/cfg-model-frontend-flow` (seven implementation/correction commits); this final documentation commit adds only execution status and verification artifacts. No push, PR, merge into main, backend integration or deployment was performed. The original development branch was not merged.
+
+Still intentionally unverified/out of scope: authoritative backend OBJ/CFG/SET/OM persistence, API/database/file migration, multi-device synchronization, real MODEL/CFD execution and deployment. Current model outputs remain explicitly **demo**; browser storage remains the prototype's persistence mechanism.

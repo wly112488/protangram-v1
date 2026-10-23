@@ -12,6 +12,7 @@ import TrialWorksheetProvider from './TrialWorksheetProvider';
 import LegacySessionPage from './LegacySessionPage';
 import { taskBookPath } from './taskTrialModel';
 import { sessionResourcesPath } from './sharedResourcesModel';
+import TrialSettingsPanel from './TrialSettingsPanel';
 
 const capabilityIcons = {
   doe: <ExperimentOutlined />,
@@ -73,6 +74,7 @@ const SessionWorkbench: React.FC = () => {
       </button>)}
     </nav>}
     <TaskArtifactScope />
+    {physicalSource.trial&&!physicalSource.missing&&<TrialSettingsPanel trial={physicalSource.trial} />}
     {physicalSource.trial && !physicalSource.missing ? <TrialWorksheetProvider key={`${session.id}:${physicalSource.trial.id}`} trial={physicalSource.trial} sessionId={session.id} capability={capability} initialRecordId={physicalSource.record?.id}><Outlet key={`${session.id}:${location.pathname}:${location.key}`} /></TrialWorksheetProvider> : <div className="session-professional-content">{needsTrial
       ? <Alert type="info" showIcon message="请先创建具体试验" description="智能试验设计、数据分析、数字孪生、虚拟工况和报告都围绕具体试验开展。创建完成后，系统会自动带入试验上下文。" action={<Button type="primary" onClick={() => navigate('/trials/new')}>创建具体试验</Button>} />
       : physicalSource.missing ? <Empty description="请先修复业务来源，专业功能不会使用其他记录替代" /> : <><Outlet key={`${session.id}:${location.pathname}:${location.key}`} /></>}</div>}

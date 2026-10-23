@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Dropdown, Input, Modal, Tree, Typography, message } from 'antd';
+import { Button, Dropdown, Input, Modal, Tree, Typography, message, type TreeDataNode } from 'antd';
 import { BookOutlined, DeleteOutlined, FileSearchOutlined, FolderOpenOutlined, HomeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
@@ -40,19 +40,15 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
     ? JSON.stringify(['configuration', physicalSource.family?.id, physicalSource.configuration?.id, physicalSource.experiment.id])
     : physicalSource?.configuration ? JSON.stringify(['object', physicalSource.family?.id, physicalSource.configuration.id])
       : physicalSource?.family ? JSON.stringify(['category', physicalSource.family.id]) : undefined;
-  const treeData = treeModel.map(category => ({
-    key: category.key,
-    title: <span className="physical-tree-node-title">{category.name}<button type="button" className="business-tree-add" aria-label={`在${category.name}下新建具体物理对象`} title="新建具体物理对象" onClick={event => {
-      event.stopPropagation(); open(`/physical-objects?${new URLSearchParams({ objectId: category.id, create: 'configuration' })}`);
-    }}><PlusOutlined /></button></span>,
-    children: category.children.map(object => ({
-      key: object.key,
-      title: <span className="physical-tree-node-title">{object.name}<button type="button" className="business-tree-add" aria-label={`在${object.name}下新建试验构型`} title="新建试验构型" onClick={event => {
-        event.stopPropagation(); open(`/physical-objects?${new URLSearchParams({ objectId: object.categoryId!, configurationId: object.id, create: 'experiment' })}`);
-      }}><PlusOutlined /></button></span>,
-      children: object.children.map(item => ({ key: item.key, title: item.name })),
-    })),
-  }));
+  const renderTreeNode=(node:(typeof treeModel)[number]):TreeDataNode=>({
+    key:node.key,children:node.children.map(renderTreeNode),
+    title:<span className="physical-tree-node-title">{node.name}{node.kind!=='configuration'&&<button type="button" className="business-tree-add"
+      aria-label={node.kind==='category'?`在${node.name}下新建具体物理对象`:`在${node.name}下新增组成对象`}
+      title={node.kind==='category'?'新建具体物理对象':'新增组成对象'} onClick={event=>{
+        event.stopPropagation();open(`/physical-objects?${new URLSearchParams(node.kind==='category'?{objectId:node.id,create:'configuration'}:{objectId:node.categoryId!,configurationId:node.id,create:'component'})}`);
+      }}><PlusOutlined /></button>}</span>,
+  });
+  const treeData=treeModel.map(renderTreeNode);
   const open = (path: string) => { navigate(path); onNavigate(); };
   const startSession = () => open('/trials/new');
   const sessionLink = (session: WorkSession) => <Dropdown key={session.id} trigger={['contextMenu']} menu={{ items: [
@@ -91,6 +87,7 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
       <Input className="business-nav-search" prefix={<SearchOutlined />} allowClear placeholder="搜索会话" aria-label="搜索会话、项目和正式任务" value={search} onChange={event => setSearch(event.target.value)} />
       <button className={`session-sidebar-link business-workbench-link ${workbenchActive ? 'is-active' : ''}`} onClick={() => open('/')}><HomeOutlined />工作台</button>
       <button className={`session-sidebar-link ${location.pathname === '/task-book-analysis' ? 'is-active' : ''}`} onClick={() => open('/task-book-analysis')}><FileSearchOutlined />分析任务书</button>
+      <button className={`session-sidebar-link ${location.pathname === '/task-center' ? 'is-active' : ''}`} onClick={()=>open('/task-center')}><BookOutlined />试验任务</button>
 
 
       <section className="session-nav-section session-nav-section--label-highlight">

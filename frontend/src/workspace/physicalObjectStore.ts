@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { flattenEquipment, mapEquipment } from './equipmentCompositionModel';
+import { createTrialSetting, replaceTrialSetting, type TrialSetting } from './trialSettingsModel';
 
 export type DataForm = '单值' | '分组' | '表格' | '序列' | '文件';
 export interface ValueField { id: string; name: string; description?: string; unit?: string; form: DataForm; value: string; source?: string }
@@ -18,7 +19,7 @@ export interface TrialChartResult extends DerivedChart { sourceRecordId: string 
 export type ChartInput = Omit<DerivedChart, 'id' | 'createdAt' | 'updatedAt'>;
 export interface DerivedTable { id: string; name: string; rawFileId: string; fields: string[]; startRow: number; endRow: number; createdAt: string; updatedAt: string }
 export interface TestRecord { id: string; name: string; executionNumber: number; description?: string; createdAt: string; actualConditions: ValueField[]; measurements: ValueField[]; rawFiles: RawDataFile[]; tables: DerivedTable[] }
-export interface ConcreteTrial { id: string; name: string; cfgId?: string; description?: string; taskBookId?: string; loadSpectrum: string; loadSpectrumDescription?: string; designArtifactRef?: { projectId: string; artifactId: string }; designs?: DesignField[]; records: TestRecord[]; charts: TrialChartResult[] }
+export interface ConcreteTrial { id: string; name: string; cfgId?: string; settings?: TrialSetting[]; description?: string; taskBookId?: string; loadSpectrum: string; loadSpectrumDescription?: string; designArtifactRef?: { projectId: string; artifactId: string }; designs?: DesignField[]; records: TestRecord[]; charts: TrialChartResult[] }
 export const getRecordCharts = (trial: ConcreteTrial | undefined, recordId: string | undefined) => recordId ? (trial?.charts ?? []).filter(chart => chart.sourceRecordId === recordId) : [];
 const chartNameKey = (name: string) => name.trim().normalize('NFC').toLocaleLowerCase();
 export const hasTrialChartNameConflict = (trial: ConcreteTrial, name: string, current?: { id: string; sourceRecordId: string }) => (trial.charts ?? []).some(chart =>
@@ -80,6 +81,8 @@ export interface PhysicalObjectState {
   updateConcreteTrial: (trialId: string, patch: Partial<Pick<ConcreteTrial, 'name' | 'description' | 'taskBookId' | 'loadSpectrum' | 'loadSpectrumDescription' | 'designArtifactRef'>>) => void;
   updateExperiment: (experimentId: string, patch: Partial<Pick<ExperimentDefinition, 'name' | 'description' | 'parameters' | 'testType'>>) => void;
   addTrialRecord: (trialId: string, item: { name?: string; description?: string }) => string;
+  addTrialSetting: (trialId:string,input:Omit<TrialSetting,'id'>) => string;
+  updateTrialSetting: (trialId:string,settingId:string,patch:Partial<Omit<TrialSetting,'id'>>) => void;
   updateTrialRecord: (trialId: string, recordId: string, patch: Partial<Pick<TestRecord, 'name' | 'description'>>) => void;
   addRawFile: (trialId: string, recordId: string, file: RawDataFile) => void;
   removeRawFile: (trialId: string, recordId: string, fileId: string) => void;
@@ -138,6 +141,18 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
     const executionNumber = Math.max(0, ...trial.records.map(item => item.executionNumber)) + 1;
     const record: TestRecord = { ...input, id: id('record'), name: input.name?.trim() || `第 ${executionNumber} 次试验记录`, executionNumber, createdAt: new Date().toISOString(), actualConditions: [], measurements: [], rawFiles: [], tables: [] };
     set(state => ({ objects: mapTrial(state.objects, trialId, item => ({ ...item, records: [...item.records, record] })) }));return record.id;
+  },
+  addTrialSetting: (trialId,input) => {
+    if(!findTrial(get().objects,trialId)) throw new Error('所属具体试验不存在');
+    const setting = {...createTrialSetting(id('set'),input.name,input.fields),programId:input.programId};
+    set(state=>({objects:mapTrial(state.objects,trialId,trial=>({...trial,settings:[...(trial.settings ?? []),setting]}))}));
+    return setting.id;
+  },
+  updateTrialSetting: (trialId,settingId,patch) => {
+    const trial = findTrial(get().objects,trialId);
+    if(!trial) throw new Error('所属具体试验不存在');
+    const settings = replaceTrialSetting(trial.settings ?? [],settingId,patch);
+    set(state=>({objects:mapTrial(state.objects,trialId,trial=>({...trial,settings}))}));
   },
   updateTrialRecord: (trialId, recordId, patch) => set(state => ({ objects: mapRecord(state.objects, trialId, recordId, record => ({ ...record, ...patch })) })),
   addRawFile: (trialId, recordId, file) => set(state => ({ objects: mapRecord(state.objects, trialId, recordId, record => ({ ...record, rawFiles: record.rawFiles.some(item => item.id === file.id) ? record.rawFiles : [...record.rawFiles, file] })) })),

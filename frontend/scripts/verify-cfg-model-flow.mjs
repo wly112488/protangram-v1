@@ -61,6 +61,25 @@ try {
   await page.getByRole('button',{name:'创建并进入试验工作台',exact:true}).click();
   await page.waitForURL(/\/sessions\//);
   console.log('PASS create trial using selected CFG');
+  const trialSession = new URL(page.url()).pathname.split('/')[2];
+  for (const name of ['0D','0.25D','0.5D','0.75D']) {
+    await page.getByRole('button',{name:'新增设置',exact:true}).click();
+    await page.getByRole('dialog').getByLabel('设置名称',{exact:true}).fill(name);
+    await page.getByRole('dialog').getByRole('button',{name:'保存设置',exact:true}).click();
+    await page.getByRole('dialog').waitFor({state:'hidden'});
+  }
+  await page.getByRole('button',{name:'编辑设置 0D',exact:true}).click();
+  await page.getByRole('dialog').getByLabel('设置名称',{exact:true}).fill('0D 已修改');
+  await page.getByRole('dialog').getByRole('button',{name:'添加设置字段',exact:true}).click();
+  await page.getByRole('dialog').getByLabel('字段名称',{exact:true}).fill('探针位置');
+  await page.getByRole('dialog').getByLabel('内容',{exact:true}).fill('0');
+  await page.getByRole('dialog').getByLabel('单位',{exact:true}).fill('D');
+  await page.getByRole('dialog').getByRole('button',{name:'保存设置',exact:true}).click();
+  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.reload({waitUntil:'networkidle'});
+  for (const name of ['0D 已修改','0.25D','0.5D','0.75D']) await page.locator('.trial-settings-panel').getByText(name,{exact:true}).waitFor();
+  await page.screenshot({path:resolve(output,'trial-settings.png'),fullPage:true});
+  console.log('PASS four manual SETs remain independent and survive reload');
   await go('/trial-configurations');
   await page.getByRole('button',{name:'新建 CFG',exact:true}).click();
   await editor().getByLabel('CFG 名称',{exact:true}).fill('管理页 CFG');
@@ -74,9 +93,30 @@ try {
   await page.getByRole('form',{name:'试验构型编辑器'}).waitFor({state:'hidden'});
   assert.equal(await cfgCount(),count+2);
   console.log('PASS management editor uses the same role validation and save action');
+  await go(`/physical-objects?${new URLSearchParams({objectId:seed.category,configurationId:seed.fan})}`);
+  for(const name of ['验收转子','验收叶片']) {
+    await page.getByRole('button',{name:'新增组成对象',exact:true}).click();
+    await page.getByRole('dialog').getByLabel('名称',{exact:true}).fill(name);
+    await page.getByRole('dialog').getByRole('button',{name:/保\s*存/}).click();
+    await page.getByRole('dialog').waitFor({state:'hidden'});
+    await page.getByRole('heading',{name,exact:true}).waitFor();
+  }
+  await page.getByRole('button',{name:'新增参数',exact:true}).click();
+  await page.getByRole('dialog').getByRole('textbox',{name:'参数名称',exact:true}).fill('弦长');
+  await page.getByRole('dialog').getByRole('textbox',{name:'参数内容',exact:true}).fill('12');
+  await page.getByRole('dialog').getByRole('textbox',{name:'单位',exact:true}).fill('mm');
+  await page.getByRole('dialog').getByRole('button',{name:/保\s*存/}).click();
+  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('button',{name:/⌄ 物理对象/}).click();
+  await page.locator('.business-object-tree').getByText('验收转子',{exact:true}).waitFor();
+  await page.locator('.business-object-tree').getByText('验收叶片',{exact:true}).waitFor();
+  await page.screenshot({path:resolve(output,'equipment-composition.png'),fullPage:true});
+  await page.getByRole('button',{name:/试验任务$/}).click();
+  await page.waitForURL(/\/task-center/);
+  console.log('PASS nested equipment creation/parameters/tree and TASK management entry');
   assert.equal(errors.length,0,errors.join('\n'));
   await page.screenshot({path:resolve(output,'editor.png'),fullPage:true});
-  console.log(JSON.stringify({ seed, output }));
+  console.log(JSON.stringify({ seed, trialSession, output }));
 } catch(error) {
   await page.screenshot({path:resolve(output,'failure.png'),fullPage:true});
   console.log((await page.locator('body').innerText()).slice(-4500));

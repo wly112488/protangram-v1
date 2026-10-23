@@ -21,6 +21,15 @@ test('the physical browser tree retains category, object and test-configuration 
   assert.equal(tree[0].children[1].id, 'device-b');
 });
 
+test('composition parts are nested by identity while internal trial containers are not presented as CFGs',()=>{
+  const part={id:'rotor',name:'转子',children:[{id:'blade',name:'叶片',children:[],configurations:[],experiments:[]}],configurations:[],experiments:[]};
+  const nested=[{...objects[0],configurations:[{...objects[0].configurations[0],name:'风扇',children:[part],experiments:[{id:'internal',category:'internal:cfg-trials',name:'内部容器',trials:[]}]}]}];
+  const tree=api.buildPhysicalTreeModel(nested);
+  assert.equal(tree[0].children[0].children[0].id,'rotor');
+  assert.equal(tree[0].children[0].children[0].children[0].id,'blade');
+  assert.equal(tree[0].children[0].children.some(n=>n.id==='internal'),false);
+});
+
 test('the workspace and tree resolve the full parent chain by stable IDs', () => {
   const source = resolvePhysicalNavigation(objects, query());
   assert.equal(source.missing, false);

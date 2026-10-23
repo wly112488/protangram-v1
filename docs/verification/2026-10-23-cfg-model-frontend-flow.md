@@ -52,3 +52,11 @@ Threat boundary for all tasks: normal UI/store operations, persisted legacy stat
 - Finding Gate: three existing assertions requiring a load spectrum were classified `OBSOLETE_TEST` under Task 3 / authoritative rule 7. Replaced those assertions with optional-spectrum record creation or the still-required trial-name guard; historical spectrum immutability assertions remain.
 - Contract boundary includes nested equipment through record mutation, source navigation, task projection and original-file lookup; these existing resolvers were extended together to avoid creating inaccessible part-owned trials.
 - Browser fixture imports must use one fresh Vite module graph: after HMR changes, restart the isolated dev server before dynamic-import seeding. Dependencies remain shared, production stores/source come from this workspace.
+
+### Task 4
+
+- RED: nested physical-navigation test saw the legacy internal container instead of a rotor; SET tests could not resolve the absent model.
+- GREEN: `node --test --test-reporter=dot tests/trialSettings.test.mjs tests/physicalNavigation.test.mjs tests/physicalObjects.test.mjs tests/sessionWorkbench.test.mjs`: 56/56 pass. Build exit 0; targeted lint exit 0. Full lint retains the baseline findings.
+- Four independent manual SETs were created in the actual session UI, one renamed and given a field, then all four restored on reload. The isolated browser also creates rotor → blade via the ordinary UI, edits blade parameters, and verifies both nested tree nodes and the trial-task entry.
+- Original records and the other trial's settings remain unchanged in store tests; missing trial/setting IDs fail without writes. New compatibility containers stay out of the CFG/object tree. Legacy experiment nodes remain accessible.
+- Acceptance audit closed for Task 4; zero-SET model-flow acceptance is repeated in Task 5/6.

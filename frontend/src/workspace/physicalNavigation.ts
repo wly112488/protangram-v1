@@ -1,4 +1,4 @@
-import { findObjectCategory, type PhysicalObject } from './physicalObjectStore';
+import { findObjectCategory, type PhysicalConfiguration, type PhysicalObject } from './physicalObjectStore';
 import { flattenEquipment } from './equipmentCompositionModel';
 
 export interface PhysicalTreeNodeModel {
@@ -12,14 +12,17 @@ export interface PhysicalTreeNodeModel {
 }
 
 export function buildPhysicalTreeModel(objects: PhysicalObject[]): PhysicalTreeNodeModel[] {
+  const buildObject=(object:PhysicalConfiguration,categoryId:string,parentId:string):PhysicalTreeNodeModel=>({
+    key:JSON.stringify(['object',categoryId,object.id]),kind:'object',id:object.id,categoryId,parentId,name:object.name,
+    children:[...(object.children ?? []).map(child=>buildObject(child,categoryId,object.id)),
+      ...('configurations' in object ? (object as PhysicalObject).configurations ?? [] : []).map(child=>buildObject(child,categoryId,object.id)),
+      ...object.experiments.filter(item=>item.category!=='internal:cfg-trials').map(configuration=>({
+        key:JSON.stringify(['configuration',categoryId,object.id,configuration.id]),kind:'configuration' as const,id:configuration.id,categoryId,parentId:object.id,name:configuration.name,children:[],
+      }))],
+  });
   return objects.map(category => ({
     key: JSON.stringify(['category', category.id]), kind: 'category', id: category.id, name: category.name,
-    children: category.configurations.map(object => ({
-      key: JSON.stringify(['object', category.id, object.id]), kind: 'object', id: object.id, categoryId: category.id, parentId: category.id, name: object.name,
-      children: object.experiments.map(configuration => ({
-        key: JSON.stringify(['configuration', category.id, object.id, configuration.id]), kind: 'configuration', id: configuration.id, categoryId: category.id, parentId: object.id, name: configuration.name, children: [],
-      })),
-    })),
+    children: category.configurations.map(object=>buildObject(object,category.id,category.id)),
   }));
 }
 

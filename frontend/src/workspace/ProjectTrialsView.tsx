@@ -9,6 +9,7 @@ import { useTaskStore } from './taskStore';
 import { getProjectTrialEntries, type ProjectTrialEntry } from './projectTrialModel';
 import { getSessionPath } from './sessionModel';
 import { projectWorkspacePath } from './sharedResourcesModel';
+import ProjectContent from './ProjectContent';
 
 export default function ProjectTrialsView({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
@@ -40,6 +41,6 @@ export default function ProjectTrialsView({ projectId }: { projectId: string }) 
       { title: '任务书', render: (_, entry) => entry.trial.taskBookId ? tasks.find(task => task.id === entry.trial.taskBookId)?.title ?? '关联已失效' : '未关联' },
       { title: '执行次数', render: (_, entry) => entry.trial.records.length },
       { title: '操作', render: (_, entry) => <Space><Button onClick={() => openTrial(entry)}>打开试验</Button><Button onClick={() => navigate(projectWorkspacePath(projectId, 'resources', entry.trial.id))}>查看成果</Button></Space> },
-    ]} expandable={{ expandedRowRender: entry => <List dataSource={entry.trial.records} locale={{ emptyText: '尚无执行记录；打开试验后，在数据分析中创建记录和导入 CSV。' }} renderItem={record => <List.Item actions={[<Button key="open" onClick={() => openTrial(entry, record.id)}>打开数据分析</Button>]}><List.Item.Meta title={`第 ${record.executionNumber} 次执行 · ${record.name}`} description={<Space wrap>{record.rawFiles.filter(file => file.status !== 'removed').map(file => <Tag key={file.id}>{file.name}</Tag>)}<Typography.Text type="secondary">{record.tables.length} 个派生数据表</Typography.Text></Space>} /></List.Item>} /> }} />
+    ]} expandable={{ expandedRowRender: entry => <div className="workspace-content-stack"><List dataSource={entry.trial.records} locale={{ emptyText: '尚无执行记录；打开试验后，在数据分析中创建记录和导入 CSV。' }} renderItem={record => <List.Item actions={[<Button key="open" onClick={() => openTrial(entry, record.id)}>打开数据分析</Button>]}><List.Item.Meta title={`第 ${record.executionNumber} 次执行 · ${record.name}`} description={<Space wrap>{record.rawFiles.filter(file => file.status !== 'removed').map(file => <Tag key={file.id}>{file.name}</Tag>)}<Typography.Text type="secondary">{record.tables.length} 个派生数据表</Typography.Text></Space>} /></List.Item>} /><ProjectContent trialViewId={entry.trial.id} embedded /></div> }} />
   </div>;
 }

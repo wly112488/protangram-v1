@@ -66,3 +66,10 @@ test('a design carrying available CSV context is not falsely presented as derive
   assert.equal(catalog.records[0].files[0].results.length, 0);
   assert.equal(catalog.results[0].entry, entry);
 });
+
+test('modern CFG-only and generic results are not mislabeled as historical trial data',()=>{
+  const entry=owner=>({key:'result',kind:'table',name:'新成果',artifact:{type:'design',payload:{resourceOwner:owner}}});
+  assert.equal(api.buildResultCatalog([entry({kind:'cfg',cfgId:'cfg'})])[0].name,'构型成果');
+  assert.equal(api.buildResultCatalog([entry({kind:'session',sessionId:'s'})])[0].name,'通用成果');
+  assert.equal(api.buildResultCatalog([entry(undefined)])[0].name,'未关联试验的历史成果');
+});

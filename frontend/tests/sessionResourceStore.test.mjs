@@ -57,3 +57,17 @@ test('updating a referenced CFG resource preserves one identity and cannot chang
   assert.throws(()=>save(session,{kind:'session',sessionId:session},input(existing.id)),/已有归属/);
   assert.deepEqual(p.getState().projects.flatMap(project=>project.artifacts).find(artifact=>artifact.id===existing.id).payload.resourceOwner,owner);
 });
+
+test('an existing result cannot be moved between concrete trials that share one CFG',()=>{
+  const cfg=c.getState().configurations[0];
+  const fan=cfg.members[0].objectId;
+  const experiment=e.getState().addExperiment(fan,{name:'试验来源',parameters:[]});
+  const first=e.getState().addConcreteTrial(experiment,{name:'第一次',loadSpectrum:'',cfgId:cfg.id});
+  const second=e.getState().addConcreteTrial(experiment,{name:'第二次',loadSpectrum:'',cfgId:cfg.id});
+  const open=trialId=>s.getState().createSession({businessScope:{physicalObjectId:fan,experimentId:experiment,trialId,cfgId:cfg.id}});
+  const a=open(first),b=open(second);
+  const saved=save(a,{kind:'cfg',cfgId:cfg.id},input('trial-bound'));
+  assert.equal(saved.payload.trialContext.trialId,first);
+  assert.throws(()=>save(b,{kind:'cfg',cfgId:cfg.id},input('trial-bound')),/其他具体试验/);
+  assert.equal(p.getState().projects.flatMap(project=>project.artifacts).find(artifact=>artifact.id===saved.id).payload.trialContext.trialId,first);
+});

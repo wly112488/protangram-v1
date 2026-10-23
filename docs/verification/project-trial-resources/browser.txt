@@ -1,0 +1,4 @@
+PASS actual DOE action in the user-provided demo session retains its legacy trial ID
+PASS virtual condition captures the concrete trial in both source metadata and model snapshot
+PASS project trial directory shows generic/CFG groups and read-only recovery without mixing the other trial
+PASS every project trial has a separate directory in both project resources and expanded trial rows

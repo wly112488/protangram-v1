@@ -7,7 +7,8 @@ import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
 import { usePhysicalObjectStore, type RawDataFile } from './physicalObjectStore';
 import { useTrialConfigurationStore } from './trialConfigurationStore';
-import { collectSessionResourceGroups, type ResourceOwner } from './sessionResourceModel';
+import { collectSessionResourceGroups,collectTrialResourceGroups, type ResourceOwner } from './sessionResourceModel';
+import {resolvePhysicalSource} from './physicalBusinessContext';
 import { saveOwnedArtifact } from './sessionResourceStore';
 import { parseTrialCsv, saveTrialFile } from './trialDataFiles';
 import { useProfessionalScope } from './professionalScopeContext';
@@ -31,8 +32,13 @@ export default function SessionDataWorkspace({ professional = false }: { profess
   if (!sessionId || !sessions.some(session=>session.id===sessionId)) return <Empty description="当前会话不存在" />;
   if (professional && !scope?.cfgId) return <Empty description="请选择本次使用的 CFG" />;
   const owner: ResourceOwner = professional ? {kind:'cfg',cfgId:scope!.cfgId!} : {kind:'session',sessionId};
-  const group = collectSessionResourceGroups(projects,sessions,objects,configurations,sessionId).find(item=>item.id===(professional?scope!.cfgId:'generic'));
-  const files = [...new Map([...(group?.files ?? []),...(group?.trials ?? []).flatMap(trial=>trial.records.flatMap(record=>record.rawFiles.filter(file=>file.status!=='removed')))].map(file=>[file.id,file])).values()];
+  const session=sessions.find(item=>item.id===sessionId)!;
+  const trialId=professional?scope?.trialId:session.businessScope?.trialId;
+  const resourceGroups=trialId?collectTrialResourceGroups(projects,sessions,objects,configurations,{trialId,sessionId,projectId:session.projectId ?? session.storageProjectId})
+    :collectSessionResourceGroups(projects,sessions,objects,configurations,sessionId);
+  const group = resourceGroups.find(item=>item.id===(professional?scope!.cfgId:'generic'));
+  const sourceTrial=professional && scope?.trialId?resolvePhysicalSource(objects,scope).trial:undefined;
+  const files = [...new Map([...(group?.files ?? []),...[...(group?.trials ?? []),...(sourceTrial?[sourceTrial]:[])].flatMap(trial=>trial.records.flatMap(record=>record.rawFiles.filter(file=>file.status!=='removed')))].map(file=>[file.id,file])).values()];
   const active = files.find(file=>file.id===activeId) ?? files[0];
   const save = (input: Parameters<typeof saveOwnedArtifact>[2]) => saveOwnedArtifact(sessionId,owner,{
     ...input,payload:{...input.payload,sourceCapability:professional?'analysis':'tools',sourceScope:professional?scope:undefined},

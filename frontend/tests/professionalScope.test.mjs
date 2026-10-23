@@ -19,7 +19,15 @@ test('switching CFG cannot inherit an unrelated trial or execution',()=>{
   const original=cfgOperationScope(cfg('A'),objects,base);
   assert.equal(original.trialId,'t');assert.equal(original.testRecordId,'r');
   for(const alternative of [cfg('B'),cfg('C','other')]) {
-    const changed=cfgOperationScope(alternative,objects,base);
-    assert.equal(changed.trialId,undefined);assert.equal(changed.testRecordId,undefined);
+    assert.throws(()=>cfgOperationScope(alternative,objects,base),/不匹配/);
   }
+});
+
+test('an explicitly opened legacy trial retains its identity when the user selects a CFG for the same equipment',()=>{
+  const legacy=structuredClone(objects);delete legacy[0].configurations[0].experiments[0].trials[0].cfgId;
+  const before=structuredClone(legacy);
+  const scope=cfgOperationScope(cfg('selected'),legacy,base);
+  assert.equal(scope.trialId,'t');assert.equal(scope.experimentId,'setup');assert.equal(scope.testRecordId,'r');
+  assert.equal(scope.cfgId,'selected');assert.deepEqual(legacy,before);
+  assert.throws(()=>cfgOperationScope(cfg('other','other'),legacy,base),/不匹配/);
 });

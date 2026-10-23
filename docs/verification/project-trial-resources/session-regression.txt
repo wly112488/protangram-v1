@@ -1,0 +1,7 @@
+PASS generic CSV editing and plotting saves to the session without a trial, CFG or model
+PASS design, analysis and report require CFG; a CFG can own imported data and charts unrelated to models
+PASS a CFG report can cite generic and CFG charts and saves to the same session catalog
+PASS virtual condition chooses MODEL before configuring CFG, retries failed saves, and shares generic/A/B resources in one session
+PASS digital twin requires CFG; a second session and CFG library reuse the same resources without receiving another session’s generic data
+PASS reopening preserves resource identities and original trial data; model configuration never silently restores a confirmed CFG
+{"output":"/tmp/protangram-verification/session-generic-cfg","passed":6}

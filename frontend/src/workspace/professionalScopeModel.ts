@@ -14,7 +14,10 @@ export function cfgOperationScope(cfg: TrialConfiguration, objects: PhysicalObje
   const primary = equipment.find(item => item.id === primaryId);
   if (!primary) throw new Error('请为此 CFG 指定主被试对象');
   const source = resolvePhysicalSource(objects, base);
-  const sameTrial = source.trial && !source.missing && source.configuration?.id === primary.id && source.trial.cfgId === cfg.id;
+  if ((base?.trialId || base?.testRecordId) && (source.missing || !source.trial)) throw new Error('当前具体试验来源已失效，请返回试验检查');
+  const sameTrial = source.trial && !source.missing && source.configuration?.id === primary.id
+    && (!source.trial.cfgId || source.trial.cfgId === cfg.id);
+  if (source.trial && !sameTrial) throw new Error('所选 CFG 与当前具体试验不匹配，请选择该试验对应的装备构型');
   return {
     physicalObjectId: primary.id, physicalObjectName: primary.name, cfgId: cfg.id,
     experimentId: sameTrial ? source.experiment?.id : undefined,

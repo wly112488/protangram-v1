@@ -4,10 +4,12 @@ import type { ConcreteTrial, PhysicalObject, RawDataFile } from './physicalObjec
 import type { TrialConfiguration } from './trialConfigurationModel';
 import { collectAnalysisResults, type ResultEntry } from './analysisResultModel';
 import { flattenEquipment } from './equipmentCompositionModel';
+import { resolveArtifactTrialScope } from './artifactTrialContext';
+import { getProjectTrialEntries } from './projectTrialModel';
 
 export type ResourceOwner = { kind: 'session'; sessionId: string } | { kind: 'cfg'; cfgId: string };
 export interface SessionResourceGroup {
-  id: string; name: string; entries: ResultEntry[]; trials: ConcreteTrial[]; files: RawDataFile[]; missing?: boolean;
+  id: string; name: string; entries: ResultEntry[]; trials: ConcreteTrial[]; files: Array<RawDataFile & {trialId?:string;trialName?:string;loadSpectrum?:string}>; missing?: boolean;
 }
 
 export function artifactOwner(artifact: ProjectArtifact, trials: ConcreteTrial[] = []): ResourceOwner | undefined {
@@ -47,10 +49,16 @@ export function collectSessionResourceGroups(
   if (baseTrial?.cfgId) cfgIds.add(baseTrial.cfgId);
   const makeGroup = (id: string, name: string, items: ProjectArtifact[], trials: ConcreteTrial[], missing = false): SessionResourceGroup => ({
     id, name, missing, trials,
-    entries: [...new Map([...trials.flatMap(trial => collectAnalysisResults(trial, [])), ...collectAnalysisResults(undefined, items)].map(entry => [entry.key, entry])).values()],
+    entries: [...new Map([...trials.flatMap(trial => collectAnalysisResults(trial, [])), ...collectAnalysisResults(undefined, items)].map(entry => {
+      const resolvedScope=entry.artifact && resolveArtifactTrialScope(entry.artifact,sessions,objects,configurations);
+      const trial=allTrials.find(item=>item.id===resolvedScope?.trialId);
+      return [entry.key,resolvedScope?{...entry,resolvedScope,trialId:trial?.id,loadSpectrum:trial?.loadSpectrum}:entry] as const;
+    })).values()],
     files: [...new Map(items.flatMap(artifact => {
       const file = artifact.payload.dataFile as RawDataFile | undefined;
-      return file && file.status !== 'removed' ? [[file.id, file] as const] : [];
+      const resolved=resolveArtifactTrialScope(artifact,sessions,objects,configurations);
+      const trial=allTrials.find(item=>item.id===resolved?.trialId);
+      return file && file.status !== 'removed' ? [[file.id, trial?{...file,trialId:trial.id,trialName:trial.name,loadSpectrum:trial.loadSpectrum}:file] as const] : [];
     })).values()],
   });
   const genericArtifacts = ownArtifacts.filter(artifact => artifactOwner(artifact, allTrials)?.kind !== 'cfg');
@@ -63,4 +71,37 @@ export function collectSessionResourceGroups(
     }), allTrials.filter(trial => trial.cfgId === id), !cfg));
   }
   return groups;
+}
+
+export function collectTrialResourceGroups(
+  projects: Project[], sessions: WorkSession[], objects: PhysicalObject[], configurations: TrialConfiguration[],
+  scope: {projectId?:string;trialId:string;sessionId?:string},
+): SessionResourceGroup[] {
+  const refs=flattenEquipment(objects);
+  const trials=refs.flatMap(ref=>ref.equipment.experiments.flatMap(experiment=>experiment.trials));
+  const trial=trials.find(item=>item.id===scope.trialId);
+  if (!trial) return [];
+  if (scope.projectId && !getProjectTrialEntries(scope.projectId,objects,projects,sessions).some(entry=>entry.trial.id===trial.id)) return [];
+  if (scope.sessionId && sessions.find(item=>item.id===scope.sessionId)?.businessScope?.trialId!==trial.id) return [];
+  const items=projects.flatMap(project=>project.artifacts).filter(artifact=>
+    resolveArtifactTrialScope(artifact,sessions,objects,configurations)?.trialId===trial.id);
+  const groups=new Map<string,SessionResourceGroup>();
+  const ensure=(id:string)=>{
+    let group=groups.get(id);
+    if(!group) {
+      const cfg=configurations.find(item=>item.id===id);
+      group={id,name:id==='generic'?'通用':cfg?.name ?? '构型来源已失效',missing:id!=='generic'&&!cfg,entries:[],trials:[],files:[]};groups.set(id,group);
+    }
+    return group;
+  };
+  ensure('generic');
+  const raw=ensure(trial.cfgId ?? 'generic');raw.trials.push(trial);raw.entries.push(...collectAnalysisResults(trial,[]));
+  for(const artifact of items) {
+    const owner=artifactOwner(artifact,trials);
+    const group=ensure(owner?.kind==='cfg'?owner.cfgId:'generic');
+    group.entries.push(...collectAnalysisResults(trial,[artifact]).map(entry=>({...entry,resolvedScope:resolveArtifactTrialScope(artifact,sessions,objects,configurations)})));
+    const file=artifact.payload.dataFile as RawDataFile | undefined;
+    if(file && file.status!=='removed' && !group.files.some(item=>item.id===file.id)) group.files.push({...file,trialId:trial.id,trialName:trial.name,loadSpectrum:trial.loadSpectrum});
+  }
+  return [...groups.values()];
 }

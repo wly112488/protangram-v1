@@ -49,6 +49,7 @@ export interface ResultEntry {
   sourceAvailable?: boolean;
   trialId?: string;
   loadSpectrum?: string;
+  resolvedScope?: PhysicalBusinessScope;
 }
 
 export function captureResultContext(objects: PhysicalObject[], scope: PhysicalBusinessScope) {

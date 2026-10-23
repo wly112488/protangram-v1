@@ -1,0 +1,1661 @@
+{
+  "base": "http://127.0.0.1:5193",
+  "seed": {
+    "cfg": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+    "trial": "trial-7669ff78-40f0-4bf9-99d6-41280253698e",
+    "session": "session-c6324fc8-01a8-4ce2-8a04-96960f9f4883",
+    "marker": {
+      "type": "design",
+      "title": "另一试验专属方案",
+      "source": "test",
+      "summary": "",
+      "payload": {
+        "resourceOwner": {
+          "kind": "cfg",
+          "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b"
+        },
+        "sourceSessionId": "session-c6324fc8-01a8-4ce2-8a04-96960f9f4883",
+        "sourceScope": {
+          "physicalObjectId": "demo-fan-A",
+          "experimentId": "demo-configuration-1",
+          "trialId": "trial-7669ff78-40f0-4bf9-99d6-41280253698e",
+          "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b"
+        },
+        "results": [
+          {
+            "id": "r",
+            "kind": "metric",
+            "name": "另一试验专属结果",
+            "value": 1
+          }
+        ]
+      },
+      "id": "design-c4d74dab-6d7d-40c2-bebc-ae71ff51b7b5",
+      "projectId": "project-8fba3049-ad19-46e6-9868-c84a8cdafe76",
+      "createdAt": "2026-10-23T09:13:22.305Z",
+      "updatedAt": "2026-10-23T09:13:22.305Z"
+    },
+    "objects": [
+      {
+        "id": "category-fan",
+        "name": "涵道风扇",
+        "type": "涵道风扇",
+        "description": "",
+        "configurations": [],
+        "parameters": [],
+        "materials": [],
+        "children": [],
+        "designs": [],
+        "experiments": [],
+        "models": [],
+        "legacyCategories": []
+      },
+      {
+        "id": "category-motor",
+        "name": "电机",
+        "type": "电机",
+        "description": "",
+        "configurations": [],
+        "parameters": [],
+        "materials": [],
+        "children": [],
+        "designs": [],
+        "experiments": [],
+        "models": [],
+        "legacyCategories": []
+      },
+      {
+        "id": "category-propulsion",
+        "name": "电推进",
+        "type": "电推进",
+        "description": "",
+        "configurations": [],
+        "parameters": [],
+        "materials": [],
+        "children": [],
+        "designs": [],
+        "experiments": [],
+        "models": [],
+        "legacyCategories": []
+      },
+      {
+        "parameters": [],
+        "materials": [],
+        "children": [],
+        "designs": [],
+        "experiments": [],
+        "models": [],
+        "id": "demo-category-fan",
+        "name": "涵道风扇（演示）",
+        "type": "涵道风扇",
+        "description": "两台演示风扇，每台包含两个试验构型。",
+        "configurations": [
+          {
+            "parameters": [
+              {
+                "id": "demo-diameter-A",
+                "name": "涵道直径",
+                "value": "280",
+                "unit": "mm",
+                "form": "单值",
+                "source": "演示样例"
+              },
+              {
+                "id": "demo-blades-A",
+                "name": "叶片数量",
+                "value": "7",
+                "unit": "",
+                "form": "单值",
+                "source": "演示样例"
+              },
+              {
+                "id": "demo-power-A",
+                "name": "额定功率",
+                "value": "5",
+                "unit": "kW",
+                "form": "单值",
+                "source": "演示样例"
+              }
+            ],
+            "materials": [
+              {
+                "id": "demo-material-A",
+                "name": "叶片材料",
+                "value": "碳纤维复合材料",
+                "unit": "",
+                "form": "单值",
+                "source": "演示样例"
+              }
+            ],
+            "children": [],
+            "designs": [],
+            "experiments": [
+              {
+                "id": "demo-configuration-0",
+                "name": "静推力构型 A",
+                "description": "演示构型，可在对象树查看参数。",
+                "testType": "thrust",
+                "parameters": [
+                  {
+                    "id": "demo-angle-0",
+                    "name": "安装角度",
+                    "value": "0",
+                    "unit": "°",
+                    "form": "单值",
+                    "source": "演示样例"
+                  },
+                  {
+                    "id": "demo-target-0",
+                    "name": "目标转速",
+                    "value": "5000",
+                    "unit": "rpm",
+                    "form": "单值",
+                    "source": "演示样例"
+                  }
+                ],
+                "trials": [
+                  {
+                    "id": "demo-trial-0",
+                    "name": "静推力基线验证（演示）",
+                    "description": "仓库内置演示试验，CSV 为可编辑的合成样例。",
+                    "loadSpectrum": "LS-DEMO-01",
+                    "charts": [
+                      {
+                        "id": "demo-chart-0-0-0",
+                        "name": "基线 · 推力随时间变化",
+                        "sourceRecordId": "demo-record-0-0",
+                        "rawFileId": "demo-csv-0-0-0",
+                        "xField": "time_s",
+                        "yField": "thrust_n",
+                        "chartType": "line",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      },
+                      {
+                        "id": "demo-chart-0-0-1",
+                        "name": "基线 · 转速与推力关系",
+                        "sourceRecordId": "demo-record-0-0",
+                        "rawFileId": "demo-csv-0-0-0",
+                        "xField": "speed_rpm",
+                        "yField": "thrust_n",
+                        "chartType": "scatter",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      },
+                      {
+                        "id": "demo-chart-0-1-0",
+                        "name": "复测 · 推力随时间变化",
+                        "sourceRecordId": "demo-record-0-1",
+                        "rawFileId": "demo-csv-0-1-0",
+                        "xField": "time_s",
+                        "yField": "thrust_n",
+                        "chartType": "line",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      },
+                      {
+                        "id": "demo-chart-0-1-1",
+                        "name": "复测 · 转速与推力关系",
+                        "sourceRecordId": "demo-record-0-1",
+                        "rawFileId": "demo-csv-0-1-0",
+                        "xField": "speed_rpm",
+                        "yField": "thrust_n",
+                        "chartType": "scatter",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      }
+                    ],
+                    "records": [
+                      {
+                        "id": "demo-record-0-0",
+                        "name": "基线记录",
+                        "executionNumber": 1,
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "actualConditions": [
+                          {
+                            "id": "demo-temperature-0",
+                            "name": "环境温度",
+                            "value": "25",
+                            "unit": "℃",
+                            "form": "单值",
+                            "source": "演示样例"
+                          },
+                          {
+                            "id": "demo-speed-0",
+                            "name": "转速",
+                            "value": "5000",
+                            "unit": "rpm",
+                            "form": "单值",
+                            "source": "演示样例"
+                          }
+                        ],
+                        "measurements": [],
+                        "rawFiles": [
+                          {
+                            "id": "demo-csv-0-0-0",
+                            "name": "推力记录_A_1_1.csv",
+                            "mimeType": "text/csv",
+                            "size": 3542,
+                            "addedAt": "2026-10-21T02:00:00.000Z",
+                            "headers": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "rowCount": 120,
+                            "status": "available"
+                          },
+                          {
+                            "id": "demo-csv-0-0-1",
+                            "name": "复核记录_A_1_1.csv",
+                            "mimeType": "text/csv",
+                            "size": 3542,
+                            "addedAt": "2026-10-21T02:00:00.000Z",
+                            "headers": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "rowCount": 120,
+                            "status": "available"
+                          }
+                        ],
+                        "tables": [
+                          {
+                            "id": "demo-table-0-0",
+                            "name": "静推力基线验证（演示） · 第1次数据表",
+                            "rawFileId": "demo-csv-0-0-0",
+                            "fields": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "startRow": 0,
+                            "endRow": 0,
+                            "createdAt": "2026-10-21T02:00:00.000Z",
+                            "updatedAt": "2026-10-21T02:00:00.000Z"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "demo-record-0-1",
+                        "name": "复测记录",
+                        "executionNumber": 2,
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "actualConditions": [
+                          {
+                            "id": "demo-temperature-0",
+                            "name": "环境温度",
+                            "value": "25",
+                            "unit": "℃",
+                            "form": "单值",
+                            "source": "演示样例"
+                          },
+                          {
+                            "id": "demo-speed-0",
+                            "name": "转速",
+                            "value": "5000",
+                            "unit": "rpm",
+                            "form": "单值",
+                            "source": "演示样例"
+                          }
+                        ],
+                        "measurements": [],
+                        "rawFiles": [
+                          {
+                            "id": "demo-csv-0-1-0",
+                            "name": "推力记录_A_1_2.csv",
+                            "mimeType": "text/csv",
+                            "size": 3542,
+                            "addedAt": "2026-10-21T02:00:00.000Z",
+                            "headers": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "rowCount": 120,
+                            "status": "available"
+                          }
+                        ],
+                        "tables": [
+                          {
+                            "id": "demo-table-0-1",
+                            "name": "静推力基线验证（演示） · 第2次数据表",
+                            "rawFileId": "demo-csv-0-1-0",
+                            "fields": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "startRow": 0,
+                            "endRow": 0,
+                            "createdAt": "2026-10-21T02:00:00.000Z",
+                            "updatedAt": "2026-10-21T02:00:00.000Z"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "demo-configuration-1",
+                "name": "变转速构型 A",
+                "description": "演示构型，可在对象树查看参数。",
+                "testType": "thrust",
+                "parameters": [
+                  {
+                    "id": "demo-angle-1",
+                    "name": "安装角度",
+                    "value": "5",
+                    "unit": "°",
+                    "form": "单值",
+                    "source": "演示样例"
+                  },
+                  {
+                    "id": "demo-target-1",
+                    "name": "目标转速",
+                    "value": "5000",
+                    "unit": "rpm",
+                    "form": "单值",
+                    "source": "演示样例"
+                  }
+                ],
+                "trials": [
+                  {
+                    "id": "demo-trial-1",
+                    "name": "变转速性能验证（演示）",
+                    "description": "仓库内置演示试验，CSV 为可编辑的合成样例。",
+                    "loadSpectrum": "LS-DEMO-02",
+                    "taskBookId": "demo-task-fan-validation",
+                    "charts": [
+                      {
+                        "id": "demo-chart-1-0-0",
+                        "name": "基线 · 推力随时间变化",
+                        "sourceRecordId": "demo-record-1-0",
+                        "rawFileId": "demo-csv-1-0-0",
+                        "xField": "time_s",
+                        "yField": "thrust_n",
+                        "chartType": "line",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      },
+                      {
+                        "id": "demo-chart-1-0-1",
+                        "name": "基线 · 转速与推力关系",
+                        "sourceRecordId": "demo-record-1-0",
+                        "rawFileId": "demo-csv-1-0-0",
+                        "xField": "speed_rpm",
+                        "yField": "thrust_n",
+                        "chartType": "scatter",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      }
+                    ],
+                    "records": [
+                      {
+                        "id": "demo-record-1-0",
+                        "name": "基线记录",
+                        "executionNumber": 1,
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "actualConditions": [
+                          {
+                            "id": "demo-temperature-1",
+                            "name": "环境温度",
+                            "value": "25",
+                            "unit": "℃",
+                            "form": "单值",
+                            "source": "演示样例"
+                          },
+                          {
+                            "id": "demo-speed-1",
+                            "name": "转速",
+                            "value": "5000",
+                            "unit": "rpm",
+                            "form": "单值",
+                            "source": "演示样例"
+                          }
+                        ],
+                        "measurements": [],
+                        "rawFiles": [
+                          {
+                            "id": "demo-csv-1-0-0",
+                            "name": "推力记录_A_2_1.csv",
+                            "mimeType": "text/csv",
+                            "size": 3542,
+                            "addedAt": "2026-10-21T02:00:00.000Z",
+                            "headers": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "rowCount": 120,
+                            "status": "available"
+                          }
+                        ],
+                        "tables": [
+                          {
+                            "id": "demo-table-1-0",
+                            "name": "变转速性能验证（演示） · 第1次数据表",
+                            "rawFileId": "demo-csv-1-0-0",
+                            "fields": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "startRow": 0,
+                            "endRow": 0,
+                            "createdAt": "2026-10-21T02:00:00.000Z",
+                            "updatedAt": "2026-10-21T02:00:00.000Z"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "同一构型的另一次试验",
+                    "loadSpectrum": "LS-OTHER",
+                    "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+                    "id": "trial-7669ff78-40f0-4bf9-99d6-41280253698e",
+                    "records": [],
+                    "charts": []
+                  }
+                ]
+              }
+            ],
+            "models": [],
+            "id": "demo-fan-A",
+            "name": "涵道风扇 A（演示）",
+            "description": "固定演示样例，可编辑参数；非实测设备数据。"
+          },
+          {
+            "parameters": [
+              {
+                "id": "demo-diameter-B",
+                "name": "涵道直径",
+                "value": "320",
+                "unit": "mm",
+                "form": "单值",
+                "source": "演示样例"
+              },
+              {
+                "id": "demo-blades-B",
+                "name": "叶片数量",
+                "value": "9",
+                "unit": "",
+                "form": "单值",
+                "source": "演示样例"
+              },
+              {
+                "id": "demo-power-B",
+                "name": "额定功率",
+                "value": "8",
+                "unit": "kW",
+                "form": "单值",
+                "source": "演示样例"
+              }
+            ],
+            "materials": [
+              {
+                "id": "demo-material-B",
+                "name": "叶片材料",
+                "value": "碳纤维复合材料",
+                "unit": "",
+                "form": "单值",
+                "source": "演示样例"
+              }
+            ],
+            "children": [],
+            "designs": [],
+            "experiments": [
+              {
+                "id": "demo-configuration-2",
+                "name": "静推力构型 B",
+                "description": "演示构型，可在对象树查看参数。",
+                "testType": "thrust",
+                "parameters": [
+                  {
+                    "id": "demo-angle-2",
+                    "name": "安装角度",
+                    "value": "0",
+                    "unit": "°",
+                    "form": "单值",
+                    "source": "演示样例"
+                  },
+                  {
+                    "id": "demo-target-2",
+                    "name": "目标转速",
+                    "value": "5000",
+                    "unit": "rpm",
+                    "form": "单值",
+                    "source": "演示样例"
+                  }
+                ],
+                "trials": [
+                  {
+                    "id": "demo-trial-2",
+                    "name": "大直径风扇推力验证（演示）",
+                    "description": "仓库内置演示试验，CSV 为可编辑的合成样例。",
+                    "loadSpectrum": "LS-DEMO-03",
+                    "charts": [
+                      {
+                        "id": "demo-chart-2-0-0",
+                        "name": "基线 · 推力随时间变化",
+                        "sourceRecordId": "demo-record-2-0",
+                        "rawFileId": "demo-csv-2-0-0",
+                        "xField": "time_s",
+                        "yField": "thrust_n",
+                        "chartType": "line",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      },
+                      {
+                        "id": "demo-chart-2-0-1",
+                        "name": "基线 · 转速与推力关系",
+                        "sourceRecordId": "demo-record-2-0",
+                        "rawFileId": "demo-csv-2-0-0",
+                        "xField": "speed_rpm",
+                        "yField": "thrust_n",
+                        "chartType": "scatter",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      }
+                    ],
+                    "records": [
+                      {
+                        "id": "demo-record-2-0",
+                        "name": "基线记录",
+                        "executionNumber": 1,
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "actualConditions": [
+                          {
+                            "id": "demo-temperature-2",
+                            "name": "环境温度",
+                            "value": "25",
+                            "unit": "℃",
+                            "form": "单值",
+                            "source": "演示样例"
+                          },
+                          {
+                            "id": "demo-speed-2",
+                            "name": "转速",
+                            "value": "5000",
+                            "unit": "rpm",
+                            "form": "单值",
+                            "source": "演示样例"
+                          }
+                        ],
+                        "measurements": [],
+                        "rawFiles": [
+                          {
+                            "id": "demo-csv-2-0-0",
+                            "name": "推力记录_B_1_1.csv",
+                            "mimeType": "text/csv",
+                            "size": 3542,
+                            "addedAt": "2026-10-21T02:00:00.000Z",
+                            "headers": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "rowCount": 120,
+                            "status": "available"
+                          }
+                        ],
+                        "tables": [
+                          {
+                            "id": "demo-table-2-0",
+                            "name": "大直径风扇推力验证（演示） · 第1次数据表",
+                            "rawFileId": "demo-csv-2-0-0",
+                            "fields": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "startRow": 0,
+                            "endRow": 0,
+                            "createdAt": "2026-10-21T02:00:00.000Z",
+                            "updatedAt": "2026-10-21T02:00:00.000Z"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "demo-configuration-3",
+                "name": "变转速构型 B",
+                "description": "演示构型，可在对象树查看参数。",
+                "testType": "thrust",
+                "parameters": [
+                  {
+                    "id": "demo-angle-3",
+                    "name": "安装角度",
+                    "value": "5",
+                    "unit": "°",
+                    "form": "单值",
+                    "source": "演示样例"
+                  },
+                  {
+                    "id": "demo-target-3",
+                    "name": "目标转速",
+                    "value": "5000",
+                    "unit": "rpm",
+                    "form": "单值",
+                    "source": "演示样例"
+                  }
+                ],
+                "trials": [
+                  {
+                    "id": "demo-trial-3",
+                    "name": "高转速补充验证（演示）",
+                    "description": "仓库内置演示试验，CSV 为可编辑的合成样例。",
+                    "loadSpectrum": "LS-DEMO-04",
+                    "charts": [
+                      {
+                        "id": "demo-chart-3-0-0",
+                        "name": "基线 · 推力随时间变化",
+                        "sourceRecordId": "demo-record-3-0",
+                        "rawFileId": "demo-csv-3-0-0",
+                        "xField": "time_s",
+                        "yField": "thrust_n",
+                        "chartType": "line",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      },
+                      {
+                        "id": "demo-chart-3-0-1",
+                        "name": "基线 · 转速与推力关系",
+                        "sourceRecordId": "demo-record-3-0",
+                        "rawFileId": "demo-csv-3-0-0",
+                        "xField": "speed_rpm",
+                        "yField": "thrust_n",
+                        "chartType": "scatter",
+                        "startRow": 0,
+                        "endRow": 0,
+                        "scale": 1,
+                        "offset": 0,
+                        "color": "#1677ff",
+                        "smooth": false,
+                        "sourceCapability": "analysis",
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "updatedAt": "2026-10-21T02:00:00.000Z"
+                      }
+                    ],
+                    "records": [
+                      {
+                        "id": "demo-record-3-0",
+                        "name": "基线记录",
+                        "executionNumber": 1,
+                        "createdAt": "2026-10-21T02:00:00.000Z",
+                        "actualConditions": [
+                          {
+                            "id": "demo-temperature-3",
+                            "name": "环境温度",
+                            "value": "25",
+                            "unit": "℃",
+                            "form": "单值",
+                            "source": "演示样例"
+                          },
+                          {
+                            "id": "demo-speed-3",
+                            "name": "转速",
+                            "value": "5000",
+                            "unit": "rpm",
+                            "form": "单值",
+                            "source": "演示样例"
+                          }
+                        ],
+                        "measurements": [],
+                        "rawFiles": [
+                          {
+                            "id": "demo-csv-3-0-0",
+                            "name": "推力记录_B_2_1.csv",
+                            "mimeType": "text/csv",
+                            "size": 3542,
+                            "addedAt": "2026-10-21T02:00:00.000Z",
+                            "headers": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "rowCount": 120,
+                            "status": "available"
+                          }
+                        ],
+                        "tables": [
+                          {
+                            "id": "demo-table-3-0",
+                            "name": "高转速补充验证（演示） · 第1次数据表",
+                            "rawFileId": "demo-csv-3-0-0",
+                            "fields": [
+                              "time_s",
+                              "speed_rpm",
+                              "thrust_n",
+                              "temperature_c",
+                              "pressure_kpa"
+                            ],
+                            "startRow": 0,
+                            "endRow": 0,
+                            "createdAt": "2026-10-21T02:00:00.000Z",
+                            "updatedAt": "2026-10-21T02:00:00.000Z"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "models": [],
+            "id": "demo-fan-B",
+            "name": "涵道风扇 B（演示）",
+            "description": "固定演示样例，可编辑参数；非实测设备数据。"
+          }
+        ]
+      }
+    ]
+  },
+  "design": {
+    "title": "最大化性能 · 智能推荐方案",
+    "summary": "推荐 8 个试验工况，预计覆盖率 86%，高风险工况 1 个",
+    "payload": {
+      "model": {
+        "modelId": "",
+        "modelName": "未选择模型",
+        "version": "",
+        "trustedRange": "未设置"
+      },
+      "datasets": [
+        "推力记录_A_2_1.csv"
+      ],
+      "config": {
+        "target": "最大化性能",
+        "speedMin": 2000,
+        "speedMax": 8000,
+        "temperatureMin": 20,
+        "temperatureMax": 120,
+        "pressureMin": 1,
+        "pressureMax": 2,
+        "maxRuns": 10,
+        "strategy": "自动推荐"
+      },
+      "constraints": {
+        "speedMax": 8000,
+        "temperatureMax": 120,
+        "pressureMin": 1,
+        "safety": true,
+        "excludeAbnormal": true
+      },
+      "plan": [
+        {
+          "key": "01",
+          "order": 1,
+          "speed": 2000,
+          "temperature": 80,
+          "pressure": 1.55,
+          "recommendation": "高",
+          "risk": "低",
+          "reason": "重点验证上游建议区域，预计信息增益高"
+        },
+        {
+          "key": "02",
+          "order": 2,
+          "speed": 2860,
+          "temperature": 87,
+          "pressure": 1.64,
+          "recommendation": "高",
+          "risk": "低",
+          "reason": "重点验证上游建议区域，预计信息增益高"
+        },
+        {
+          "key": "03",
+          "order": 3,
+          "speed": 3710,
+          "temperature": 94,
+          "pressure": 1.73,
+          "recommendation": "高",
+          "risk": "低",
+          "reason": "重点验证上游建议区域，预计信息增益高"
+        },
+        {
+          "key": "04",
+          "order": 4,
+          "speed": 4570,
+          "temperature": 101,
+          "pressure": 1.82,
+          "recommendation": "中",
+          "risk": "低",
+          "reason": "补充参数空间覆盖"
+        },
+        {
+          "key": "05",
+          "order": 5,
+          "speed": 5430,
+          "temperature": 108,
+          "pressure": 1.91,
+          "recommendation": "中",
+          "risk": "低",
+          "reason": "补充参数空间覆盖"
+        },
+        {
+          "key": "06",
+          "order": 6,
+          "speed": 6290,
+          "temperature": 115,
+          "pressure": 2,
+          "recommendation": "中",
+          "risk": "低",
+          "reason": "补充参数空间覆盖"
+        },
+        {
+          "key": "07",
+          "order": 7,
+          "speed": 7140,
+          "temperature": 86,
+          "pressure": 1.59,
+          "recommendation": "中",
+          "risk": "低",
+          "reason": "补充参数空间覆盖"
+        },
+        {
+          "key": "08",
+          "order": 8,
+          "speed": 8000,
+          "temperature": 93,
+          "pressure": 1.68,
+          "recommendation": "中",
+          "risk": "高",
+          "reason": "补充参数空间覆盖"
+        }
+      ],
+      "coverage": 86,
+      "highRiskCount": 1,
+      "sourceCapability": "doe",
+      "resultMode": "demo",
+      "sourceScope": {
+        "physicalObjectId": "demo-fan-A",
+        "experimentId": "demo-configuration-1",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+        "trialId": "demo-trial-1"
+      },
+      "sourceContext": {
+        "scope": {
+          "physicalObjectId": "demo-fan-A",
+          "experimentId": "demo-configuration-1",
+          "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+          "trialId": "demo-trial-1"
+        },
+        "physicalObjectName": "涵道风扇 A（演示）",
+        "experimentName": "变转速构型 A",
+        "trialName": "变转速性能验证（演示）",
+        "loadSpectrum": "LS-DEMO-02",
+        "objectParameters": [
+          {
+            "id": "demo-diameter-A",
+            "name": "涵道直径",
+            "value": "280",
+            "unit": "mm",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-blades-A",
+            "name": "叶片数量",
+            "value": "7",
+            "unit": "",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-power-A",
+            "name": "额定功率",
+            "value": "5",
+            "unit": "kW",
+            "form": "单值",
+            "source": "演示样例"
+          }
+        ],
+        "configurationParameters": [
+          {
+            "id": "demo-angle-1",
+            "name": "安装角度",
+            "value": "5",
+            "unit": "°",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-target-1",
+            "name": "目标转速",
+            "value": "5000",
+            "unit": "rpm",
+            "form": "单值",
+            "source": "演示样例"
+          }
+        ],
+        "rawFiles": [
+          {
+            "id": "demo-csv-1-0-0",
+            "name": "推力记录_A_2_1.csv",
+            "mimeType": "text/csv",
+            "size": 3542,
+            "addedAt": "2026-10-21T02:00:00.000Z",
+            "headers": [
+              "time_s",
+              "speed_rpm",
+              "thrust_n",
+              "temperature_c",
+              "pressure_kpa"
+            ],
+            "rowCount": 120,
+            "status": "available",
+            "trialId": "demo-trial-1",
+            "sourceRecordId": "demo-record-1-0"
+          }
+        ]
+      },
+      "upstreamArtifactIds": [
+        "design-c4d74dab-6d7d-40c2-bebc-ae71ff51b7b5"
+      ],
+      "upstreamArtifactRefs": [
+        {
+          "projectId": "project-8fba3049-ad19-46e6-9868-c84a8cdafe76",
+          "artifactId": "design-c4d74dab-6d7d-40c2-bebc-ae71ff51b7b5"
+        }
+      ],
+      "upstreamResultKeys": [
+        "chart:demo-record-1-0:demo-chart-1-0-0",
+        "chart:demo-record-1-0:demo-chart-1-0-1",
+        "table:demo-record-1-0:demo-table-1-0",
+        "artifact:project-8fba3049-ad19-46e6-9868-c84a8cdafe76:design-c4d74dab-6d7d-40c2-bebc-ae71ff51b7b5:r"
+      ],
+      "trialContext": {
+        "physicalObjectId": "demo-fan-A",
+        "experimentId": "demo-configuration-1",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+        "trialId": "demo-trial-1",
+        "physicalObjectName": "涵道风扇 A（演示）",
+        "experimentName": "变转速构型 A",
+        "trialName": "变转速性能验证（演示）"
+      },
+      "resourceOwner": {
+        "kind": "cfg",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b"
+      },
+      "sourceSessionId": "demo-session-1"
+    },
+    "type": "design",
+    "source": "智能试验设计",
+    "id": "design-49258f2f-50dd-4b8c-9291-69e45b46c6ec",
+    "projectId": "demo-project-fan-validation",
+    "createdAt": "2026-10-23T09:13:26.321Z",
+    "updatedAt": "2026-10-23T09:13:26.321Z"
+  },
+  "prediction": {
+    "id": "prediction:virtualCondition:preview:virtualCondition:7f2616fa-19fa-4de9-aacf-93df8d45a40b",
+    "type": "virtualCondition",
+    "title": "涵道风扇 A（演示） · 虚拟工况",
+    "source": "虚拟工况扩展",
+    "summary": "虚拟工况扩展演示计算完成，共 36 组目标工况。",
+    "payload": {
+      "resultMode": "demo",
+      "resultNature": "virtualPrediction",
+      "predictionTaskId": "preview:virtualCondition:7f2616fa-19fa-4de9-aacf-93df8d45a40b",
+      "inputs": {
+        "speedMin": 8000,
+        "speedMax": 10000,
+        "temperatureMin": 80,
+        "temperatureMax": 120,
+        "pressureMin": 1.5,
+        "pressureMax": 2.2,
+        "count": 36
+      },
+      "targetConfiguration": {
+        "physicalObjectId": "demo-fan-A",
+        "physicalObjectName": "涵道风扇 A（演示）",
+        "experimentId": "demo-configuration-1",
+        "experimentName": "变转速构型 A",
+        "testType": "thrust",
+        "objectParameters": [
+          {
+            "id": "demo-diameter-A",
+            "name": "涵道直径",
+            "value": "280",
+            "unit": "mm",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-blades-A",
+            "name": "叶片数量",
+            "value": "7",
+            "unit": "",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-power-A",
+            "name": "额定功率",
+            "value": "5",
+            "unit": "kW",
+            "form": "单值",
+            "source": "演示样例"
+          }
+        ],
+        "configurationParameters": [
+          {
+            "id": "demo-angle-1",
+            "name": "安装角度",
+            "value": "5",
+            "unit": "°",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-target-1",
+            "name": "目标转速",
+            "value": "5000",
+            "unit": "rpm",
+            "form": "单值",
+            "source": "演示样例"
+          }
+        ]
+      },
+      "modelPlan": {
+        "modelId": "MOD-01",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+        "objectIds": [
+          "demo-fan-A"
+        ],
+        "configKey": "[[[\"$modelVersion\",\"demo-v1\"],[\"mesh\",\"演示标准网格\"]],[]]",
+        "schemeId": "om-f7503359-6ad6-4f6a-95a8-956257fcf534",
+        "trialId": "demo-trial-1",
+        "configurationInputs": {
+          "mesh": "演示标准网格",
+          "$modelVersion": "demo-v1"
+        },
+        "bindings": [],
+        "equipmentInputs": {},
+        "runtimeInputs": {
+          "speedMin": 8000,
+          "speedMax": 10000,
+          "temperatureMin": 80,
+          "temperatureMax": 120,
+          "pressureMin": 1.5,
+          "pressureMax": 2.2,
+          "count": 36
+        }
+      },
+      "sourceContext": {
+        "scope": {
+          "physicalObjectId": "demo-fan-A",
+          "experimentId": "demo-configuration-1",
+          "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+          "trialId": "demo-trial-1"
+        },
+        "physicalObjectName": "涵道风扇 A（演示）",
+        "experimentName": "变转速构型 A",
+        "trialName": "变转速性能验证（演示）",
+        "loadSpectrum": "LS-DEMO-02",
+        "objectParameters": [
+          {
+            "id": "demo-diameter-A",
+            "name": "涵道直径",
+            "value": "280",
+            "unit": "mm",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-blades-A",
+            "name": "叶片数量",
+            "value": "7",
+            "unit": "",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-power-A",
+            "name": "额定功率",
+            "value": "5",
+            "unit": "kW",
+            "form": "单值",
+            "source": "演示样例"
+          }
+        ],
+        "configurationParameters": [
+          {
+            "id": "demo-angle-1",
+            "name": "安装角度",
+            "value": "5",
+            "unit": "°",
+            "form": "单值",
+            "source": "演示样例"
+          },
+          {
+            "id": "demo-target-1",
+            "name": "目标转速",
+            "value": "5000",
+            "unit": "rpm",
+            "form": "单值",
+            "source": "演示样例"
+          }
+        ],
+        "rawFiles": [
+          {
+            "id": "demo-csv-1-0-0",
+            "name": "推力记录_A_2_1.csv",
+            "mimeType": "text/csv",
+            "size": 3542,
+            "addedAt": "2026-10-21T02:00:00.000Z",
+            "headers": [
+              "time_s",
+              "speed_rpm",
+              "thrust_n",
+              "temperature_c",
+              "pressure_kpa"
+            ],
+            "rowCount": 120,
+            "status": "available",
+            "trialId": "demo-trial-1",
+            "sourceRecordId": "demo-record-1-0"
+          }
+        ]
+      },
+      "upstreamResultKeys": [
+        "chart:demo-record-1-0:demo-chart-1-0-0",
+        "chart:demo-record-1-0:demo-chart-1-0-1",
+        "table:demo-record-1-0:demo-table-1-0",
+        "artifact:demo-project-fan-validation:design-49258f2f-50dd-4b8c-9291-69e45b46c6ec:plan",
+        "artifact:project-8fba3049-ad19-46e6-9868-c84a8cdafe76:design-c4d74dab-6d7d-40c2-bebc-ae71ff51b7b5:r"
+      ],
+      "upstreamArtifactRefs": [
+        {
+          "projectId": "demo-project-fan-validation",
+          "artifactId": "design-49258f2f-50dd-4b8c-9291-69e45b46c6ec"
+        },
+        {
+          "projectId": "project-8fba3049-ad19-46e6-9868-c84a8cdafe76",
+          "artifactId": "design-c4d74dab-6d7d-40c2-bebc-ae71ff51b7b5"
+        }
+      ],
+      "results": [
+        {
+          "id": "prediction",
+          "name": "虚拟工况扩展",
+          "kind": "table",
+          "summary": "虚拟工况扩展演示计算完成，共 36 组目标工况。",
+          "columns": [
+            {
+              "key": "condition",
+              "label": "工况"
+            },
+            {
+              "key": "speed",
+              "label": "转速",
+              "unit": "rpm"
+            },
+            {
+              "key": "temperature",
+              "label": "温度",
+              "unit": "℃"
+            },
+            {
+              "key": "pressure",
+              "label": "压力",
+              "unit": "MPa"
+            },
+            {
+              "key": "thrust",
+              "label": "示例推力",
+              "unit": "N"
+            }
+          ],
+          "rows": [
+            {
+              "condition": 1,
+              "speed": 8000,
+              "temperature": 80,
+              "pressure": 1.5,
+              "thrust": 80.28
+            },
+            {
+              "condition": 2,
+              "speed": 8057.14,
+              "temperature": 81.14,
+              "pressure": 1.52,
+              "thrust": 82.25
+            },
+            {
+              "condition": 3,
+              "speed": 8114.29,
+              "temperature": 82.29,
+              "pressure": 1.54,
+              "thrust": 84.24
+            },
+            {
+              "condition": 4,
+              "speed": 8171.43,
+              "temperature": 83.43,
+              "pressure": 1.56,
+              "thrust": 86.27
+            },
+            {
+              "condition": 5,
+              "speed": 8228.57,
+              "temperature": 84.57,
+              "pressure": 1.58,
+              "thrust": 88.32
+            },
+            {
+              "condition": 6,
+              "speed": 8285.71,
+              "temperature": 85.71,
+              "pressure": 1.6,
+              "thrust": 90.39
+            },
+            {
+              "condition": 7,
+              "speed": 8342.86,
+              "temperature": 86.86,
+              "pressure": 1.62,
+              "thrust": 92.49
+            },
+            {
+              "condition": 8,
+              "speed": 8400,
+              "temperature": 88,
+              "pressure": 1.64,
+              "thrust": 94.62
+            },
+            {
+              "condition": 9,
+              "speed": 8457.14,
+              "temperature": 89.14,
+              "pressure": 1.66,
+              "thrust": 96.78
+            },
+            {
+              "condition": 10,
+              "speed": 8514.29,
+              "temperature": 90.29,
+              "pressure": 1.68,
+              "thrust": 98.96
+            },
+            {
+              "condition": 11,
+              "speed": 8571.43,
+              "temperature": 91.43,
+              "pressure": 1.7,
+              "thrust": 101.17
+            },
+            {
+              "condition": 12,
+              "speed": 8628.57,
+              "temperature": 92.57,
+              "pressure": 1.72,
+              "thrust": 103.4
+            },
+            {
+              "condition": 13,
+              "speed": 8685.71,
+              "temperature": 93.71,
+              "pressure": 1.74,
+              "thrust": 105.67
+            },
+            {
+              "condition": 14,
+              "speed": 8742.86,
+              "temperature": 94.86,
+              "pressure": 1.76,
+              "thrust": 107.95
+            },
+            {
+              "condition": 15,
+              "speed": 8800,
+              "temperature": 96,
+              "pressure": 1.78,
+              "thrust": 110.27
+            },
+            {
+              "condition": 16,
+              "speed": 8857.14,
+              "temperature": 97.14,
+              "pressure": 1.8,
+              "thrust": 112.61
+            },
+            {
+              "condition": 17,
+              "speed": 8914.29,
+              "temperature": 98.29,
+              "pressure": 1.82,
+              "thrust": 114.98
+            },
+            {
+              "condition": 18,
+              "speed": 8971.43,
+              "temperature": 99.43,
+              "pressure": 1.84,
+              "thrust": 117.38
+            },
+            {
+              "condition": 19,
+              "speed": 9028.57,
+              "temperature": 100.57,
+              "pressure": 1.86,
+              "thrust": 119.81
+            },
+            {
+              "condition": 20,
+              "speed": 9085.71,
+              "temperature": 101.71,
+              "pressure": 1.88,
+              "thrust": 122.26
+            },
+            {
+              "condition": 21,
+              "speed": 9142.86,
+              "temperature": 102.86,
+              "pressure": 1.9,
+              "thrust": 124.74
+            },
+            {
+              "condition": 22,
+              "speed": 9200,
+              "temperature": 104,
+              "pressure": 1.92,
+              "thrust": 127.25
+            },
+            {
+              "condition": 23,
+              "speed": 9257.14,
+              "temperature": 105.14,
+              "pressure": 1.94,
+              "thrust": 129.78
+            },
+            {
+              "condition": 24,
+              "speed": 9314.29,
+              "temperature": 106.29,
+              "pressure": 1.96,
+              "thrust": 132.34
+            },
+            {
+              "condition": 25,
+              "speed": 9371.43,
+              "temperature": 107.43,
+              "pressure": 1.98,
+              "thrust": 134.93
+            },
+            {
+              "condition": 26,
+              "speed": 9428.57,
+              "temperature": 108.57,
+              "pressure": 2,
+              "thrust": 137.55
+            },
+            {
+              "condition": 27,
+              "speed": 9485.71,
+              "temperature": 109.71,
+              "pressure": 2.02,
+              "thrust": 140.19
+            },
+            {
+              "condition": 28,
+              "speed": 9542.86,
+              "temperature": 110.86,
+              "pressure": 2.04,
+              "thrust": 142.87
+            },
+            {
+              "condition": 29,
+              "speed": 9600,
+              "temperature": 112,
+              "pressure": 2.06,
+              "thrust": 145.57
+            },
+            {
+              "condition": 30,
+              "speed": 9657.14,
+              "temperature": 113.14,
+              "pressure": 2.08,
+              "thrust": 148.29
+            },
+            {
+              "condition": 31,
+              "speed": 9714.29,
+              "temperature": 114.29,
+              "pressure": 2.1,
+              "thrust": 151.05
+            },
+            {
+              "condition": 32,
+              "speed": 9771.43,
+              "temperature": 115.43,
+              "pressure": 2.12,
+              "thrust": 153.83
+            },
+            {
+              "condition": 33,
+              "speed": 9828.57,
+              "temperature": 116.57,
+              "pressure": 2.14,
+              "thrust": 156.65
+            },
+            {
+              "condition": 34,
+              "speed": 9885.71,
+              "temperature": 117.71,
+              "pressure": 2.16,
+              "thrust": 159.49
+            },
+            {
+              "condition": 35,
+              "speed": 9942.86,
+              "temperature": 118.86,
+              "pressure": 2.18,
+              "thrust": 162.35
+            },
+            {
+              "condition": 36,
+              "speed": 10000,
+              "temperature": 120,
+              "pressure": 2.2,
+              "thrust": 165.25
+            }
+          ],
+          "basis": [
+            "输入条件：转速下限：8000 rpm；转速上限：10000 rpm；温度下限：80 ℃；温度上限：120 ℃；压力下限：1.5 MPa；压力上限：2.2 MPa；工况数量：36 ",
+            "前端演示数据；关联的 CSV 和已有成果仅作为业务上下文，未参与物理预测计算。"
+          ]
+        }
+      ],
+      "sourceCapability": "virtualCondition",
+      "sourceScope": {
+        "physicalObjectId": "demo-fan-A",
+        "experimentId": "demo-configuration-1",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+        "trialId": "demo-trial-1"
+      },
+      "upstreamArtifactIds": [
+        "design-49258f2f-50dd-4b8c-9291-69e45b46c6ec",
+        "design-c4d74dab-6d7d-40c2-bebc-ae71ff51b7b5"
+      ],
+      "trialContext": {
+        "physicalObjectId": "demo-fan-A",
+        "experimentId": "demo-configuration-1",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b",
+        "trialId": "demo-trial-1",
+        "physicalObjectName": "涵道风扇 A（演示）",
+        "experimentName": "变转速构型 A",
+        "trialName": "变转速性能验证（演示）"
+      },
+      "resourceOwner": {
+        "kind": "cfg",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b"
+      },
+      "sourceSessionId": "demo-session-1"
+    },
+    "projectId": "demo-project-fan-validation",
+    "createdAt": "2026-10-23T09:13:28.799Z",
+    "updatedAt": "2026-10-23T09:13:28.799Z"
+  },
+  "generic": {
+    "id": "data-file:raw-96f1cc3c-3e2f-41c2-95d4-ba249a8d4506",
+    "type": "analysis",
+    "title": "trial-note.csv",
+    "source": "通用工具",
+    "summary": "2 行 · 2 列",
+    "payload": {
+      "dataFile": {
+        "id": "raw-96f1cc3c-3e2f-41c2-95d4-ba249a8d4506",
+        "name": "trial-note.csv",
+        "mimeType": "text/csv",
+        "size": 12,
+        "addedAt": "2026-10-23T09:13:30.172Z",
+        "headers": [
+          "x",
+          "y"
+        ],
+        "rowCount": 2,
+        "status": "available"
+      },
+      "resultMode": "measured",
+      "results": [],
+      "sourceCapability": "tools",
+      "trialContext": {
+        "physicalObjectId": "demo-fan-A",
+        "physicalObjectName": "涵道风扇 A（演示）",
+        "experimentId": "demo-configuration-1",
+        "experimentName": "变转速构型 A",
+        "trialId": "demo-trial-1",
+        "trialName": "变转速性能验证（演示）"
+      },
+      "resourceOwner": {
+        "kind": "session",
+        "sessionId": "demo-session-1"
+      },
+      "sourceSessionId": "demo-session-1"
+    },
+    "projectId": "demo-project-fan-validation",
+    "createdAt": "2026-10-23T09:13:30.173Z",
+    "updatedAt": "2026-10-23T09:13:30.173Z"
+  },
+  "legacy": {
+    "id": "lost-trial-link",
+    "type": "design",
+    "title": "待恢复关联的旧方案",
+    "source": "智能试验设计",
+    "summary": "",
+    "payload": {
+      "resourceOwner": {
+        "kind": "cfg",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b"
+      },
+      "sourceSessionId": "demo-session-1",
+      "sourceScope": {
+        "physicalObjectId": "demo-fan-A",
+        "cfgId": "cfg-1e0e8020-734c-4bec-8308-d4616e0bf01b"
+      },
+      "results": [
+        {
+          "id": "r",
+          "kind": "metric",
+          "name": "恢复后的旧方案",
+          "value": 1
+        }
+      ]
+    },
+    "projectId": "demo-project-fan-validation",
+    "createdAt": "2026-10-23T09:13:30.399Z",
+    "updatedAt": "2026-10-23T09:13:30.399Z"
+  },
+  "errors": [],
+  "writes": []
+}

@@ -2,6 +2,8 @@ import { useProjectStore } from './projectStore';
 import { useSessionStore } from './sessionStore';
 import { useTrialConfigurationStore } from './trialConfigurationStore';
 import { artifactOwner, type ResourceOwner } from './sessionResourceModel';
+import { resolveArtifactTrialScope } from './artifactTrialContext';
+import { usePhysicalObjectStore } from './physicalObjectStore';
 
 type ArtifactInput = Parameters<ReturnType<typeof useProjectStore.getState>['addArtifact']>[1];
 
@@ -17,6 +19,9 @@ export function saveOwnedArtifact(sessionId: string, owner: ResourceOwner, input
   const previousSessions = sessions.sessions;
   const existing = input.id ? previousProjects.flatMap(project=>project.artifacts).find(artifact=>artifact.id===input.id) : undefined;
   const previousOwner = existing && artifactOwner(existing);
+  const trialContext = resolveArtifactTrialScope({payload:{...input.payload,resourceOwner:owner,sourceSessionId:sessionId}},previousSessions,usePhysicalObjectStore.getState().objects,useTrialConfigurationStore.getState().configurations);
+  const previousTrial=existing && resolveArtifactTrialScope(existing,previousSessions,usePhysicalObjectStore.getState().objects,useTrialConfigurationStore.getState().configurations);
+  if(previousTrial?.trialId && trialContext?.trialId && previousTrial.trialId!==trialContext.trialId) throw new Error('此成果已关联其他具体试验，请新建成果后保存');
   if (previousOwner && (previousOwner.kind !== owner.kind
     || previousOwner.kind === 'cfg' && owner.kind === 'cfg' && previousOwner.cfgId !== owner.cfgId
     || previousOwner.kind === 'session' && owner.kind === 'session' && previousOwner.sessionId !== owner.sessionId)) {
@@ -24,7 +29,7 @@ export function saveOwnedArtifact(sessionId: string, owner: ResourceOwner, input
   }
   try {
     const artifact = useProjectStore.getState().addArtifact(existing?.projectId ?? session.storageProjectId, {
-      ...input, payload: { ...input.payload, resourceOwner: { ...owner }, sourceSessionId: existing?.payload.sourceSessionId ?? sessionId },
+      ...input, payload: { ...input.payload, trialContext:existing?.payload.trialContext ?? trialContext, resourceOwner: { ...owner }, sourceSessionId: existing?.payload.sourceSessionId ?? sessionId },
     });
     if (!artifact) throw new Error('成果未保存，请重试');
     if (owner.kind === 'cfg') sessions.linkConfiguration(sessionId, owner.cfgId);

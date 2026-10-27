@@ -1,25 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Card, Typography, Button, Modal, Table, message, Space, Tag, Upload, Tabs, Select, InputNumber, Divider, Input,
-} from 'antd';
-import {
-  ArrowLeftOutlined, PlayCircleOutlined, CheckCircleOutlined,
-  UploadOutlined, FileTextOutlined, FullscreenOutlined, FullscreenExitOutlined,
-  BarChartOutlined, CalculatorOutlined, PlusOutlined, MinusCircleOutlined,
-} from '@ant-design/icons';
+import { Card, Typography, Button, Modal, Table, message, Tag, Upload, Select, InputNumber, Divider, Input } from 'antd';
+import { ArrowLeftOutlined, CheckCircleOutlined, UploadOutlined, FileTextOutlined, FullscreenOutlined, FullscreenExitOutlined, BarChartOutlined, CalculatorOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import FullscreenPanel from '@/components/FullscreenPanel';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  ReactFlow, Background, Controls, MiniMap, useNodesState, useEdgesState,
-  Handle, Position, type Node, type Edge,
-} from 'reactflow';
+import { ReactFlow, Background, Controls, MiniMap, useNodesState, useEdgesState, Handle, Position, type Node, type Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 import Papa from 'papaparse';
 import ReactECharts from 'echarts-for-react';
 import useAppStore from '@/stores/useAppStore';
-import {
-  loadAnalysisProjects, saveAnalysisProjects, loadAnalysisTemplates,
-} from '@/utils/storage';
+import { loadAnalysisProjects, saveAnalysisProjects, loadAnalysisTemplates } from '@/utils/storage';
 
 const { Title, Text } = Typography;
 
@@ -46,21 +35,21 @@ const HighlightWrapper: React.FC<{
 const ExecDataNode = ({ data, id }: { data: { label: string; isActive?: boolean; isCompleted?: boolean; varNames?: string[]; onOutNodeClick?: (nodeId: string) => void }; id: string }) => {
   const vars = data.varNames || [];
   const isOutNode = data.label === 'OUT输出';
-  
+
   const handleClick = () => {
     if (isOutNode && data.onOutNodeClick) {
       data.onOutNodeClick(id);
     }
   };
-  
+
   return (
     <HighlightWrapper isActive={!!data.isActive} isCompleted={!!data.isCompleted}>
-      <div 
+      <div
         style={{
           padding: '8px 16px', borderRadius: 8,
           background: data.isCompleted ? '#f6ffed' : data.isActive ? '#e6f7ff' : '#fafafa',
           border: `2px solid ${data.isCompleted ? '#52c41a' : data.isActive ? '#1890ff' : '#d9d9d9'}`,
-          minWidth: 120, textAlign: 'center', 
+          minWidth: 120, textAlign: 'center',
           cursor: (data.isActive || isOutNode) ? 'pointer' : 'default',
         }}
         onClick={handleClick}
@@ -179,7 +168,7 @@ const AnalysisExecution: React.FC = () => {
   const [currentExecIdx, setCurrentExecIdx] = useState(0);
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
   const [allDone, setAllDone] = useState(false);
-  
+
   // 全屏面板状态
   const [fullscreenVisible, setFullscreenVisible] = useState(false);
   const [fullscreenUrl, setFullscreenUrl] = useState<string>('');
@@ -199,7 +188,7 @@ const AnalysisExecution: React.FC = () => {
    */
   const handleUrlConfirm = () => {
     if (!inputUrl.trim()) {
-      message.warning('请输入有效的URL地址');
+
       return;
     }
     setFullscreenUrl(inputUrl.trim());
@@ -746,7 +735,7 @@ const AnalysisExecution: React.FC = () => {
           <Button key="ok" type="primary" onClick={() => {
             const validNames = outputVarNames.filter((n) => n.trim() !== '');
             if (validNames.length === 0) {
-              message.warning('请至少设置一个输出变量名称');
+
               return;
             }
             message.success(`已设置 ${validNames.length} 个输出变量：${validNames.join(', ')}`);

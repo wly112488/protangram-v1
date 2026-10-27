@@ -137,7 +137,7 @@ test('joining analysis and virtual results to a report persists session resource
   assert.match(generateSource, /saveOwnedArtifact\(scope\.sessionId,\{kind:'session',sessionId:scope\.sessionId\},input\)/);
 });
 
-test('cross-page workflows explain which task data model or validation context was carried forward', () => {
+test('cross-page workflows keep the incoming business context available to feature inputs', () => {
   const sources = [
     '../src/pages/experiment/design/IntelligentExperimentDesign.tsx',
     '../src/pages/analysis/projects/AnalysisProjects.tsx',
@@ -145,7 +145,10 @@ test('cross-page workflows explain which task data model or validation context w
     '../src/pages/analysis/VirtualConditionExtension.tsx',
   ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'));
 
-  for (const source of sources) assert.match(source, /已从[\s\S]{0,400}带入业务上下文|已从试验数据分析带入/);
+  for (const source of sources) {
+    assert.match(source, /useSessionRouteState/);
+    assert.match(source, /incoming\?\.(data|validation|model|result)/);
+  }
 });
 
 test('shared catalog renders saved content and retains the originating work route', () => {
@@ -157,10 +160,12 @@ test('shared catalog renders saved content and retains the originating work rout
   assert.doesNotMatch(source, /JSON\.stringify/);
 });
 
-test('project landing separates concrete trials from shared resources without a duplicate overview', () => {
+test('project landing provides two business groups and preserves legacy resource URLs', () => {
   const source = readFileSync(new URL('../src/workspace/ProjectResourcesPage.tsx', import.meta.url), 'utf8');
-  assert.match(source, /具体试验/);
-  assert.match(source, /共享数据与成果/);
+  assert.match(source, /分析任务书/);
+  assert.match(source, /试验任务/);
+  assert.doesNotMatch(source, /label: '共享数据与成果'/);
+  assert.match(source, /legacyResources \? <ProjectContent/);
   assert.doesNotMatch(source, /ProjectOverview|<Drawer|项目资源目录/);
 });
 

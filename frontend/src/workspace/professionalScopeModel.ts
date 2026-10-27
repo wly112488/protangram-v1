@@ -14,10 +14,12 @@ export function cfgOperationScope(cfg: TrialConfiguration, objects: PhysicalObje
   const primary = equipment.find(item => item.id === primaryId);
   if (!primary) throw new Error('请为此 CFG 指定主被试对象');
   const source = resolvePhysicalSource(objects, base);
-  const sourceCfgId = source.trial?.cfgId ?? base?.cfgId;
-  const sameTrial = source.trial && !source.missing && source.configuration?.id === primary.id && (sourceCfgId == null || sourceCfgId === cfg.id);
+  // A trial identifies the work; CFG identifies this operation's equipment combination.
+  // Preserve the trial source chain even if a different combination is used.
+  if (base?.trialId && (source.missing || !source.trial)) throw new Error('当前具体试验来源已失效');
+  const sameTrial = Boolean(source.trial && !source.missing);
   return {
-    physicalObjectId: primary.id, physicalObjectName: primary.name, cfgId: cfg.id,
+    physicalObjectId: sameTrial ? source.configuration!.id : primary.id, physicalObjectName: sameTrial ? source.configuration!.name : primary.name, cfgId: cfg.id,
     experimentId: sameTrial ? source.experiment?.id : undefined,
     experimentName: sameTrial ? source.experiment?.name : undefined,
     trialId: sameTrial ? source.trial?.id : undefined, trialName: sameTrial ? source.trial?.name : undefined,

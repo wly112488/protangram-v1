@@ -1,0 +1,378 @@
+# 前端提示文案清理前记录（已确认执行）
+
+本清单来自当前源码中的文本节点、字符串与业务异常，排除注释；包含主流程与仍可访问的兼容页面，不表示每条提示都在当前主页面展示。用户已确认全部删除；此处保留清理前原文供追溯，不代表当前界面仍会显示。执行结果见 [清理记录](ui-copy-cleanup.md)。
+
+截图中的 crypto.randomUUID 错误属于程序兼容问题，本轮修复 ID 生成；不是用户需要配置的业务选项。
+
+CFG 当前可用流程：维护物理对象及参数 → 新建 CFG，选择装备并设置角色 → 保存 → 在专业功能内明确选择 CFG → 填写参数并运行前端演示。
+
+确认口径：功能预留文案可以删除对应占位内容或入口；不替换成“未配置所以暂时删除”等说明。真实的选择、引用与保存校验应保留有效处理方式。演示性质仍需明确，较长的实现说明可以在确认后精简。
+
+## 当前前端配置的实际操作门槛
+
+| 操作 | 用户如何完成 |
+| --- | --- |
+| 新建 CFG | 填名称，从既有物理对象选择装备并设置角色；分类可选，多被试装备时指定主被试对象。 |
+| 专业功能 | 明确选择本次 CFG；可在同一流程新建 CFG 后返回选择。 |
+| 模型运行 | 选择模型，填写模型及工况参数；使用装备参数时明确字段绑定。当前运行是前端演示。 |
+| 智能试验设计 | 填写并确认试验配置、约束，选择 CFG 后生成推荐方案。 |
+| 数据分析 | 选择 CFG 后导入 CSV 或新建数据表；有未保存编辑时先保存再切换。 |
+| 具体试验关联 | 在功能内关联已有试验，或填物理对象和名称创建试验；项目和任务书归属必须有效。 |
+
+## 功能预留、未实现或未配置文案（2 处）
+
+- [frontend/src/pages/experiment/info/SamplingRequirements.tsx:21](../../../frontend/src/pages/experiment/info/SamplingRequirements.tsx:21)：该功能将在后续版本中实现
+- [frontend/src/pages/experiment/info/SamplingRequirements.tsx:24](../../../frontend/src/pages/experiment/info/SamplingRequirements.tsx:24)：当前版本已预留功能接口
+
+## 前端演示与后端实现说明（5 处）
+
+- [frontend/src/components/TrialAIAssistant.tsx:73](../../../frontend/src/components/TrialAIAssistant.tsx:73)：${answers[context.pageType]}\n\n当前对象：${context.taskName ?? context.projectName ?? context.pageName}；当前模型：${context.modelName ?? '未指定'}；当前结果：${context.resultSummary ?? '暂无'}。\n针对“${prompt}”，以上结论由当前页面 Mock 上下文生成。
+- [frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:393](../../../frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:393)：推荐结果（前端演示）
+- [frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:398](../../../frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:398)：前端演示推荐，未调用后端优化算法
+- [frontend/src/workspace/CfgPredictionForm.tsx:127](../../../frontend/src/workspace/CfgPredictionForm.tsx:127)：前端演示：运行结果为模拟样例，未调用 CFD 或后端计算算法
+- [frontend/src/workspace/CfgPredictionForm.tsx:147](../../../frontend/src/workspace/CfgPredictionForm.tsx:147)：运行结果（前端演示）
+
+## 空状态、未填写与待完善文案（73 处）
+
+- [frontend/src/components/TrialAIAssistant.tsx:64](../../../frontend/src/components/TrialAIAssistant.tsx:64)：分析摘要\n\n当前任务：${context.taskName ?? '未指定'}。${context.resultSummary ?? '暂无摘要'}。\n\n结合当前模型 ${context.modelName ?? '未指定'} 与数据 ${context.dataName ?? '未指定'}，建议针对异常区域开展补充验证，并使用本次数据重新校准数字孪生模型。
+- [frontend/src/components/TrialAIAssistant.tsx:64](../../../frontend/src/components/TrialAIAssistant.tsx:64)：未指定
+- [frontend/src/components/TrialAIAssistant.tsx:64](../../../frontend/src/components/TrialAIAssistant.tsx:64)：暂无摘要
+- [frontend/src/components/TrialAIAssistant.tsx:73](../../../frontend/src/components/TrialAIAssistant.tsx:73)：未指定
+- [frontend/src/components/TrialAIAssistant.tsx:73](../../../frontend/src/components/TrialAIAssistant.tsx:73)：暂无
+- [frontend/src/pages/analysis/DigitalTwin.tsx:319](../../../frontend/src/pages/analysis/DigitalTwin.tsx:319)：${incoming.data?.dataName ?? '未提供数据'}；异常工况：${incoming.result?.abnormalRange ?? '未提供'}；${incoming.result?.resultSummary ?? '暂无分析摘要'}
+- [frontend/src/pages/analysis/DigitalTwin.tsx:319](../../../frontend/src/pages/analysis/DigitalTwin.tsx:319)：未提供数据
+- [frontend/src/pages/analysis/DigitalTwin.tsx:319](../../../frontend/src/pages/analysis/DigitalTwin.tsx:319)：未提供
+- [frontend/src/pages/analysis/DigitalTwin.tsx:319](../../../frontend/src/pages/analysis/DigitalTwin.tsx:319)：暂无分析摘要
+- [frontend/src/pages/analysis/DigitalTwin.tsx:324](../../../frontend/src/pages/analysis/DigitalTwin.tsx:324)：未选择
+- [frontend/src/pages/analysis/DigitalTwin.tsx:338](../../../frontend/src/pages/analysis/DigitalTwin.tsx:338)：未选择
+- [frontend/src/pages/analysis/VirtualConditionExtension.tsx:357](../../../frontend/src/pages/analysis/VirtualConditionExtension.tsx:357)：未选择或无效
+- [frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:131](../../../frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:131)：未填写
+- [frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:153](../../../frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:153)：暂无大纲
+- [frontend/src/pages/analysis/projects/AnalysisProjects.tsx:129](../../../frontend/src/pages/analysis/projects/AnalysisProjects.tsx:129)：尚无记录
+- [frontend/src/pages/analysis/projects/AnalysisProjects.tsx:130](../../../frontend/src/pages/analysis/projects/AnalysisProjects.tsx:130)：尚无 CSV 文件
+- [frontend/src/pages/analysis/templates/TemplateList.tsx:92](../../../frontend/src/pages/analysis/templates/TemplateList.tsx:92)：暂无分析模板，点击
+- [frontend/src/pages/experiment/design/ExperimentDesign.tsx:78](../../../frontend/src/pages/experiment/design/ExperimentDesign.tsx:78)：暂无试验项目，点击
+- [frontend/src/pages/experiment/design/ExperimentDesign.tsx:156](../../../frontend/src/pages/experiment/design/ExperimentDesign.tsx:156)：暂无试验目标
+- [frontend/src/pages/experiment/design/ExperimentDesign.tsx:161](../../../frontend/src/pages/experiment/design/ExperimentDesign.tsx:161)：未选择
+- [frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:383](../../../frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:383)：未选择或无效
+- [frontend/src/pages/report/ReportCreate.tsx:261](../../../frontend/src/pages/report/ReportCreate.tsx:261)：暂无关联
+- [frontend/src/pages/report/ReportCreate.tsx:261](../../../frontend/src/pages/report/ReportCreate.tsx:261)：未填写
+- [frontend/src/pages/report/ReportCreate.tsx:278](../../../frontend/src/pages/report/ReportCreate.tsx:278)：当前会话暂无可纳入报告的成果
+- [frontend/src/pages/report/ReportCreate.tsx:278](../../../frontend/src/pages/report/ReportCreate.tsx:278)：项目暂无可纳入报告的成果
+- [frontend/src/pages/report/ReportCreate.tsx:287](../../../frontend/src/pages/report/ReportCreate.tsx:287)：关联记录尚无图表
+- [frontend/src/pages/report/ReportCreate.tsx:293](../../../frontend/src/pages/report/ReportCreate.tsx:293)：报告草稿暂时为空。
+- [frontend/src/pages/report/ReportGenerate.tsx:402](../../../frontend/src/pages/report/ReportGenerate.tsx:402)：暂无可预览的正文或资料
+- [frontend/src/pages/report/ReportList.tsx:78](../../../frontend/src/pages/report/ReportList.tsx:78)：当前项目暂无可纳入报告的成果
+- [frontend/src/pages/report/ReportList.tsx:98](../../../frontend/src/pages/report/ReportList.tsx:98)：暂无分析报告，点击
+- [frontend/src/pages/report/ReportList.tsx:133](../../../frontend/src/pages/report/ReportList.tsx:133)：未填写
+- [frontend/src/pages/report/ReportList.tsx:138](../../../frontend/src/pages/report/ReportList.tsx:138)：未指定
+- [frontend/src/pages/report/ReportList.tsx:142](../../../frontend/src/pages/report/ReportList.tsx:142)：未指定
+- [frontend/src/workbench/ExperimentNavigator.tsx:164](../../../frontend/src/workbench/ExperimentNavigator.tsx:164)：暂无资源
+- [frontend/src/workbench/FunctionBar.tsx:734](../../../frontend/src/workbench/FunctionBar.tsx:734)：暂无模板
+- [frontend/src/workspace/AnalysisResults.tsx:75](../../../frontend/src/workspace/AnalysisResults.tsx:75)：暂无数据或已保存成果
+- [frontend/src/workspace/BusinessSidebar.tsx:113](../../../frontend/src/workspace/BusinessSidebar.tsx:113)：暂无项目
+- [frontend/src/workspace/BusinessSidebar.tsx:118](../../../frontend/src/workspace/BusinessSidebar.tsx:118)：暂无对象类别
+- [frontend/src/workspace/LegacySessionPage.tsx:11](../../../frontend/src/workspace/LegacySessionPage.tsx:11)：此历史会话尚未关联具体试验
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:50](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:50)：暂无
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:239](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:239)：暂无参数
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:273](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:273)：未填写（可选）
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:279](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:279)：尚无执行记录
+- [frontend/src/workspace/PhysicalTrialsTable.tsx:35](../../../frontend/src/workspace/PhysicalTrialsTable.tsx:35)：暂无具体试验
+- [frontend/src/workspace/PhysicalTrialsTable.tsx:38](../../../frontend/src/workspace/PhysicalTrialsTable.tsx:38)：待补充
+- [frontend/src/workspace/ProjectSidebar.tsx:138](../../../frontend/src/workspace/ProjectSidebar.tsx:138)：暂无项目
+- [frontend/src/workspace/ProjectTrialsView.tsx:36](../../../frontend/src/workspace/ProjectTrialsView.tsx:36)：待完善的试验工作
+- [frontend/src/workspace/ProjectTrialsView.tsx:44](../../../frontend/src/workspace/ProjectTrialsView.tsx:44)：待补充
+- [frontend/src/workspace/ProjectTrialsView.tsx:45](../../../frontend/src/workspace/ProjectTrialsView.tsx:45)：未关联
+- [frontend/src/workspace/ProjectTrialsView.tsx:48](../../../frontend/src/workspace/ProjectTrialsView.tsx:48)：尚无执行记录；打开试验后，在数据分析中创建记录和导入 CSV。
+- [frontend/src/workspace/SessionSidebar.tsx:103](../../../frontend/src/workspace/SessionSidebar.tsx:103)：暂无归档会话
+- [frontend/src/workspace/SessionSidebar.tsx:130](../../../frontend/src/workspace/SessionSidebar.tsx:130)：暂无归档项目
+- [frontend/src/workspace/SessionSidebar.tsx:161](../../../frontend/src/workspace/SessionSidebar.tsx:161)：暂无归档任务
+- [frontend/src/workspace/SessionSidebar.tsx:194](../../../frontend/src/workspace/SessionSidebar.tsx:194)：暂无 DOE 模板，可先全新创建并在设计配置中保存模板。
+- [frontend/src/workspace/SessionTrialAssociation.tsx:40](../../../frontend/src/workspace/SessionTrialAssociation.tsx:40)：暂无可关联的试验，可选择“创建具体试验”。
+- [frontend/src/workspace/SessionWorkbench.tsx:80](../../../frontend/src/workspace/SessionWorkbench.tsx:80)：当前尚未关联具体试验
+- [frontend/src/workspace/TaskBookAnalysisPage.tsx:88](../../../frontend/src/workspace/TaskBookAnalysisPage.tsx:88)：载荷谱待补充
+- [frontend/src/workspace/TaskBookWorkspace.tsx:99](../../../frontend/src/workspace/TaskBookWorkspace.tsx:99)：请选择仍未关联任务书的具体试验
+- [frontend/src/workspace/TaskBookWorkspace.tsx:122](../../../frontend/src/workspace/TaskBookWorkspace.tsx:122)：待补充
+- [frontend/src/workspace/TaskBookWorkspace.tsx:124](../../../frontend/src/workspace/TaskBookWorkspace.tsx:124)：尚无执行记录
+- [frontend/src/workspace/TaskBookWorkspace.tsx:126](../../../frontend/src/workspace/TaskBookWorkspace.tsx:126)：暂无
+- [frontend/src/workspace/TaskBookWorkspace.tsx:127](../../../frontend/src/workspace/TaskBookWorkspace.tsx:127)：暂无
+- [frontend/src/workspace/TaskBookWorkspace.tsx:131](../../../frontend/src/workspace/TaskBookWorkspace.tsx:131)：尚未关联试验，可关联已有自主试验，也可在已有试验构型下发起试验。
+- [frontend/src/workspace/TaskBookWorkspace.tsx:135](../../../frontend/src/workspace/TaskBookWorkspace.tsx:135)：暂无已保存的专业成果
+- [frontend/src/workspace/TaskBookWorkspace.tsx:147](../../../frontend/src/workspace/TaskBookWorkspace.tsx:147)：选择尚未关联任务书的具体试验
+- [frontend/src/workspace/TaskProgressView.tsx:57](../../../frontend/src/workspace/TaskProgressView.tsx:57)：尚无试验模板，可从分析任务书导入，或关联已有试验。
+- [frontend/src/workspace/TaskProgressView.tsx:57](../../../frontend/src/workspace/TaskProgressView.tsx:57)：载荷谱待补充
+- [frontend/src/workspace/TaskWorkbench.tsx:529](../../../frontend/src/workspace/TaskWorkbench.tsx:529)：未关联
+- [frontend/src/workspace/TaskWorkbench.tsx:797](../../../frontend/src/workspace/TaskWorkbench.tsx:797)：暂无可关联成果
+- [frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:22](../../../frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:22)：暂无分析结果
+- [frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:25](../../../frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:25)：当前 CSV 暂无异常与根因分析结果
+- [frontend/src/workspace/TrialSettingsPanel.tsx:33](../../../frontend/src/workspace/TrialSettingsPanel.tsx:33)：尚无试验设置
+- [frontend/src/workspace/TrialWorksheetDock.tsx:94](../../../frontend/src/workspace/TrialWorksheetDock.tsx:94)：尚无 CSV，请在数据分析中导入
+
+## 业务校验、执行状态与数据保护提示（227 处）
+
+- [frontend/src/components/FullscreenPanel.tsx:173](../../../frontend/src/components/FullscreenPanel.tsx:173)：该网站可能不允许在iframe中显示，这通常是由于安全策略限制。
+- [frontend/src/components/TrialAIAssistant.tsx:60](../../../frontend/src/components/TrialAIAssistant.tsx:60)：当前${context.pageName}尚未完成业务执行，暂时没有可解释的最终结果。请先完成当前页面的校准、方案生成、分析或预测。
+- [frontend/src/components/TrialAIAssistant.tsx:88](../../../frontend/src/components/TrialAIAssistant.tsx:88)：已读取当前${context.pageName}上下文。当前业务尚未执行完成，我会先协助检查配置，不会提前给出最终结果。
+- [frontend/src/pages/analysis/DigitalTwin.tsx:116](../../../frontend/src/pages/analysis/DigitalTwin.tsx:116)：请先确认全部校准准备项
+- [frontend/src/pages/analysis/DigitalTwin.tsx:118](../../../frontend/src/pages/analysis/DigitalTwin.tsx:118)：请先选择模型并导入仿真、实测数据
+- [frontend/src/pages/analysis/DigitalTwin.tsx:150](../../../frontend/src/pages/analysis/DigitalTwin.tsx:150)：请先完成模型校准
+- [frontend/src/pages/analysis/DigitalTwin.tsx:174](../../../frontend/src/pages/analysis/DigitalTwin.tsx:174)：请先完成模型校准
+- [frontend/src/pages/analysis/DigitalTwin.tsx:179](../../../frontend/src/pages/analysis/DigitalTwin.tsx:179)：目标项目不存在
+- [frontend/src/pages/analysis/DigitalTwin.tsx:324](../../../frontend/src/pages/analysis/DigitalTwin.tsx:324)：请选择 CFG
+- [frontend/src/pages/analysis/VirtualConditionExtension.tsx:126](../../../frontend/src/pages/analysis/VirtualConditionExtension.tsx:126)：请先确认全部工况扩展准备项
+- [frontend/src/pages/analysis/VirtualConditionExtension.tsx:129](../../../frontend/src/pages/analysis/VirtualConditionExtension.tsx:129)：工况范围的最小值不能大于最大值
+- [frontend/src/pages/analysis/VirtualConditionExtension.tsx:154](../../../frontend/src/pages/analysis/VirtualConditionExtension.tsx:154)：请先生成虚拟工况。
+- [frontend/src/pages/analysis/VirtualConditionExtension.tsx:228](../../../frontend/src/pages/analysis/VirtualConditionExtension.tsx:228)：请先完成虚拟工况预测
+- [frontend/src/pages/analysis/projects/AnalysisExecution.tsx:749](../../../frontend/src/pages/analysis/projects/AnalysisExecution.tsx:749)：请至少设置一个输出变量名称
+- [frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:84](../../../frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:84)：请填写必要信息
+- [frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:102](../../../frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:102)：请选择试验卡片
+- [frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:110](../../../frontend/src/pages/analysis/projects/AnalysisProjectCreate.tsx:110)：请选择分析模板
+- [frontend/src/pages/analysis/projects/AnalysisProjects.tsx:189](../../../frontend/src/pages/analysis/projects/AnalysisProjects.tsx:189)：请先确认全部分析准备项
+- [frontend/src/pages/analysis/projects/AnalysisProjects.tsx:190](../../../frontend/src/pages/analysis/projects/AnalysisProjects.tsx:190)：请先选择试验构型 CFG 和分析数据
+- [frontend/src/pages/analysis/projects/AnalysisProjects.tsx:296](../../../frontend/src/pages/analysis/projects/AnalysisProjects.tsx:296)：请先完成试验数据分析
+- [frontend/src/pages/analysis/projects/AnalysisProjects.tsx:306](../../../frontend/src/pages/analysis/projects/AnalysisProjects.tsx:306)：请先完成试验数据分析
+- [frontend/src/pages/analysis/templates/TemplateCreate.tsx:335](../../../frontend/src/pages/analysis/templates/TemplateCreate.tsx:335)：请填写模板名称
+- [frontend/src/pages/experiment/design/ExperimentCreate.tsx:209](../../../frontend/src/pages/experiment/design/ExperimentCreate.tsx:209)：请填写必要信息
+- [frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:134](../../../frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:134)：请先确认全部方案生成准备项
+- [frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:193](../../../frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:193)：请先在试验配置中选择有效的试验构型 CFG
+- [frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:234](../../../frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:234)：请先生成推荐方案
+- [frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:280](../../../frontend/src/pages/experiment/design/IntelligentExperimentDesign.tsx:280)：请先生成推荐方案
+- [frontend/src/pages/experiment/design/OutlineDesign.tsx:150](../../../frontend/src/pages/experiment/design/OutlineDesign.tsx:150)：请选择试验方法
+- [frontend/src/pages/experiment/info/TestMethods.tsx:284](../../../frontend/src/pages/experiment/info/TestMethods.tsx:284)：请选择方法
+- [frontend/src/pages/report/ReportCreate.tsx:192](../../../frontend/src/pages/report/ReportCreate.tsx:192)：请选择项目和报告模板
+- [frontend/src/pages/report/ReportCreate.tsx:214](../../../frontend/src/pages/report/ReportCreate.tsx:214)：请先在任务工作台修复项目关联，再继续配置任务报告。
+- [frontend/src/pages/report/ReportCreate.tsx:236](../../../frontend/src/pages/report/ReportCreate.tsx:236)：请选择项目
+- [frontend/src/pages/report/ReportCreate.tsx:248](../../../frontend/src/pages/report/ReportCreate.tsx:248)：请选择报告模板
+- [frontend/src/pages/report/ReportGenerate.tsx:193](../../../frontend/src/pages/report/ReportGenerate.tsx:193)：报告成果未保存，请重试
+- [frontend/src/pages/report/ReportGenerate.tsx:194](../../../frontend/src/pages/report/ReportGenerate.tsx:194)：报告成果未保存，请重试
+- [frontend/src/pages/report/ReportGenerate.tsx:227](../../../frontend/src/pages/report/ReportGenerate.tsx:227)：任务报告不能用演示成果编制，请调整来源选择
+- [frontend/src/pages/report/ReportGenerate.tsx:228](../../../frontend/src/pages/report/ReportGenerate.tsx:228)：正式报告不能用演示成果覆盖；请创建独立演示报告
+- [frontend/src/pages/report/ReportGenerate.tsx:230](../../../frontend/src/pages/report/ReportGenerate.tsx:230)：请先选择可用成果并修正失效绑定
+- [frontend/src/pages/report/ReportGenerate.tsx:258](../../../frontend/src/pages/report/ReportGenerate.tsx:258)：部分绑定成果已不可用，请重新选择或解绑后生成报告。
+- [frontend/src/services/predictionPreview.ts:8](../../../frontend/src/services/predictionPreview.ts:8)：当前试验上下文不可用
+- [frontend/src/workbench/FunctionBar.tsx:61](../../../frontend/src/workbench/FunctionBar.tsx:61)：当至少一个因子具有两个以上水平时，估计主效应和交互作用效应
+- [frontend/src/workbench/FunctionBar.tsx:200](../../../frontend/src/workbench/FunctionBar.tsx:200)：模板“${initialTemplate.name}”中的设计方法当前不可用
+- [frontend/src/workspace/AnalysisResults.tsx:32](../../../frontend/src/workspace/AnalysisResults.tsx:32)： · 来源失效
+- [frontend/src/workspace/CfgPredictionForm.tsx:66](../../../frontend/src/workspace/CfgPredictionForm.tsx:66)：当前 CFG 来源已失效
+- [frontend/src/workspace/CfgPredictionForm.tsx:76](../../../frontend/src/workspace/CfgPredictionForm.tsx:76)：参数来源格式已失效，请重新选择
+- [frontend/src/workspace/CfgPredictionForm.tsx:80](../../../frontend/src/workspace/CfgPredictionForm.tsx:80)：参数来源已失效
+- [frontend/src/workspace/CfgPredictionForm.tsx:89](../../../frontend/src/workspace/CfgPredictionForm.tsx:89)：请选择通用模型
+- [frontend/src/workspace/CfgPredictionForm.tsx:113](../../../frontend/src/workspace/CfgPredictionForm.tsx:113)：本次成果未保存，请重试
+- [frontend/src/workspace/CfgPredictionForm.tsx:116](../../../frontend/src/workspace/CfgPredictionForm.tsx:116)：本次成果未保存
+- [frontend/src/workspace/CfgPredictionForm.tsx:119](../../../frontend/src/workspace/CfgPredictionForm.tsx:119)：CFG 来源已失效，不能规划或运行模型
+- [frontend/src/workspace/CfgPredictionForm.tsx:130](../../../frontend/src/workspace/CfgPredictionForm.tsx:130)：请填写${field.label}
+- [frontend/src/workspace/CfgPredictionForm.tsx:131](../../../frontend/src/workspace/CfgPredictionForm.tsx:131)：${field.label}来源 / ${field.unit}（${field.required?'必填':'可选'}）
+- [frontend/src/workspace/CfgPredictionForm.tsx:131](../../../frontend/src/workspace/CfgPredictionForm.tsx:131)：必填
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:29](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:29)：数据保存范围不可用
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:30](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:30)：数据保存范围不可用
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:31](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:31)：数据保存范围不可用
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:69](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:69)：请先保存编辑后的 CSV 工作副本，再保存成果
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:77](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:77)：请先保存编辑后的 CSV 工作副本，再保存成果
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:85](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:85)：请填写工作副本文件名
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:105](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:105)：有未保存修改
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:112](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:112)：未保存数据预览
+- [frontend/src/workspace/FeatureCfgPicker.tsx:18](../../../frontend/src/workspace/FeatureCfgPicker.tsx:18)：请选择已有 CFG，或新建后确认本次使用。
+- [frontend/src/workspace/FeatureCfgPicker.tsx:19](../../../frontend/src/workspace/FeatureCfgPicker.tsx:19)：已失效
+- [frontend/src/workspace/FeatureCfgPicker.tsx:28](../../../frontend/src/workspace/FeatureCfgPicker.tsx:28)：所选 CFG 已失效，请重新选择
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:109](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:109)：请选择本记录的 CSV 原始文件
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:110](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:110)：结束行必须大于或等于起始行
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:115](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:115)：业务来源已失效，请选择已有来源
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:167](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:167)：结束行必须大于或等于起始行
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:190](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:190)：请选择适用试验类型
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:266](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:266)：请先将任务书归入项目
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:293](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:293)：请先创建对象类别
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:298](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:298)：指定的试验记录不存在或已失效，未切换到其他记录。
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:298](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:298)：业务来源已失效；请选择已有对象、构型或记录，不会自动改用其他数据。
+- [frontend/src/workspace/PredictionWorkspace.tsx:36](../../../frontend/src/workspace/PredictionWorkspace.tsx:36)：构型装备来源不可用，请重新选择 CFG
+- [frontend/src/workspace/PredictionWorkspace.tsx:63](../../../frontend/src/workspace/PredictionWorkspace.tsx:63)：所选 CFG 已失效，请重新选择
+- [frontend/src/workspace/PredictionWorkspace.tsx:65](../../../frontend/src/workspace/PredictionWorkspace.tsx:65)：构型来源不可用
+- [frontend/src/workspace/PredictionWorkspace.tsx:70](../../../frontend/src/workspace/PredictionWorkspace.tsx:70)：所选 CFG 已失效
+- [frontend/src/workspace/PredictionWorkspace.tsx:75](../../../frontend/src/workspace/PredictionWorkspace.tsx:75)：构型不可用
+- [frontend/src/workspace/ProjectContent.tsx:82](../../../frontend/src/workspace/ProjectContent.tsx:82)：原会话不存在，未切换到其他项目成果。
+- [frontend/src/workspace/ProjectContent.tsx:98](../../../frontend/src/workspace/ProjectContent.tsx:98)：当前项目、会话或试验来源不可用
+- [frontend/src/workspace/ProjectResourcesPage.tsx:37](../../../frontend/src/workspace/ProjectResourcesPage.tsx:37)：该项目已不存在，请选择其他项目
+- [frontend/src/workspace/ProjectResourcesPage.tsx:39](../../../frontend/src/workspace/ProjectResourcesPage.tsx:39)：没有尚未导入的旧版试验项目
+- [frontend/src/workspace/ProjectSaveTargetModal.tsx:83](../../../frontend/src/workspace/ProjectSaveTargetModal.tsx:83)：当前没有可保存的项目，请先在左侧新建项目。
+- [frontend/src/workspace/ProjectSidebar.tsx:49](../../../frontend/src/workspace/ProjectSidebar.tsx:49)：此项目支撑正式任务“${linkedTask.title}”，暂不支持单独删除，以免任务失去数据与成果。
+- [frontend/src/workspace/ProjectSidebar.tsx:50](../../../frontend/src/workspace/ProjectSidebar.tsx:50)：项目${project.name}关联正式任务，不能单独删除
+- [frontend/src/workspace/ProjectTrialsView.tsx:24](../../../frontend/src/workspace/ProjectTrialsView.tsx:24)：当前项目不存在或已不可用
+- [frontend/src/workspace/ProjectTrialsView.tsx:45](../../../frontend/src/workspace/ProjectTrialsView.tsx:45)：关联已失效
+- [frontend/src/workspace/ResultPreview.tsx:23](../../../frontend/src/workspace/ResultPreview.tsx:23)：来源 CSV 已移除；保留成果供追溯，不能重新计算或作为当前有效结果。
+- [frontend/src/workspace/SessionCreate.tsx:29](../../../frontend/src/workspace/SessionCreate.tsx:29)：当前项目已不可用，请重新选择项目
+- [frontend/src/workspace/SessionCreate.tsx:67](../../../frontend/src/workspace/SessionCreate.tsx:67)：当前项目已不可用，请重新选择项目
+- [frontend/src/workspace/SessionDataWorkspace.tsx:82](../../../frontend/src/workspace/SessionDataWorkspace.tsx:82)：当前会话不存在
+- [frontend/src/workspace/SessionDataWorkspace.tsx:84](../../../frontend/src/workspace/SessionDataWorkspace.tsx:84)：当前会话不存在
+- [frontend/src/workspace/SessionDataWorkspace.tsx:96](../../../frontend/src/workspace/SessionDataWorkspace.tsx:96)：请选择 CSV 文件
+- [frontend/src/workspace/SessionDataWorkspace.tsx:127](../../../frontend/src/workspace/SessionDataWorkspace.tsx:127)：请先打开数据文件
+- [frontend/src/workspace/SessionDataWorkspace.tsx:134](../../../frontend/src/workspace/SessionDataWorkspace.tsx:134)：请先打开数据文件
+- [frontend/src/workspace/SessionDataWorkspace.tsx:142](../../../frontend/src/workspace/SessionDataWorkspace.tsx:142)：当前修改尚未保存，可以取消后先保存工作副本。
+- [frontend/src/workspace/SessionDataWorkspace.tsx:159](../../../frontend/src/workspace/SessionDataWorkspace.tsx:159)：请先在下方选择本次使用的 CFG。
+- [frontend/src/workspace/SessionDataWorkspace.tsx:179](../../../frontend/src/workspace/SessionDataWorkspace.tsx:179)：有未保存的修改
+- [frontend/src/workspace/SessionProfessionalBoundary.tsx:28](../../../frontend/src/workspace/SessionProfessionalBoundary.tsx:28)：所选 CFG 已失效，请重新选择
+- [frontend/src/workspace/SessionProfessionalBoundary.tsx:30](../../../frontend/src/workspace/SessionProfessionalBoundary.tsx:30)：构型来源不可用
+- [frontend/src/workspace/SessionProfessionalBoundary.tsx:37](../../../frontend/src/workspace/SessionProfessionalBoundary.tsx:37)：所选 CFG 已失效
+- [frontend/src/workspace/SessionProfessionalBoundary.tsx:42](../../../frontend/src/workspace/SessionProfessionalBoundary.tsx:42)：CFG 不可用
+- [frontend/src/workspace/SessionProfessionalBoundary.tsx:47](../../../frontend/src/workspace/SessionProfessionalBoundary.tsx:47)：此历史任务书尚未归属有效项目
+- [frontend/src/workspace/SessionRootCauseAnalysis.tsx:38](../../../frontend/src/workspace/SessionRootCauseAnalysis.tsx:38)：请先选择 CFG
+- [frontend/src/workspace/SessionTrialAssociation.tsx:22](../../../frontend/src/workspace/SessionTrialAssociation.tsx:22)：请选择要关联的具体试验
+- [frontend/src/workspace/SessionWorkbench.tsx:49](../../../frontend/src/workspace/SessionWorkbench.tsx:49)：此会话不存在或本机数据不可用
+- [frontend/src/workspace/SessionWorkbench.tsx:68](../../../frontend/src/workspace/SessionWorkbench.tsx:68)：尚未保存
+- [frontend/src/workspace/TaskBookAnalysisPage.tsx:41](../../../frontend/src/workspace/TaskBookAnalysisPage.tsx:41)：请选择 PDF 或文本任务书
+- [frontend/src/workspace/TaskBookAnalysisPage.tsx:56](../../../frontend/src/workspace/TaskBookAnalysisPage.tsx:56)：原项目已不存在，请重新进入分析任务书
+- [frontend/src/workspace/TaskBookAnalysisPage.tsx:78](../../../frontend/src/workspace/TaskBookAnalysisPage.tsx:78)：请先进入项目的分析任务书
+- [frontend/src/workspace/TaskBookSource.tsx:22](../../../frontend/src/workspace/TaskBookSource.tsx:22)：未保存原始附件
+- [frontend/src/workspace/TaskBookWorkspace.tsx:61](../../../frontend/src/workspace/TaskBookWorkspace.tsx:61)：本机未保存任务书 PDF
+- [frontend/src/workspace/TaskBookWorkspace.tsx:66](../../../frontend/src/workspace/TaskBookWorkspace.tsx:66)：任务书不存在或本机数据不可用
+- [frontend/src/workspace/TaskBookWorkspace.tsx:89](../../../frontend/src/workspace/TaskBookWorkspace.tsx:89)：请选择 PDF 文件
+- [frontend/src/workspace/TaskBookWorkspace.tsx:100](../../../frontend/src/workspace/TaskBookWorkspace.tsx:100)：请先将任务书归入项目
+- [frontend/src/workspace/TaskBookWorkspace.tsx:140](../../../frontend/src/workspace/TaskBookWorkspace.tsx:140)：来源不可用：${reference.artifactId}
+- [frontend/src/workspace/TaskBookWorkspace.tsx:142](../../../frontend/src/workspace/TaskBookWorkspace.tsx:142)：尚未建立报告配置
+- [frontend/src/workspace/TaskBookWorkspace.tsx:147](../../../frontend/src/workspace/TaskBookWorkspace.tsx:147)：${item.object.name} / ${item.trial.cfgId?cfgs.find(cfg=>cfg.id===item.trial.cfgId)?.name ?? 'CFG 来源已失效':item.configuration.name} / ${item.trial.name}
+- [frontend/src/workspace/TaskBookWorkspace.tsx:147](../../../frontend/src/workspace/TaskBookWorkspace.tsx:147)：CFG 来源已失效
+- [frontend/src/workspace/TaskCenter.tsx:27](../../../frontend/src/workspace/TaskCenter.tsx:27)：尚未归属项目的历史任务书
+- [frontend/src/workspace/TaskProgressView.tsx:29](../../../frontend/src/workspace/TaskProgressView.tsx:29)：关联试验来源已失效或任务书关联已变化
+- [frontend/src/workspace/TaskProgressView.tsx:43](../../../frontend/src/workspace/TaskProgressView.tsx:43)：请填写完成依据或选择已有成果
+- [frontend/src/workspace/TaskProgressView.tsx:47](../../../frontend/src/workspace/TaskProgressView.tsx:47)：所选成果已不存在，请重新选择
+- [frontend/src/workspace/TaskWorkbench.tsx:124](../../../frontend/src/workspace/TaskWorkbench.tsx:124)：请先让 AI 补全任务报告
+- [frontend/src/workspace/TaskWorkbench.tsx:160](../../../frontend/src/workspace/TaskWorkbench.tsx:160)：请填写满足依据，或关联一项已有成果
+- [frontend/src/workspace/TaskWorkbench.tsx:226](../../../frontend/src/workspace/TaskWorkbench.tsx:226)：请填写事项内容
+- [frontend/src/workspace/TaskWorkbench.tsx:381](../../../frontend/src/workspace/TaskWorkbench.tsx:381)：请选择成果和对应事项
+- [frontend/src/workspace/TaskWorkbench.tsx:398](../../../frontend/src/workspace/TaskWorkbench.tsx:398)：${remaining.length} 项任务事项尚未确认满足
+- [frontend/src/workspace/TaskWorkbench.tsx:399](../../../frontend/src/workspace/TaskWorkbench.tsx:399)：尚未生成正式报告
+- [frontend/src/workspace/TaskWorkbench.tsx:401](../../../frontend/src/workspace/TaskWorkbench.tsx:401)：暂不能完成任务：${details}
+- [frontend/src/workspace/TaskWorkbench.tsx:433](../../../frontend/src/workspace/TaskWorkbench.tsx:433)：尚未提取任务书正文
+- [frontend/src/workspace/TaskWorkbench.tsx:556](../../../frontend/src/workspace/TaskWorkbench.tsx:556)：原型模拟：${task.sourceName || '已选择的任务书 PDF'}尚未被实际解析；事项来源定位、推荐能力和分析输入均为预设演示数据，请先逐项核对后再确认规划。
+- [frontend/src/workspace/TaskWorkbench.tsx:784](../../../frontend/src/workspace/TaskWorkbench.tsx:784)：简要说明已核对的资料或结论（填写依据或关联成果至少一项）
+- [frontend/src/workspace/TaskWorkbench.tsx:880](../../../frontend/src/workspace/TaskWorkbench.tsx:880)：下面显示的是你导入的原始 PDF；页码定位尚未由真实 AI 解析，请结合原文核对。
+- [frontend/src/workspace/TrialChart.tsx:19](../../../frontend/src/workspace/TrialChart.tsx:19)：原始文件引用不存在
+- [frontend/src/workspace/TrialConfigurationEditor.tsx:21](../../../frontend/src/workspace/TrialConfigurationEditor.tsx:21)：请选择主被试对象，以确定具体试验来源
+- [frontend/src/workspace/TrialConfigurationLibrary.tsx:50](../../../frontend/src/workspace/TrialConfigurationLibrary.tsx:50)：分类不存在
+- [frontend/src/workspace/TrialConfigurationLibrary.tsx:50](../../../frontend/src/workspace/TrialConfigurationLibrary.tsx:50)：原分类已不可用，请重新选择分类。
+- [frontend/src/workspace/TrialConfigurationLibrary.tsx:53](../../../frontend/src/workspace/TrialConfigurationLibrary.tsx:53)：此分类下尚未创建 CFG
+- [frontend/src/workspace/TrialConfigurationLibrary.tsx:63](../../../frontend/src/workspace/TrialConfigurationLibrary.tsx:63)：来源失效 ${member.objectId}
+- [frontend/src/workspace/TrialCreatePage.tsx:34](../../../frontend/src/workspace/TrialCreatePage.tsx:34)：请选择具体试验的物理对象
+- [frontend/src/workspace/TrialCreatePage.tsx:44](../../../frontend/src/workspace/TrialCreatePage.tsx:44)：任务书必须归属有效项目
+- [frontend/src/workspace/TrialCreatePage.tsx:45](../../../frontend/src/workspace/TrialCreatePage.tsx:45)：不能关联其他项目的任务书
+- [frontend/src/workspace/TrialCreatePage.tsx:48](../../../frontend/src/workspace/TrialCreatePage.tsx:48)：当前工作已不存在
+- [frontend/src/workspace/TrialCreatePage.tsx:51](../../../frontend/src/workspace/TrialCreatePage.tsx:51)：不能关联其他项目的任务书
+- [frontend/src/workspace/TrialCreatePage.tsx:69](../../../frontend/src/workspace/TrialCreatePage.tsx:69)：创建入口已失效
+- [frontend/src/workspace/TrialCreatePage.tsx:69](../../../frontend/src/workspace/TrialCreatePage.tsx:69)：关联的任务或项目已不存在，请从有效入口重新开始。
+- [frontend/src/workspace/TrialCreatePage.tsx:70](../../../frontend/src/workspace/TrialCreatePage.tsx:70)：试验模板不存在，请返回任务重新选择
+- [frontend/src/workspace/TrialCreatePage.tsx:85](../../../frontend/src/workspace/TrialCreatePage.tsx:85)：请填写具体试验名称
+- [frontend/src/workspace/TrialCsvAnalysis.tsx:27](../../../frontend/src/workspace/TrialCsvAnalysis.tsx:27)：请先建立执行记录
+- [frontend/src/workspace/TrialCsvAnalysis.tsx:49](../../../frontend/src/workspace/TrialCsvAnalysis.tsx:49)：此文件被 ${dependentResultCount(rawFile.id)} 项成果引用。移除后成果保留并标记来源失效。${dirtyFiles.has(rawFile.id) ? '此工作表未保存修改将丢弃。' : ''}
+- [frontend/src/workspace/TrialCsvAnalysis.tsx:49](../../../frontend/src/workspace/TrialCsvAnalysis.tsx:49)：此工作表未保存修改将丢弃。
+- [frontend/src/workspace/TrialCsvAnalysis.tsx:50](../../../frontend/src/workspace/TrialCsvAnalysis.tsx:50)：已移除，原成果保留并标记来源失效
+- [frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:20](../../../frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:20)：尚未打开 CSV
+- [frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:22](../../../frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:22)：请先从底部打开一个 CSV
+- [frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:24](../../../frontend/src/workspace/TrialDataAnalysisWorkspace.tsx:24)：工作表存在未保存修改；已有结论仍对应原 CSV，保存副本后需对副本重新分析。
+- [frontend/src/workspace/TrialDataTable.tsx:16](../../../frontend/src/workspace/TrialDataTable.tsx:16)：原始文件引用不存在
+- [frontend/src/workspace/TrialSettingsPanel.tsx:28](../../../frontend/src/workspace/TrialSettingsPanel.tsx:28)：来源已失效
+- [frontend/src/workspace/TrialWorksheetDock.tsx:99](../../../frontend/src/workspace/TrialWorksheetDock.tsx:99)：请填写标签名称
+- [frontend/src/workspace/TrialWorksheetProvider.tsx:66](../../../frontend/src/workspace/TrialWorksheetProvider.tsx:66)：未保存的编辑将丢弃，原 CSV 和已保存成果保留。
+- [frontend/src/workspace/TrialWorksheetProvider.tsx:80](../../../frontend/src/workspace/TrialWorksheetProvider.tsx:80)：工作表有未保存编辑，请先保存工作副本。已保存的文件和成果不会丢失。
+- [frontend/src/workspace/WorksheetPlotDialog.tsx:18](../../../frontend/src/workspace/WorksheetPlotDialog.tsx:18)：请选择图形需要的数据列
+- [frontend/src/workspace/WorksheetPlotDialog.tsx:19](../../../frontend/src/workspace/WorksheetPlotDialog.tsx:19)：请选择气泡大小对应的数据列
+- [frontend/src/workspace/analysisResultModel.ts:9](../../../frontend/src/workspace/analysisResultModel.ts:9)：预测结果尚未确认保存
+- [frontend/src/workspace/analysisResultModel.ts:59](../../../frontend/src/workspace/analysisResultModel.ts:59)：成果来源已失效，请返回原试验检查
+- [frontend/src/workspace/cfgTrialBridge.ts:13](../../../frontend/src/workspace/cfgTrialBridge.ts:13)：试验构型 CFG 不存在或已失效
+- [frontend/src/workspace/cfgTrialBridge.ts:28](../../../frontend/src/workspace/cfgTrialBridge.ts:28)：请填写具体试验名称
+- [frontend/src/workspace/cfgTrialBridge.ts:30](../../../frontend/src/workspace/cfgTrialBridge.ts:30)：物理对象不存在或已失效
+- [frontend/src/workspace/csvWorksheetModel.ts:10](../../../frontend/src/workspace/csvWorksheetModel.ts:10)：请填写字段名称
+- [frontend/src/workspace/csvWorksheetModel.ts:11](../../../frontend/src/workspace/csvWorksheetModel.ts:11)：此字段不存在
+- [frontend/src/workspace/csvWorksheetModel.ts:17](../../../frontend/src/workspace/csvWorksheetModel.ts:17)：单元格已不存在
+- [frontend/src/workspace/featureCfgChoiceModel.ts:11](../../../frontend/src/workspace/featureCfgChoiceModel.ts:11)：所选 CFG 已失效，请重新选择
+- [frontend/src/workspace/modelPlanModel.ts:22](../../../frontend/src/workspace/modelPlanModel.ts:22)：缺少通用模型、试验构型、仿真对象或模型配置参数
+- [frontend/src/workspace/modelPlanModel.ts:39](../../../frontend/src/workspace/modelPlanModel.ts:39)：${definition.label}来源已失效
+- [frontend/src/workspace/modelPlanModel.ts:41](../../../frontend/src/workspace/modelPlanModel.ts:41)：${definition.label}必须是有效单值
+- [frontend/src/workspace/physicalObjectStore.ts:29](../../../frontend/src/workspace/physicalObjectStore.ts:29)：请填写图表名称
+- [frontend/src/workspace/physicalObjectStore.ts:65](../../../frontend/src/workspace/physicalObjectStore.ts:65)：指定试验记录不存在，未写入其他记录。
+- [frontend/src/workspace/physicalObjectStore.ts:98](../../../frontend/src/workspace/physicalObjectStore.ts:98)：请填写对象类别名称
+- [frontend/src/workspace/physicalObjectStore.ts:105](../../../frontend/src/workspace/physicalObjectStore.ts:105)：所属对象类别不存在
+- [frontend/src/workspace/physicalObjectStore.ts:106](../../../frontend/src/workspace/physicalObjectStore.ts:106)：请填写具体物理对象名称
+- [frontend/src/workspace/physicalObjectStore.ts:112](../../../frontend/src/workspace/physicalObjectStore.ts:112)：所属物理对象不存在
+- [frontend/src/workspace/physicalObjectStore.ts:113](../../../frontend/src/workspace/physicalObjectStore.ts:113)：请填写组成对象名称
+- [frontend/src/workspace/physicalObjectStore.ts:121](../../../frontend/src/workspace/physicalObjectStore.ts:121)：所属具体物理对象不存在
+- [frontend/src/workspace/physicalObjectStore.ts:126](../../../frontend/src/workspace/physicalObjectStore.ts:126)：请填写具体试验名称
+- [frontend/src/workspace/physicalObjectStore.ts:127](../../../frontend/src/workspace/physicalObjectStore.ts:127)：所属试验构型不存在
+- [frontend/src/workspace/physicalObjectStore.ts:141](../../../frontend/src/workspace/physicalObjectStore.ts:141)：所属具体试验不存在
+- [frontend/src/workspace/physicalObjectStore.ts:147](../../../frontend/src/workspace/physicalObjectStore.ts:147)：所属具体试验不存在
+- [frontend/src/workspace/physicalObjectStore.ts:154](../../../frontend/src/workspace/physicalObjectStore.ts:154)：所属具体试验不存在
+- [frontend/src/workspace/physicalObjectStore.ts:167](../../../frontend/src/workspace/physicalObjectStore.ts:167)：原始 CSV 已移除，不能用于新图表
+- [frontend/src/workspace/physicalObjectStore.ts:169](../../../frontend/src/workspace/physicalObjectStore.ts:169)：图表必须引用本记录的原始 CSV 字段
+- [frontend/src/workspace/physicalObjectStore.ts:172](../../../frontend/src/workspace/physicalObjectStore.ts:172)：本记录中不存在该图表，不能变更图表的来源记录
+- [frontend/src/workspace/physicalObjectStore.ts:180](../../../frontend/src/workspace/physicalObjectStore.ts:180)：请填写数据表名称
+- [frontend/src/workspace/physicalObjectStore.ts:183](../../../frontend/src/workspace/physicalObjectStore.ts:183)：原始 CSV 已移除，不能用于新数据表
+- [frontend/src/workspace/physicalObjectStore.ts:184](../../../frontend/src/workspace/physicalObjectStore.ts:184)：数据表必须引用本记录的原始 CSV 字段
+- [frontend/src/workspace/physicalObjectStore.ts:185](../../../frontend/src/workspace/physicalObjectStore.ts:185)：本记录中不存在该数据表
+- [frontend/src/workspace/predictionContract.ts:111](../../../frontend/src/workspace/predictionContract.ts:111)：预测结果来源、输入或计算状态不匹配，未保存为预测成果
+- [frontend/src/workspace/professionalContext.ts:62](../../../frontend/src/workspace/professionalContext.ts:62)：当前试验来源不可用，请返回原试验检查
+- [frontend/src/workspace/professionalScopeModel.ts:19](../../../frontend/src/workspace/professionalScopeModel.ts:19)：当前具体试验来源已失效
+- [frontend/src/workspace/sessionResourceStore.ts:15](../../../frontend/src/workspace/sessionResourceStore.ts:15)：当前会话不存在
+- [frontend/src/workspace/sessionResourceStore.ts:16](../../../frontend/src/workspace/sessionResourceStore.ts:16)：不能保存到其他会话
+- [frontend/src/workspace/sessionResourceStore.ts:17](../../../frontend/src/workspace/sessionResourceStore.ts:17)：所选 CFG 已失效，请重新选择
+- [frontend/src/workspace/sessionResourceStore.ts:38](../../../frontend/src/workspace/sessionResourceStore.ts:38)：成果未保存，请重试
+- [frontend/src/workspace/sessionStore.ts:157](../../../frontend/src/workspace/sessionStore.ts:157)：当前会话已不存在
+- [frontend/src/workspace/sessionStore.ts:165](../../../frontend/src/workspace/sessionStore.ts:165)：不能关联其他项目的具体试验
+- [frontend/src/workspace/sessionStore.ts:166](../../../frontend/src/workspace/sessionStore.ts:166)：所属项目已不可用
+- [frontend/src/workspace/sessionStore.ts:168](../../../frontend/src/workspace/sessionStore.ts:168)：具体试验来源已失效
+- [frontend/src/workspace/taskTrialWorkflow.ts:15](../../../frontend/src/workspace/taskTrialWorkflow.ts:15)：任务或试验草稿已不存在
+- [frontend/src/workspace/taskTrialWorkflow.ts:18](../../../frontend/src/workspace/taskTrialWorkflow.ts:18)：正式任务书必须归属有效项目，请先核对项目归属
+- [frontend/src/workspace/taskTrialWorkflow.ts:24](../../../frontend/src/workspace/taskTrialWorkflow.ts:24)：已确认试验来源已失效，请先核对原试验
+- [frontend/src/workspace/taskTrialWorkflow.ts:34](../../../frontend/src/workspace/taskTrialWorkflow.ts:34)：物理对象或试验构型已失效
+- [frontend/src/workspace/taskTrialWorkflow.ts:53](../../../frontend/src/workspace/taskTrialWorkflow.ts:53)：请先确认关联试验并开展工作
+- [frontend/src/workspace/taskTrialWorkflow.ts:56](../../../frontend/src/workspace/taskTrialWorkflow.ts:56)：关联试验已失效或任务书关联已变化
+- [frontend/src/workspace/taskTrialWorkflow.ts:58](../../../frontend/src/workspace/taskTrialWorkflow.ts:58)：请填写完成依据或关联已保存成果
+- [frontend/src/workspace/taskTrialWorkflow.ts:74](../../../frontend/src/workspace/taskTrialWorkflow.ts:74)：任务书或项目不存在
+- [frontend/src/workspace/taskTrialWorkflow.ts:79](../../../frontend/src/workspace/taskTrialWorkflow.ts:79)：关联试验已有其他项目归属，请先核对原项目
+- [frontend/src/workspace/trialChartOutput.ts:8](../../../frontend/src/workspace/trialChartOutput.ts:8)：图表原始 CSV 字段引用已失效
+- [frontend/src/workspace/trialConfigurationModel.ts:14](../../../frontend/src/workspace/trialConfigurationModel.ts:14)：装备引用已失效：${member.objectId}
+- [frontend/src/workspace/trialConfigurationModel.ts:15](../../../frontend/src/workspace/trialConfigurationModel.ts:15)：请选择有效的装备角色
+- [frontend/src/workspace/trialConfigurationModel.ts:17](../../../frontend/src/workspace/trialConfigurationModel.ts:17)：至少选择一项被试装备
+- [frontend/src/workspace/trialConfigurationModel.ts:19](../../../frontend/src/workspace/trialConfigurationModel.ts:19)：主被试对象必须是已选择的被试装备
+- [frontend/src/workspace/trialConfigurationStore.ts:31](../../../frontend/src/workspace/trialConfigurationStore.ts:31)：CFG 分类不存在
+- [frontend/src/workspace/trialConfigurationStore.ts:38](../../../frontend/src/workspace/trialConfigurationStore.ts:38)：CFG 不存在
+- [frontend/src/workspace/trialConfigurationStore.ts:39](../../../frontend/src/workspace/trialConfigurationStore.ts:39)：CFG 分类不存在
+- [frontend/src/workspace/trialConfigurationStore.ts:43](../../../frontend/src/workspace/trialConfigurationStore.ts:43)：CFG 分类不存在
+- [frontend/src/workspace/trialSettingsModel.ts:4](../../../frontend/src/workspace/trialSettingsModel.ts:4)：请填写试验设置名称
+- [frontend/src/workspace/trialSettingsModel.ts:5](../../../frontend/src/workspace/trialSettingsModel.ts:5)：请填写设置字段名称
+- [frontend/src/workspace/trialSettingsModel.ts:9](../../../frontend/src/workspace/trialSettingsModel.ts:9)：指定试验设置不存在
+
+## 直接显示 Error.message 的处理位置（34 处）
+
+这些位置会把底层程序错误原样显示给用户。仅删除提示会掩盖失败，应先处理故障，再统一用户能执行的提示。
+
+- [frontend/src/pages/report/ReportGenerate.tsx:194](../../../frontend/src/pages/report/ReportGenerate.tsx:194)
+- [frontend/src/workspace/CfgPredictionForm.tsx:80](../../../frontend/src/workspace/CfgPredictionForm.tsx:80)
+- [frontend/src/workspace/CfgPredictionForm.tsx:102](../../../frontend/src/workspace/CfgPredictionForm.tsx:102)
+- [frontend/src/workspace/CfgPredictionForm.tsx:116](../../../frontend/src/workspace/CfgPredictionForm.tsx:116)
+- [frontend/src/workspace/CsvFilePreview.tsx:12](../../../frontend/src/workspace/CsvFilePreview.tsx:12)
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:49](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:49)
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:66](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:66)
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:74](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:74)
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:81](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:81)
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:99](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:99)
+- [frontend/src/workspace/CsvWorksheetEditor.tsx:134](../../../frontend/src/workspace/CsvWorksheetEditor.tsx:134)
+- [frontend/src/workspace/FeatureCfgPicker.tsx:28](../../../frontend/src/workspace/FeatureCfgPicker.tsx:28)
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:162](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:162)
+- [frontend/src/workspace/PhysicalObjectsPage.tsx:173](../../../frontend/src/workspace/PhysicalObjectsPage.tsx:173)
+- [frontend/src/workspace/PredictionWorkspace.tsx:65](../../../frontend/src/workspace/PredictionWorkspace.tsx:65)
+- [frontend/src/workspace/PredictionWorkspace.tsx:75](../../../frontend/src/workspace/PredictionWorkspace.tsx:75)
+- [frontend/src/workspace/ResultPreview.tsx:29](../../../frontend/src/workspace/ResultPreview.tsx:29)
+- [frontend/src/workspace/SessionDataWorkspace.tsx:121](../../../frontend/src/workspace/SessionDataWorkspace.tsx:121)
+- [frontend/src/workspace/SessionDataWorkspace.tsx:149](../../../frontend/src/workspace/SessionDataWorkspace.tsx:149)
+- [frontend/src/workspace/SessionProfessionalBoundary.tsx:30](../../../frontend/src/workspace/SessionProfessionalBoundary.tsx:30)
+- [frontend/src/workspace/SessionProfessionalBoundary.tsx:42](../../../frontend/src/workspace/SessionProfessionalBoundary.tsx:42)
+- [frontend/src/workspace/SessionTrialAssociation.tsx:28](../../../frontend/src/workspace/SessionTrialAssociation.tsx:28)
+- [frontend/src/workspace/TaskCenter.tsx:27](../../../frontend/src/workspace/TaskCenter.tsx:27)
+- [frontend/src/workspace/TaskProgressView.tsx:53](../../../frontend/src/workspace/TaskProgressView.tsx:53)
+- [frontend/src/workspace/TrialChart.tsx:16](../../../frontend/src/workspace/TrialChart.tsx:16)
+- [frontend/src/workspace/TrialConfigurationEditor.tsx:24](../../../frontend/src/workspace/TrialConfigurationEditor.tsx:24)
+- [frontend/src/workspace/TrialConfigurationLibrary.tsx:39](../../../frontend/src/workspace/TrialConfigurationLibrary.tsx:39)
+- [frontend/src/workspace/TrialConfigurationLibrary.tsx:60](../../../frontend/src/workspace/TrialConfigurationLibrary.tsx:60)
+- [frontend/src/workspace/TrialCreatePage.tsx:67](../../../frontend/src/workspace/TrialCreatePage.tsx:67)
+- [frontend/src/workspace/TrialCsvAnalysis.tsx:24](../../../frontend/src/workspace/TrialCsvAnalysis.tsx:24)
+- [frontend/src/workspace/TrialCsvAnalysis.tsx:38](../../../frontend/src/workspace/TrialCsvAnalysis.tsx:38)
+- [frontend/src/workspace/TrialCsvAnalysis.tsx:51](../../../frontend/src/workspace/TrialCsvAnalysis.tsx:51)
+- [frontend/src/workspace/TrialDataTable.tsx:13](../../../frontend/src/workspace/TrialDataTable.tsx:13)
+- [frontend/src/workspace/TrialSettingsPanel.tsx:25](../../../frontend/src/workspace/TrialSettingsPanel.tsx:25)

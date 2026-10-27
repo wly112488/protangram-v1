@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import MainLayout from '@/layouts/MainLayout';
 
@@ -6,7 +6,6 @@ import MainLayout from '@/layouts/MainLayout';
 import BOMManagement from '@/pages/experiment/info/BOMManagement';
 import TestSubjects from '@/pages/experiment/info/TestSubjects';
 import TestMethods from '@/pages/experiment/info/TestMethods';
-import SamplingRequirements from '@/pages/experiment/info/SamplingRequirements';
 
 // 1.2 试验设计
 import ExperimentCreate from '@/pages/experiment/design/ExperimentCreate';
@@ -44,6 +43,8 @@ import TrialConfigurationLibrary from '@/workspace/TrialConfigurationLibrary';
 import TaskBookAnalysisPage from '@/workspace/TaskBookAnalysisPage';
 import SessionDataWorkspace from '@/workspace/SessionDataWorkspace';
 import SessionAnalysisWorkspace from '@/workspace/SessionAnalysisWorkspace';
+import PredictionWorkspace from '@/workspace/PredictionWorkspace';
+import SessionCreatePage from '@/workspace/SessionCreate';
 
 /**
  * 应用路由配置
@@ -60,7 +61,7 @@ const router = createBrowserRouter([
       { path: 'physical-objects', element: <PhysicalObjectsPage /> },
       { path: 'task-center', element: <SessionHome /> },
       { path: 'task-book-analysis', element: <TaskBookAnalysisPage /> },
-      { path: 'sessions/new', element: <Navigate to="/trials/new" replace /> },
+      { path: 'sessions/new', element: <SessionCreatePage /> },
       { path: 'shared', element: <ProjectContent /> },
       { path: 'sessions/:sessionId', element: <SessionWorkbench />, children: [
         { index: true, element: <SessionEntryRedirect /> },
@@ -69,8 +70,8 @@ const router = createBrowserRouter([
         { path: 'doe/result', element: <ExperimentTaskResult /> },
         { path: 'analysis', element: <SessionAnalysisWorkspace /> },
         { path: 'tools', element: <SessionDataWorkspace /> },
-        { path: 'digital-twin', element: <DigitalTwin /> },
-        { path: 'virtual-condition', element: <VirtualConditionExtension /> },
+        { path: 'digital-twin', element: <PredictionWorkspace service="digitalTwin" /> },
+        { path: 'virtual-condition', element: <PredictionWorkspace service="virtualCondition" /> },
         { path: 'report', element: <ReportCreate /> },
         { path: 'report/create', element: <ReportCreate /> },
         { path: 'report/create/:projectId', element: <ReportCreate /> },
@@ -82,7 +83,6 @@ const router = createBrowserRouter([
         { path: 'experiment/info/bom', element: <BOMManagement /> },
         { path: 'experiment/info/subjects', element: <TestSubjects /> },
         { path: 'experiment/info/methods', element: <TestMethods /> },
-        { path: 'experiment/info/sampling', element: <SamplingRequirements /> },
       ] },
       { path: 'projects', element: <ProjectResourcesPage /> },
       { path: 'tasks/:taskId', element: <TaskBookRoute /> },
@@ -90,7 +90,6 @@ const router = createBrowserRouter([
       { path: 'experiment/info/bom', element: <BOMManagement /> },
       { path: 'experiment/info/subjects', element: <TestSubjects /> },
       { path: 'experiment/info/methods', element: <TestMethods /> },
-      { path: 'experiment/info/sampling', element: <SamplingRequirements /> },
       // 1.2 试验设计
       { path: 'experiment/design', element: <Navigate to="/experiment/design/intelligent" replace /> },
       { path: 'experiment/design/create', element: <ExperimentCreate /> },
@@ -117,6 +116,7 @@ const router = createBrowserRouter([
       { path: 'report/create/:projectId', element: <ReportCreate /> },
       { path: 'report/generate', element: <Navigate to="/report/list" replace /> },
       { path: 'report/generate/:reportId', element: <ReportGenerate /> },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
 ]);

@@ -14,6 +14,7 @@ export interface ModelPlan {
 }
 export type ModelPlanRequest=Pick<ModelPlan,'modelId'|'cfgId'|'objectIds'|'configKey'>;
 export interface ModelRunSnapshot extends ModelPlanRequest {
+  equipmentSnapshot?: ReturnType<typeof import('./equipmentManagementModel').captureCfgEquipment>;
   schemeId:string; trialId?:string; configurationInputs:Record<string,PredictionValue>;
   bindings:ModelInputBinding[]; equipmentInputs?:Record<string,PredictionValue>; runtimeInputs:Record<string,PredictionValue>;
 }

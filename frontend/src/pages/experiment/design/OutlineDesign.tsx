@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Card, Typography, Steps, Button, Form, InputNumber, Input, Table, Select, message, Space, Tag, Descriptions, List, Popconfirm,
-} from 'antd';
-import {
-  ArrowLeftOutlined, ArrowRightOutlined, CheckOutlined, PlusOutlined, DeleteOutlined, RobotOutlined,
-} from '@ant-design/icons';
+import { Card, Typography, Steps, Button, InputNumber, Input, Table, message, Space, Tag, Descriptions, List } from 'antd';
+import { ArrowLeftOutlined, ArrowRightOutlined, CheckOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import useAppStore from '@/stores/useAppStore';
 import { loadExperiments, saveExperiments } from '@/utils/storage';
 import { parseTestMethodCsv } from '@/utils/csvParser';
-import type {
-  ExperimentOutline, StepStatus, ExperimentFactor, OutlineResponseVariable,
-  TestPlanRow, SamplingRequirement, TestMethod,
-} from '@/types';
+import type { ExperimentOutline, StepStatus, ExperimentFactor, OutlineResponseVariable, TestPlanRow, SamplingRequirement, TestMethod } from '@/types';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -147,7 +140,7 @@ const OutlineDesign: React.FC = () => {
    */
   const goNext = () => {
     if (currentStep === 0 && !selectedMethod) {
-      message.warning('请选择试验方法');
+
       return;
     }
     const newStatus = [...stepStatus];
@@ -610,9 +603,6 @@ const OutlineDesign: React.FC = () => {
               上一步
             </Button>
           )}
-          <Button size="large" icon={<RobotOutlined />}>
-            AI 辅助
-          </Button>
           {currentStep < 4 ? (
             <Button type="primary" size="large" icon={<ArrowRightOutlined />} onClick={goNext}>
               下一步

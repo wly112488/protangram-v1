@@ -99,9 +99,44 @@ export function collectTrialResourceGroups(
   for(const artifact of items) {
     const owner=artifactOwner(artifact,trials);
     const group=ensure(owner?.kind==='cfg'?owner.cfgId:'generic');
-    group.entries.push(...collectAnalysisResults(trial,[artifact]).map(entry=>({...entry,resolvedScope:resolveArtifactTrialScope(artifact,sessions,objects,configurations)})));
+    group.entries.push(...collectAnalysisResults(undefined,[artifact]).map(entry=>({...entry,resolvedScope:resolveArtifactTrialScope(artifact,sessions,objects,configurations)})));
     const file=artifact.payload.dataFile as RawDataFile | undefined;
     if(file && file.status!=='removed' && !group.files.some(item=>item.id===file.id)) group.files.push({...file,trialId:trial.id,trialName:trial.name,loadSpectrum:trial.loadSpectrum});
   }
   return [...groups.values()];
+}
+
+/** A live work session retains its earlier inputs without assigning them to its newly linked trial. */
+export function collectWorkspaceResourceGroups(projects: Project[], sessions: WorkSession[], objects: PhysicalObject[], configurations: TrialConfiguration[], sessionId: string): SessionResourceGroup[] {
+  const session = sessions.find(item => item.id === sessionId);
+  if (!session) return [];
+  if (!session.businessScope?.trialId) {
+    const references = new Set(session.resourceRefs?.map(ref => `${ref.projectId}/${ref.artifactId}`));
+    const ownedProjects = projects.map(project => ({ ...project, artifacts: project.artifacts.filter(artifact => {
+      const owner = artifactOwner(artifact);
+      return artifact.payload.sourceSessionId === session.id
+        || owner?.kind === 'session' && owner.sessionId === session.id
+        || references.has(`${artifact.projectId}/${artifact.id}`)
+        || !artifact.payload.sourceSessionId && project.sessionOwnerId === session.id;
+    }) }));
+    // A workspace lists its own references; the explicit CFG library keeps its wider catalog.
+    return collectSessionResourceGroups(ownedProjects, sessions, [], configurations, sessionId);
+  }
+  const groups = collectTrialResourceGroups(projects, sessions, objects, configurations, {
+    trialId: session.businessScope.trialId, projectId: session.projectId ?? session.storageProjectId, sessionId,
+  });
+  const ownUnbound = projects.flatMap(project => project.artifacts.filter(artifact =>
+    (artifact.payload.sourceSessionId === sessionId || !artifact.payload.sourceSessionId && project.sessionOwnerId === sessionId)
+    && !resolveArtifactTrialScope(artifact, sessions, objects, configurations)));
+  for (const artifact of ownUnbound) {
+    const owner = artifactOwner(artifact);
+    const id = owner?.kind === 'cfg' ? owner.cfgId : 'generic';
+    let group = groups.find(item => item.id === id);
+    if (!group) { group = { id, name: id === 'generic' ? '通用' : configurations.find(item => item.id === id)?.name ?? '构型来源已失效', entries: [], trials: [], files: [] }; groups.push(group); }
+    const known = new Set(group.entries.map(entry => entry.key));
+    group.entries.push(...collectAnalysisResults(undefined, [artifact]).filter(entry => !known.has(entry.key)));
+    const file = artifact.payload.dataFile as RawDataFile | undefined;
+    if (file && file.status !== 'removed' && !group.files.some(item => item.id === file.id)) group.files.push(file);
+  }
+  return groups;
 }

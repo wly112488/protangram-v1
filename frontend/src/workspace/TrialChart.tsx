@@ -13,10 +13,10 @@ export default function TrialChart({ chart, rawFile }: { chart: DerivedChart; ra
     loadTrialChartOption(chart, rawFile).then(option => {
       if (!current) return;
       setResult({ key: cacheKey, option });
-    }).catch(reason => current && setResult({ key: cacheKey, error: reason instanceof Error ? reason.message : '读取原始文件失败' }));
+    }).catch(reason => { console.error(reason); return current && setResult({ key: cacheKey, error: '读取原始文件失败' }); });
     return () => { current = false; };
   }, [cacheKey, chart, rawFile]);
-  if (!rawFile) return <Alert type="warning" showIcon message="原始文件引用不存在" />;
+  if (!rawFile) return null;
   if (result.key !== cacheKey) return <div className="physical-chart-loading">读取数据…</div>;
   if (result.error) return <Alert type="warning" showIcon message={result.error} />;
   return <ReactECharts option={result.option} style={{ height: 300, width: '100%' }} notMerge />;

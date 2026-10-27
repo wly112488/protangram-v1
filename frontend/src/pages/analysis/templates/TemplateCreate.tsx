@@ -1,17 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Card, Typography, Button, Input, Form, Select, Space, Modal, message, Drawer, InputNumber,
-} from 'antd';
-import {
-  ArrowLeftOutlined, SaveOutlined, RobotOutlined, PlusOutlined,
-  DatabaseOutlined, CalculatorOutlined, SwapOutlined, LineChartOutlined,
-  PlayCircleOutlined, StopOutlined,
-} from '@ant-design/icons';
+import { Card, Typography, Button, Input, Form, Select, Space, Modal, message, InputNumber } from 'antd';
+import { ArrowLeftOutlined, SaveOutlined, PlusOutlined, DatabaseOutlined, CalculatorOutlined, SwapOutlined, LineChartOutlined, StopOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  ReactFlow, Background, Controls, MiniMap, addEdge, useNodesState, useEdgesState,
-  type Connection, type Node, type Edge, Handle, Position,
-} from 'reactflow';
+import { ReactFlow, Background, Controls, MiniMap, addEdge, useNodesState, useEdgesState, type Connection, type Node, type Edge, Handle, Position } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
@@ -199,8 +190,6 @@ const TemplateCreate: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { experiments, analysisTemplates, addAnalysisTemplate, updateAnalysisTemplate, setAnalysisTemplates } = useAppStore();
   const [form] = Form.useForm();
-  const [aiModalVisible, setAiModalVisible] = useState(false);
-  const [aiInput, setAiInput] = useState('');
   const [compareSettingVisible, setCompareSettingVisible] = useState(false);
   const [compareSettingNodeId, setCompareSettingNodeId] = useState('');
   const [compareInputCount, setCompareInputCount] = useState(2);
@@ -332,7 +321,7 @@ const TemplateCreate: React.FC = () => {
       message.success(isEdit ? '模板已更新' : '模板已保存');
       navigate('/analysis/templates');
     } catch {
-      message.error('请填写模板名称');
+      message.error('操作失败');
     }
   };
 
@@ -345,7 +334,7 @@ const TemplateCreate: React.FC = () => {
 
       <Card size="small" style={{ marginBottom: 10, flexShrink: 0 }}>
         <Form form={form} layout="inline" style={{ display: 'flex', gap: 16, width: '100%' }}>
-          <Form.Item label="模板名称" name="name" rules={[{ required: true, message: '请输入模板名称' }]} style={{ flex: 1, marginRight: 0 }}>
+          <Form.Item label="模板名称" name="name" rules={[{ required: true, message: '' }]} style={{ flex: 1, marginRight: 0 }}>
             <Input placeholder="请输入模板名称" />
           </Form.Item>
           <Form.Item label="关联试验" name="experimentName" style={{ flex: 1, marginRight: 0 }}>
@@ -411,9 +400,6 @@ const TemplateCreate: React.FC = () => {
       <div style={{ textAlign: 'center', marginTop: 16 }}>
         <Space size="large">
           <Button size="large" onClick={() => navigate('/analysis/templates')}>取消</Button>
-          <Button size="large" icon={<RobotOutlined />} onClick={() => setAiModalVisible(true)}>
-            AI 生成
-          </Button>
           <Button type="primary" size="large" icon={<SaveOutlined />} onClick={handleSave}>保存模板</Button>
         </Space>
       </div>
@@ -489,25 +475,6 @@ const TemplateCreate: React.FC = () => {
         </Button>
       </Modal>
 
-      {/* AI对话窗口（需求2.2.2.3） */}
-      <Modal title="AI 辅助生成模板" open={aiModalVisible} onCancel={() => setAiModalVisible(false)}
-        onOk={() => { message.info('AI模板生成功能需要配置LLM接口'); setAiModalVisible(false); }}
-        width={600}>
-        <div style={{ minHeight: 300 }}>
-          <div style={{
-            height: 200, overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: 8,
-            padding: 12, marginBottom: 12, background: '#fafafa',
-          }}>
-            <Text type="secondary">AI助手：请描述您需要的数据分析模板，我将根据您的描述自动生成画布节点和连线。</Text>
-          </div>
-          <Input.TextArea
-            rows={3}
-            placeholder="例如：我需要一个对比试验数据和仿真数据的模板，包含数据导入、归一化处理和折线图绘制..."
-            value={aiInput}
-            onChange={(e) => setAiInput(e.target.value)}
-          />
-        </div>
-      </Modal>
     </div>
   );
 };

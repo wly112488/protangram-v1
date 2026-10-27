@@ -26,7 +26,7 @@ export default function TaskProgressView({ task }: { task: TaskRecord }) {
   const openDraft = (draft: TaskTrialDraft, requirement?: TaskRequirement) => {
     if (!draft.source) { review(draft); return; }
     const source = resolvePhysicalSource(objects, draft.source);
-    if (source.missing || source.trial?.taskBookId !== task.id) { message.error('关联试验来源已失效或任务书关联已变化'); return; }
+    if (source.missing || source.trial?.taskBookId !== task.id) { message.error('操作失败'); return; }
     const project = projects.find(item => item.id === task.projectId && !item.sessionOwnerId);
     const id = useSessionStore.getState().ensureTaskTrialSession(task.id, draft.id, draft.source, project?.id);
     useTaskStore.getState().bindTrialDraft(task.id, draft.id, draft.source, id);
@@ -40,7 +40,7 @@ export default function TaskProgressView({ task }: { task: TaskRecord }) {
   }).map(artifact => [`${artifact.projectId}/${artifact.id}`, artifact])).values()];
   const confirm = () => {
     if (!completing) return;
-    if (!note.trim() && !evidence.length) { message.warning('请填写完成依据或选择已有成果'); return; }
+    if (!note.trim() && !evidence.length) {  return; }
     try {
       for (const key of evidence) {
         const artifact = artifacts.find(item => `${item.projectId}/${item.id}` === key);
@@ -49,15 +49,15 @@ export default function TaskProgressView({ task }: { task: TaskRecord }) {
       }
       completeTaskRequirement(task.id, completing.id, note);
       setCompleting(undefined); setNote(''); setEvidence([]);
-      message.success('事项已完成，对应会话已显示在左侧');
-    } catch (error) { message.error(error instanceof Error ? error.message : '确认失败'); }
+      message.success('事项已完成，试验与成果可在所属项目查看');
+    } catch (error) { console.error(error); message.error('确认失败'); }
   };
   return <div className="workspace-content-stack">
     <Card><div className="task-progress-toolbar"><div><Typography.Title level={4}>任务进度</Typography.Title><Typography.Text>{progress.completed} / {progress.total} 项完成</Typography.Text></div><Progress percent={progress.percent} style={{ width: 280, maxWidth: '100%' }} /></div></Card>
-    <Card title="试验模板" className="task-progress-templates"><List dataSource={task.trialDrafts ?? []} locale={{ emptyText: '尚无试验模板，可从分析任务书导入，或关联已有试验。' }} renderItem={draft => <List.Item actions={[<Button key="open" type={draft.source ? 'default' : 'primary'} onClick={() => openDraft(draft)}>{draft.source ? '继续试验工作' : '复核并创建试验'}</Button>]}><List.Item.Meta title={<Space>{draft.name || '待命名试验'}<Tag color={draft.source ? 'blue' : 'default'}>{draft.source ? '已确认' : '待复核'}</Tag></Space>} description={<Space wrap><Typography.Text>{draft.loadSpectrum || '载荷谱待补充'}</Typography.Text>{draft.source?.physicalObjectName && <Tag>{draft.source.physicalObjectName} / {draft.source.experimentName}</Tag>}</Space>} /></List.Item>} /></Card>
+    <Card title="候选试验与已确认试验" className="task-progress-templates"><List dataSource={task.trialDrafts ?? []} locale={{ emptyText: null }} renderItem={draft => <List.Item actions={[<Button key="open" type={draft.source ? 'default' : 'primary'} onClick={() => openDraft(draft)}>{draft.source ? '继续试验工作' : '复核并创建试验'}</Button>]}><List.Item.Meta title={<Space>{draft.name || '待命名试验'}<Tag color={draft.source ? 'blue' : 'default'}>{draft.source ? '已确认' : '待复核'}</Tag></Space>} description={<Space wrap><Typography.Text>{draft.loadSpectrum || ""}</Typography.Text>{draft.source?.physicalObjectName && <Tag>{draft.source.physicalObjectName} / {draft.source.experimentName}</Tag>}</Space>} /></List.Item>} /></Card>
     <Table rowKey="id" dataSource={task.requirements} pagination={false} scroll={{ x: 700 }} columns={[
-      { title: '任务事项', dataIndex: 'text' },
-      { title: '专业功能', render: (_, item) => item.capability ? taskCapabilityLabels[item.capability] : '待指定' },
+      { title: '任务事项', render: (_, item) => <Input aria-label={`复核事项 ${item.id}`} defaultValue={item.text} key={item.id + item.text} onBlur={event => {if(event.target.value.trim() && event.target.value.trim()!==item.text) useTaskStore.getState().updateRequirement(task.id,item.id,{text:event.target.value,capability:item.capability});}} /> },
+      { title: '专业功能', render: (_, item) => <Select aria-label={`复核专业功能 ${item.id}`} style={{minWidth:150}} value={item.capability} options={Object.entries(taskCapabilityLabels).map(([value,label]) => ({value,label}))} onChange={capability => useTaskStore.getState().updateRequirement(task.id,item.id,{text:item.text,capability})} /> },
       { title: '前置事项', render: (_, item) => item.dependsOnIds?.map(id => task.requirements.findIndex(req => req.id === id) + 1).join('、') || '—' },
       { title: '状态', render: (_, item) => <Tag color={item.status === '已满足' ? 'success' : item.status === '进行中' ? 'processing' : 'default'}>{item.status === '已满足' ? '已完成' : item.status}</Tag> },
       { title: '操作', render: (_, item) => {

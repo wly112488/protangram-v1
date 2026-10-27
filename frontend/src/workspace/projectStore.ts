@@ -1,3 +1,4 @@
+import { createLocalId } from '../utils/createLocalId';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
@@ -64,12 +65,7 @@ interface ProjectWorkspaceState {
   removeArtifact: (projectId: string, artifactId: string) => void;
 }
 
-const newId = (prefix: string) => {
-  const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return `${prefix}-${uuid}`;
-};
+const newId = (prefix: string) => `${prefix}-${createLocalId()}`;
 
 const getLegacyProjects = (): Project[] => {
   if (typeof window === 'undefined') return [];

@@ -20,7 +20,9 @@ test('session shared results render trial data in place instead of redirecting i
   const session = source('../src/workspace/SessionWorkbench.tsx');
 
   assert.match(content, /collectSharedResources/);
-  assert.match(content, /sessionResourcesPath\(legacySession, projects\)/);
+  assert.match(content, /sessionViewId \?\? routeSessionId/);
+  assert.doesNotMatch(content, /<Navigate/);
+  assert.match(session, /sessionResourcesPath\(session, projects\)/);
   assert.doesNotMatch(content, /Navigate to=\{physicalPath\}/);
   assert.doesNotMatch(session, /navigate\(sourcePath/);
 });

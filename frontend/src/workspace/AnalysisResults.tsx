@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Card, Empty, Input, Select, Space, Tag, Tree, Typography } from 'antd';
+import { Card, Input, Select, Space, Tag, Tree, Typography } from 'antd';
 import { BarChartOutlined, FileTextOutlined, NumberOutlined, SearchOutlined, TableOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import type { ResultEntry } from './analysisResultModel';
@@ -29,7 +29,7 @@ export default function AnalysisResults({ entries, actions, extra, shared = fals
     if ((kind !== 'all' && entry.kind !== kind) || (!parentMatches && !matches(`${entry.name} ${origin ?? ''}`))) return null;
     const key = `result:${entry.key}`;
     choices.set(key, { title: entry.name, body: <ResultPreview key={entry.key} entry={entry} />, entry, description: entry.artifact?.summary });
-    return { key, isLeaf: true, icon: kindIcons[entry.kind], title: <span className="result-directory-title" title={[sourceLabel, origin, entry.artifact?.summary].filter(Boolean).join(' · ')}><span>{entry.name}</span><small>{kindLabels[entry.kind]}{entry.sourceAvailable === false ? ' · 来源失效' : ''}</small>{sourceLabel.startsWith('多文件') && <small>{sourceLabel}</small>}</span> };
+    return { key, isLeaf: true, icon: kindIcons[entry.kind], title: <span className="result-directory-title" title={[sourceLabel, origin, entry.artifact?.summary].filter(Boolean).join(' · ')}><span>{entry.name}</span><small>{kindLabels[entry.kind]}{entry.sourceAvailable === false ? "" : ''}</small>{sourceLabel.startsWith('多文件') && <small>{sourceLabel}</small>}</span> };
   };
   const seenFileIds = new Set<string>();
   const renderCatalog = (catalog: ReturnType<typeof buildResultCatalog>, groupKey: string, groupMatches: boolean): DataNode[] => catalog.flatMap(spectrum => {
@@ -72,11 +72,11 @@ export default function AnalysisResults({ entries, actions, extra, shared = fals
     <div className="result-catalog-toolbar"><Input prefix={<SearchOutlined />} placeholder="搜索试验、载荷谱、CSV 或成果" aria-label="搜索成果目录" value={query} onChange={event => setQuery(event.target.value)} allowClear /><Select aria-label="成果类型" value={kind} onChange={value => { setLocalKind(value); onKindChange?.(value); }} options={[{ value: 'all', label: '全部类型' }, ...Object.entries(kindLabels).map(([value, label]) => ({ value, label }))]} /></div>
     <div className="result-catalog-layout">
       <aside className="result-catalog-directory" aria-label="试验、执行、CSV 与成果目录">
-        {treeData.length ? <Tree key={`${query}:${kind}`} showIcon blockNode defaultExpandAll selectedKeys={selectedKey ? [selectedKey] : []} treeData={treeData} onSelect={keys => { if (keys.length) setSelection(String(keys[0])); }} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={query ? '没有匹配的成果' : '暂无数据或已保存成果'} />}
+        {treeData.length ? <Tree key={`${query}:${kind}`} showIcon blockNode defaultExpandAll selectedKeys={selectedKey ? [selectedKey] : []} treeData={treeData} onSelect={keys => { if (keys.length) setSelection(String(keys[0])); }} /> : null}
         {selected?.description && <Typography.Paragraph className="result-directory-description">{selected.description}</Typography.Paragraph>}
       </aside>
       <section className="result-catalog-preview" aria-label="选中内容预览">
-        {selected ? <><div className="result-preview-heading"><strong>{selected.title}</strong><Space>{selected.entry && <Tag>{kindLabels[selected.entry.kind]}</Tag>}{selected.entry && actions?.(selected.entry)}</Space></div>{selected.body}</> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="从左侧选择 CSV 查看表格，或选择成果查看预览" />}
+        {selected ? <><div className="result-preview-heading"><strong>{selected.title}</strong><Space>{selected.entry && <Tag>{kindLabels[selected.entry.kind]}</Tag>}{selected.entry && actions?.(selected.entry)}</Space></div>{selected.body}</> : null}
       </section>
     </div>
   </Card>;

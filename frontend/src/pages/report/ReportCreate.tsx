@@ -2,12 +2,8 @@ import { useSessionState, useSessionRouteState } from '@/workspace/useSessionSta
 import { useSessionStore } from '@/workspace/sessionStore';
 import { getSessionDraftKey, getSessionPath } from '@/workspace/sessionModel';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Alert, Card, Typography, Button, Form, Input, Select, Space, Descriptions, Tag, message, Checkbox, Empty, Drawer,
-} from 'antd';
-import {
-  ArrowLeftOutlined, FileSyncOutlined, LinkOutlined,
-} from '@ant-design/icons';
+import { Card, Typography, Button, Form, Input, Select, Space, Descriptions, Tag, message, Checkbox, Drawer } from 'antd';
+import { ArrowLeftOutlined, FileSyncOutlined, LinkOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
@@ -15,7 +11,7 @@ import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisProjects, loadExperiments, loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
 import { useProjectStore } from '@/workspace/projectStore';
 import { useTrialConfigurationStore } from '@/workspace/trialConfigurationStore';
-import { collectSessionResourceGroups } from '@/workspace/sessionResourceModel';
+import { collectWorkspaceResourceGroups } from '@/workspace/sessionResourceModel';
 import ProjectSidebar from '@/workspace/ProjectSidebar';
 import { useTaskStore } from '@/workspace/taskStore';
 import { getReportableArtifacts, resolveReportProjectId } from './reportModel.js';
@@ -89,7 +85,7 @@ const ReportCreate: React.FC = () => {
   const artifactKey = (artifact: ProjectArtifact) => taskBoundMode ? JSON.stringify([artifact.projectId, artifact.id]) : artifact.id;
   const chartChoices = taskBoundMode ? taskSources.charts : source.record ? getRecordCharts(source.trial, source.record.id).map(chart => ({ chart, label: `${chart.name} · ${chart.xField} / ${chart.yField}`, reference: { physicalObjectId: source.configuration!.id, experimentId: source.experiment!.id, trialId: source.trial!.id, testRecordId: source.record!.id, chartId: chart.id } })) : [];
   const chartKey = (item: typeof chartChoices[number]) => taskBoundMode ? recordChartKey(item.reference) : item.chart.id;
-  const resourceGroups=scope?.sessionId?collectSessionResourceGroups(projects,sessions,objects,cfgs,scope.sessionId):[];
+  const resourceGroups=scope?.sessionId?collectWorkspaceResourceGroups(projects,sessions,objects,cfgs,scope.sessionId):[];
   const sessionArtifacts=[...new Map(resourceGroups.flatMap(group=>group.entries.flatMap(entry=>entry.artifact?[[`${entry.artifact.projectId}/${entry.artifact.id}`,entry.artifact] as const]:[]))).values()];
   const sourceArtifacts = getReportableArtifacts(scope?.sessionId?sessionArtifacts:getSourceArtifacts(projects,sessions,scope));
   const [selectedChartIds, setSelectedChartIds] = useSessionState<string[]>('selectedChartIds', []);
@@ -189,7 +185,7 @@ const ReportCreate: React.FC = () => {
       message.success(taskBoundMode ? '报告配置已保存，可继续编制正式报告' : '报告已创建');
       navigate(`${scope?.sessionId ? getSessionPath(scope.sessionId, 'report') : '/report'}/generate/${report.id}${task ? `?taskId=${encodeURIComponent(task.id)}${taskItemId ? `&taskItemId=${encodeURIComponent(taskItemId)}` : ''}` : ''}`);
     } catch {
-      message.error(taskBoundMode ? '报告配置保存失败，请检查任务资料后重试' : '请选择项目和报告模板');
+      message.error('操作失败');
     }
   };
 
@@ -207,20 +203,14 @@ const ReportCreate: React.FC = () => {
 
       <div className="workspace-report-form-content" style={{ maxWidth: 850, margin: '0 auto' }}>
         {taskBoundMode && !selectedProjectId && (
-          <Alert
-            type="error"
-            showIcon
-            message="当前任务没有可用的关联项目"
-            description="请先在任务工作台修复项目关联，再继续配置任务报告。"
-            style={{ marginBottom: 16 }}
-          />
+          null
         )}
 
         <Card title={taskBoundMode ? '当前任务的正式报告' : '报告配置'} style={{ marginBottom: 16 }}>
           <Form form={form} layout="vertical" initialValues={{ ...formValues, analysisProjectId: selectedProjectId }} onValuesChange={(_changes, values) => setFormValues(values)}>
             {taskBoundMode || sessionBoundMode ? (
               <>
-                <Form.Item name="analysisProjectId" hidden rules={[{ required: true, message: '当前任务没有关联项目' }]}>
+                <Form.Item name="analysisProjectId" hidden rules={[{ required: true, message: '' }]}>
                   <Input />
                 </Form.Item>
                 <Form.Item label={taskBoundMode ? "当前任务书" : "选择会话"}>
@@ -233,19 +223,19 @@ const ReportCreate: React.FC = () => {
               </>
             ) : (
               <Form.Item label="选择项目" name="analysisProjectId"
-                rules={[{ required: true, message: '请选择项目' }]}>
+                rules={[{ required: true, message: "" }]}>
                 <Select
                   showSearch
                   optionFilterProp="label"
                   placeholder="选择项目或兼容的旧分析项目"
                   onChange={handleProjectChange}
                   options={projectOptions}
-                  notFoundContent={<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有可用于报告的项目" />}
+                  notFoundContent={null}
                 />
               </Form.Item>
             )}
             <Form.Item hidden={taskBoundMode} label="选择报告模板" name="reportTemplateId"
-              rules={[{ required: true, message: '请选择报告模板' }]}>
+              rules={[{ required: true, message: "" }]}>
               <Select placeholder="选择报告模板" options={REPORT_TEMPLATE_OPTIONS} />
             </Form.Item>
           </Form>
@@ -258,7 +248,7 @@ const ReportCreate: React.FC = () => {
             <Descriptions column={2} size="small" style={{ marginBottom: 12 }}>
               <Descriptions.Item label={taskBoundMode ? "任务书" : sessionBoundMode ? "会话名称" : "项目名称"}>{taskBoundMode ? task?.title : sessionBoundMode ? sessionTitle : selectedProject.name}</Descriptions.Item>
               {!taskBoundMode && <Descriptions.Item label="项目状态"><Tag color="blue">{selectedProject.status}</Tag></Descriptions.Item>}
-              <Descriptions.Item label="试验对象">{taskBoundMode ? [...new Set(taskEntries.map(entry => entry.object.name))].join("、") || "暂无关联" : selectedProject.basicInfo.testObject || '未填写'}</Descriptions.Item>
+              <Descriptions.Item label="试验对象">{taskBoundMode ? [...new Set(taskEntries.map(entry => entry.object.name))].join("、") || "" : selectedProject.basicInfo.testObject || ""}</Descriptions.Item>
               <Descriptions.Item label="可用成果">{reportableArtifacts.length} 项</Descriptions.Item>
             </Descriptions>
             {reportableArtifacts.length > 0 ? (
@@ -275,7 +265,7 @@ const ReportCreate: React.FC = () => {
                   ))}
                 </Space>
               </Checkbox.Group>
-            ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={sessionBoundMode ? "当前会话暂无可纳入报告的成果" : "项目暂无可纳入报告的成果"} />}
+            ) : null}
           </Card>
         )}
 
@@ -284,13 +274,13 @@ const ReportCreate: React.FC = () => {
           <Checkbox.Group value={selectedChartIds} onChange={values => setSelectedChartIds(values as string[])}>
             <Space direction="vertical">{chartChoices.map(item => <Checkbox key={chartKey(item)} value={chartKey(item)}>{item.label}</Checkbox>)}</Space>
           </Checkbox.Group>
-          {!chartChoices.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="关联记录尚无图表" />}
+
         </Card>}
         {task && (
           <Card title={`任务报告草稿 · ${task.title}`} style={{ marginBottom: 16 }}>
             <Text type="secondary">已将 {task.reportDraft.sections.reduce((count, section) => count + section.artifactRefs.length, 0)} 项任务成果与各章节正文带入正式报告配置。</Text>
             <div style={{ marginTop: 12, maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap' }}>
-              {task.reportDraft.sections.map((section) => `【${section.title}】\n${section.body}`).join('\n\n') || '报告草稿暂时为空。'}
+              {task.reportDraft.sections.map((section) => `【${section.title}】\n${section.body}`).join('\n\n') || ""}
             </div>
           </Card>
         )}

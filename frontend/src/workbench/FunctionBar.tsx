@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Form, Input, Modal, Popover, Select, Typography, message } from 'antd';
+import { Button, Form, Input, Modal, Popover, Select, Typography, message } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { primaryNavigationItems } from '@/workspace/presentationModel';
@@ -58,7 +58,7 @@ const getQuickMethodOptions = (): MethodRow[] => [
     hasChangeType: true,
   },
   {
-    title: '当至少一个因子具有两个以上水平时，估计主效应和交互作用效应',
+    title: '一般全因子设计',
     description: '创建一般全因子设计',
     icon: 'red-grid',
     factorTypeMode: 'editable',
@@ -197,7 +197,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
     appliedInitialTemplate.current = initialTemplate.id;
     const method = quickMethodOptions.find((item) => item.description === initialTemplate.designMethod);
     if (!method) {
-      message.warning(`模板“${initialTemplate.name}”中的设计方法当前不可用`);
+
       return;
     }
     const savedLevelCount = initialTemplate.levelCount
@@ -501,12 +501,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
       >
         {selectedMethod && (
           <div className="doe-method-body">
-            {initialTemplate && <Alert
-              type="info"
-              showIcon
-              title={`已载入模板“${initialTemplate.name}”作为当前实验副本，后续修改不会影响原模板。`}
-              style={{ marginBottom: 12 }}
-            />}
+
             <Form className="doe-method-form">
               <div className="doe-method-section-title">响应</div>
               <div className="doe-method-row">
@@ -731,7 +726,7 @@ const FunctionBar: React.FC<FunctionBarProps> = ({
             </button>
           ))}
           {templates.length === 0 && (
-            <div className="doe-template-empty">暂无模板</div>
+            <div className="doe-template-empty"></div>
           )}
         </div>
       </Modal>

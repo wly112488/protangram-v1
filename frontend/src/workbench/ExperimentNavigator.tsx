@@ -1,14 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Empty, Input, Space, Tag, Tooltip, Tree, Typography } from 'antd';
-import {
-  BarChartOutlined,
-  CloseOutlined,
-  DatabaseOutlined,
-  EditOutlined,
-  FileTextOutlined,
-  FolderOpenOutlined,
-  PlusOutlined,
-} from '@ant-design/icons';
+import { Button, Input, Space, Tag, Tooltip, Tree, Typography } from 'antd';
+import { BarChartOutlined, CloseOutlined, DatabaseOutlined, EditOutlined, FileTextOutlined, FolderOpenOutlined, PlusOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import type { ExperimentWorkspace, WorkbenchResource } from './workbenchModel';
 import { getStatusLabel } from './workbenchModel';
@@ -161,7 +153,7 @@ const ExperimentNavigator: React.FC<ExperimentNavigatorProps> = ({
             }}
           />
         ) : (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无资源" />
+          null
         )}
       </div>
     </aside>

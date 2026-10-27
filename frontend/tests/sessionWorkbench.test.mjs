@@ -201,6 +201,26 @@ test('independent sessions own separate artifact spaces without changing active 
   assert.equal(projects.getState().projects.find(p => p.id === contextA.targetProjectId).sessionOwnerId, a);
 });
 
+test('same-title conversations keep separate drafts and remain in the sidebar after leaving and reloading', () => {
+    const first = sessions.getState().createSession({ title: '独立探索' });
+    sessions.getState().updateDraft(first, 'analysis', 'config', { metric: '温度', value: 123 });
+    const original = sessions.getState().sessions.find(item => item.id === first);
+    const originalSpace = projects.getState().projects.find(item => item.id === original.storageProjectId);
+    const second = sessions.getState().createSession({ title: '独立探索' });
+    const fresh = sessions.getState().sessions.find(item => item.id === second);
+    assert.notEqual(first, second);
+    assert.notEqual(original.storageProjectId, fresh.storageProjectId);
+    assert.deepEqual(sessions.getState().sessions.find(item => item.id === first), original);
+    assert.deepEqual(projects.getState().projects.find(item => item.id === original.storageProjectId), originalSpace);
+    assert.deepEqual(fresh.drafts, {});
+    sessions.getState().openSession(null);
+    sessions.getState().reloadFromStorage();
+    const entries = api.getSessionSidebarContent(projects.getState().projects, sessions.getState().sessions, [], '', false).independentSessions;
+    assert.equal(entries.filter(item => item.id === first || item.id === second).length, 2);
+    sessions.getState().openSession(second);
+    assert.deepEqual(sessions.getState().sessions.find(item => item.id === first).drafts.analysis.config, { metric: '温度', value: 123 });
+});
+
 test('drafts remain separated by session and capability and restore after rehydration', async () => {
   const a = sessions.getState().createSession({ title: 'A' });
   const b = sessions.getState().createSession({ title: 'B' });

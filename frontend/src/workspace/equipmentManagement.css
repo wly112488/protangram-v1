@@ -1,0 +1,11 @@
+.equipment-directory { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.equipment-directory .ant-card { border-color: #e8edf4; border-radius: 9px; }
+.equipment-directory .ant-breadcrumb .ant-btn { padding-inline: 0; }
+.equipment-directory .ant-table-cell { overflow-wrap: anywhere; }
+.equipment-directory .equipment-parameter-table .ant-input { min-width: 80px; }
+.equipment-directory--selection { padding: 12px; border: 1px solid #c5d9f6; border-radius: 9px; background: #f6faff; }
+.equipment-directory .equipment-choice .ant-checkbox { border-radius: 50%; }
+.equipment-row-selected > td { background: #edf5ff !important; }
+html[data-theme="dark"] .equipment-directory--selection { background: #17283c; border-color: #355273; }
+html[data-theme="dark"] .equipment-row-selected > td { background: #203c5b !important; }
+@media (max-width:760px) { .equipment-directory .ant-card-body { padding: 10px; } .equipment-directory .ant-table-wrapper { overflow-x: auto; } }

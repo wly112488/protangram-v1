@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Card, Typography, Button, Table, Tag, Space, Empty, Popconfirm, message } from 'antd';
+import { Card, Typography, Button, Table, Tag, Space, Popconfirm, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
@@ -88,12 +88,7 @@ const TemplateList: React.FC = () => {
 
       {analysisTemplates.length === 0 ? (
         <Card>
-          <Empty description={
-            <span>暂无分析模板，点击
-              <Button type="link" onClick={() => navigate('/analysis/templates/create')}>新建模板</Button>
-              开始
-            </span>
-          } />
+          {<> <Button type="link" onClick={() => navigate('/analysis/templates/create')}>新建模板</Button> </>}
         </Card>
       ) : (
         Object.entries(groupedData).map(([group, templates]) => (

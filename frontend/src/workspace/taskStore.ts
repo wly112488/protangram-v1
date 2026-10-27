@@ -1,3 +1,4 @@
+import { createLocalId } from '../utils/createLocalId';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type {
@@ -42,7 +43,7 @@ interface TaskState {
   removeRequirement: (taskId: string, requirementId: string) => void;
   addArtifactToTask: (taskId: string, reference: Omit<TaskArtifactReference, 'addedAt'>) => void;
   addArtifactToTaskItem: (taskId: string, requirementId: string, reference: Omit<TaskArtifactReference, 'addedAt'>) => void;
-  updateTask: (taskId: string, patch: Partial<Pick<TaskRecord, 'title' | 'sourceName' | 'sourceText' | 'status'>>) => void;
+  updateTask: (taskId: string, patch: Partial<Pick<TaskRecord, 'title' | 'sourceName' | 'sourceText' | 'status' | 'projectId'>>) => void;
   setRequirementStatus: (taskId: string, requirementId: string, status: TaskRequirement['status']) => void;
   setRequirementProgress: (taskId: string, requirementId: string, progress: number) => void;
   confirmRequirementSatisfied: (taskId: string, requirementId: string, satisfactionNote: string) => void;
@@ -59,12 +60,7 @@ interface TaskState {
   setTaskStatus: (taskId: string, status: TaskStatus) => void;
 }
 
-const makeId = (prefix: string) => {
-  const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return `${prefix}-${uuid}`;
-};
+const makeId = (prefix: string) => `${prefix}-${createLocalId()}`;
 
 const touchTask = (task: TaskRecord, updatedAt: string): TaskRecord => ({
   ...task,

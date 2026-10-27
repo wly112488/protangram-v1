@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Card, Alert, Space } from 'antd';
+import { Button, Card, Space } from 'antd';
 import { CloseOutlined, FullscreenExitOutlined, LinkOutlined, ReloadOutlined } from '@ant-design/icons';
 
 interface FullscreenPanelProps {
@@ -166,24 +166,7 @@ const FullscreenPanel: React.FC<FullscreenPanelProps> = ({
             <>
               {loadError && (
                 <div style={{ padding: 16 }}>
-                  <Alert
-                    message="无法加载页面"
-                    description={
-                      <div>
-                        <p>该网站可能不允许在iframe中显示，这通常是由于安全策略限制。</p>
-                        <p><strong>解决方案：</strong></p>
-                        <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-                          <li>点击"在新窗口打开"按钮在浏览器新标签页中查看</li>
-                          <li>尝试使用支持iframe嵌入的URL</li>
-                          <li>使用本地服务或API接口地址</li>
-                        </ul>
-                      </div>
-                    }
-                    type="warning"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                    action={
-                      <Space>
+                  <Space>
                         <Button size="small" onClick={handleReload}>
                           重试
                         </Button>
@@ -191,11 +174,9 @@ const FullscreenPanel: React.FC<FullscreenPanelProps> = ({
                           新窗口打开
                         </Button>
                       </Space>
-                    }
-                  />
                 </div>
               )}
-              
+
               {isLoading && !loadError && (
                 <div
                   style={{
@@ -210,7 +191,7 @@ const FullscreenPanel: React.FC<FullscreenPanelProps> = ({
                   正在加载页面...
                 </div>
               )}
-              
+
               <iframe
                 key={url} // 强制重新渲染
                 src={url}

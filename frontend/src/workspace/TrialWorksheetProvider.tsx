@@ -9,10 +9,11 @@ import TrialWorksheetDock from './TrialWorksheetDock';
 import './trialWorksheet.css';
 
 export default function TrialWorksheetProvider({ trial, sessionId, capability, initialRecordId, children }: {
-  trial: ConcreteTrial; sessionId: string; capability: SessionCapability; initialRecordId?: string; children: ReactNode;
+  trial?: ConcreteTrial; sessionId: string; capability: SessionCapability; initialRecordId?: string; children: ReactNode;
 }) {
-  const files = trial.records.flatMap(record => record.rawFiles.filter(file => file.status !== 'removed').map(file => ({ file, record })));
-  const enabled = sessionCapabilities.some(item => item.key === capability);
+  const records = trial?.records ?? [];
+  const files = records.flatMap(record => record.rawFiles.filter(file => file.status !== 'removed').map(file => ({ file, record })));
+  const enabled = Boolean(trial) && sessionCapabilities.some(item => item.key === capability);
   const [views, setViews] = useState<Record<string, WorksheetView>>(() => Object.fromEntries(sessionCapabilities.map(item => {
     const draft = useSessionStore.getState().sessions.find(item => item.id === sessionId)?.drafts[item.key];
     const fallback = item.key === 'analysis' ? files.filter(item => !initialRecordId || item.record.id === initialRecordId).map(item => item.file.id) : [];
@@ -27,7 +28,7 @@ export default function TrialWorksheetProvider({ trial, sessionId, capability, i
   const view = views[capability] ?? { opened: [], expanded: false };
   const availableIds = view.opened.filter(id => files.some(item => item.file.id === id));
   const active = files.find(item => item.file.id === (view.active === '' ? undefined : availableIds.includes(view.active ?? '') ? view.active : availableIds[0]));
-  const [recordId, setRecordId] = useState(initialRecordId ?? trial.records[0]?.id);
+  const [recordId, setRecordId] = useState(initialRecordId ?? records[0]?.id);
   const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(new Set());
   const [analysisTab, setAnalysisTab] = useState('csv');
   const [previewTarget, setPreviewTarget] = useState<HTMLDivElement | null>(null);
@@ -62,20 +63,20 @@ export default function TrialWorksheetProvider({ trial, sessionId, capability, i
       if (!elsewhere) onDirtyChange(id, false);
     };
     const elsewhere = Object.entries(views).some(([key, view]) => key !== capability && view.opened.includes(id));
-    if (dirtyFiles.has(id) && !elsewhere) Modal.confirm({ title: '关闭工作表？', content: '未保存的编辑将丢弃，原 CSV 和已保存成果保留。', okText: '丢弃并关闭', cancelText: '继续编辑', onOk: proceed });
+    if (dirtyFiles.has(id) && !elsewhere) Modal.confirm({ title: '关闭工作表？', content: "", okText: '丢弃并关闭', cancelText: '继续编辑', onOk: proceed });
     else proceed();
   };
   const renameFile = (id: string, value: string) => {
     const next = { ...aliases, [id]: value };
     setAliases(next); useSessionStore.getState().updateDraft(sessionId, 'analysis', 'worksheetAliases', next);
   };
-  return <TrialWorksheetContext.Provider value={{ trial, files, active, view, aliases, recordId: recordId && trial.records.some(item => item.id === recordId) ? recordId : trial.records[0]?.id, setRecordId: id => { setRecordId(id); const first = files.find(item => item.record.id === id); updateView({ active: first?.file.id ?? '', opened: first && !view.opened.includes(first.file.id) ? [...view.opened, first.file.id] : view.opened }); }, openFile, updateView, dirtyFiles, analysisTab, setAnalysisTab }}>
-    <div className="trial-worksheet-workspace" style={enabled ? { paddingBottom: view.closed ? 0 : view.expanded && active ? 'var(--worksheet-space, 580px)' : 48 } : undefined}>
-      <div className="session-professional-content">
+  return <TrialWorksheetContext.Provider value={trial ? { trial, files, active, view, aliases, recordId: recordId && records.some(item => item.id === recordId) ? recordId : records[0]?.id, setRecordId: id => { setRecordId(id); const first = files.find(item => item.record.id === id); updateView({ active: first?.file.id ?? '', opened: first && !view.opened.includes(first.file.id) ? [...view.opened, first.file.id] : view.opened }); }, openFile, updateView, dirtyFiles, analysisTab, setAnalysisTab } : null}>
+    <div className={trial ? 'trial-worksheet-workspace' : undefined} style={enabled ? { paddingBottom: view.closed ? 0 : view.expanded && active ? 'var(--worksheet-space, 580px)' : 48 } : undefined}>
+      <div className={trial ? 'session-professional-content' : undefined}>
       {children}
       <div ref={onPreviewTarget} className="worksheet-preview-target" hidden={!enabled || capability === 'analysis' && analysisTab === 'diagnosis'} /></div>
-      <TrialWorksheetDock trial={trial} files={files.filter(item => retainedIds.includes(item.file.id))} enabled={enabled} capability={capability} previewTarget={previewTarget} onDirtyChange={onDirtyChange} onClose={closeFile} onRename={renameFile} />
+      {trial && <TrialWorksheetDock trial={trial} files={files.filter(item => retainedIds.includes(item.file.id))} enabled={enabled} capability={capability} previewTarget={previewTarget} onDirtyChange={onDirtyChange} onClose={closeFile} onRename={renameFile} />}
     </div>
-    <Modal open={blocker.state === 'blocked'} title="离开当前试验？" okText="丢弃修改并离开" cancelText="继续编辑" onOk={() => blocker.state === 'blocked' && blocker.proceed()} onCancel={() => blocker.state === 'blocked' && blocker.reset()}>工作表有未保存编辑，请先保存工作副本。已保存的文件和成果不会丢失。</Modal>
+    <Modal open={blocker.state === 'blocked'} title="离开当前试验？" okText="丢弃修改并离开" cancelText="继续编辑" onOk={() => blocker.state === 'blocked' && blocker.proceed()} onCancel={() => blocker.state === 'blocked' && blocker.reset()}></Modal>
   </TrialWorksheetContext.Provider>;
 }

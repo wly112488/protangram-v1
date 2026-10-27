@@ -25,11 +25,11 @@ test('project and independent creation both keep task optional; independent tria
   assert.equal(api.resolveTrialTaskBookId(independentContext), undefined);
 });
 
-test('task association can be independent and accepts an explicitly selected project without inventing one', () => {
+test('task books require their own existing project and cannot be redirected to another project', () => {
   const task = { id: 'task-1', title: '风扇鉴定', projectId: 'deleted' };
-  assert.deepEqual(api.resolveTrialCreationContext('?taskBookId=task-1', [task], []), { mode: 'task', taskId: 'task-1', taskName: '风扇鉴定' });
+  assert.deepEqual(api.resolveTrialCreationContext('?taskBookId=task-1', [task], []), { mode: 'missing-project', projectId: 'deleted' });
   const project = { id: 'p1', name: '试验项目' };
-  assert.equal(api.resolveTrialCreationContext('?taskBookId=task-1&projectId=p1', [task], [project]).projectId, 'p1');
+  assert.equal(api.resolveTrialCreationContext('?taskBookId=task-1&projectId=p1', [task], [project]).mode, 'missing-project');
   assert.deepEqual(api.resolveTrialCreationContext('?taskBookId=task-1&projectId=deleted', [task], [project]), { mode: 'missing-project', projectId: 'deleted' });
   assert.deepEqual(api.resolveTrialCreationContext('?projectId=internal', [], [{ id: 'internal', sessionOwnerId: 's1' }]), { mode: 'missing-project', projectId: 'internal' });
 });

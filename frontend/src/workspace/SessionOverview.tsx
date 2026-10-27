@@ -1,13 +1,17 @@
-import { Button, Card, Space, Typography } from 'antd';
-import { useNavigate, useParams } from 'react-router-dom';
-import { getSessionPath } from './sessionModel';
+import { useParams } from 'react-router-dom';
 import ProjectContent from './ProjectContent';
+import { useSessionStore } from './sessionStore';
+import { useProjectStore } from './projectStore';
+import { usePhysicalObjectStore } from './physicalObjectStore';
+import { useTrialConfigurationStore } from './trialConfigurationStore';
+import { collectWorkspaceResourceGroups } from './sessionResourceModel';
 
 export default function SessionOverview() {
   const {sessionId}=useParams();
-  const navigate=useNavigate();
-  return <div className="workspace-content-stack">
-    <Card size="small"><Space wrap><Typography.Text>从专业功能或通用工具开始工作。</Typography.Text><Button onClick={()=>navigate(getSessionPath(sessionId!,'tools'))}>打开通用工具</Button></Space></Card>
-    <ProjectContent sessionViewId={sessionId} />
-  </div>;
+  const sessions = useSessionStore(state => state.sessions);
+  const projects = useProjectStore(state => state.projects);
+  const objects = usePhysicalObjectStore(state => state.objects);
+  const configurations = useTrialConfigurationStore(state => state.configurations);
+  const groups = collectWorkspaceResourceGroups(projects, sessions, objects, configurations, sessionId ?? '');
+  return groups.some(group => group.entries.length || group.files.length) ? <ProjectContent sessionViewId={sessionId} /> : null;
 }

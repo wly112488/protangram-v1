@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Spin, message, Tag, Row, Col, Button, Space, Upload, Modal, Input, Popconfirm } from 'antd';
-import {
-  ExperimentOutlined,
-  UploadOutlined,
-  EditOutlined,
-  SaveOutlined,
-  CloseOutlined,
-  PlusOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons';
+import { ExperimentOutlined, UploadOutlined, EditOutlined, SaveOutlined, CloseOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import useAppStore from '@/stores/useAppStore';
 import { parseTestMethodCsv } from '@/utils/csvParser';
 import type { TestMethod } from '@/types';
@@ -281,7 +273,7 @@ const TestMethods: React.FC = () => {
                   <Tag color="blue">{selectedMethod.name}</Tag> 说明
                 </span>
               ) : (
-                '请选择方法'
+                ""
               )
             }
             style={{ height: PANEL_HEIGHT, overflow: 'auto' }}

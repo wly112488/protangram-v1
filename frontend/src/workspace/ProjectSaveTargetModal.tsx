@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Modal, Select } from 'antd';
+import { Button, Modal, Select } from 'antd';
 import { useProjectStore } from './projectStore';
 import { useSessionRouteState } from './useSessionState';
 
@@ -80,7 +80,7 @@ const ProjectSaveTargetModal: React.FC<ProjectSaveTargetModalProps> = ({
           options={orderedProjects.map((project) => ({ value: project.id, label: project.name }))}
         />
       ) : (
-        <Alert type="warning" showIcon title="当前没有可保存的项目，请先在左侧新建项目。" />
+        null
       )}
       {onSkip && (
         <div style={{ marginTop: 12 }}>

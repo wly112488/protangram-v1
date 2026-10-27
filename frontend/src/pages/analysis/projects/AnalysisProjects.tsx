@@ -1,15 +1,11 @@
+import { createLocalId } from '../../../utils/createLocalId';
 import TrialDataAnalysisWorkspace from '../../../workspace/TrialDataAnalysisWorkspace';
 import { useTrialWorksheet } from '../../../workspace/trialWorksheetContext';
 import { UNSELECTED_MODEL } from '@/types/businessContext';
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert, Button, Card, Checkbox, Col, Descriptions, Form, Modal, Progress, Row,
-  Select, Space, Table, Tabs, Tag, Timeline, Typography, message,
-} from 'antd';
-import {
-  BarChartOutlined, CheckCircleOutlined, FileTextOutlined, ReloadOutlined, SaveOutlined,
-} from '@ant-design/icons';
+import { Button, Card, Checkbox, Col, Descriptions, Form, Modal, Progress, Row, Select, Space, Table, Tabs, Tag, Timeline, Typography, message } from 'antd';
+import { BarChartOutlined, CheckCircleOutlined, FileTextOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
@@ -125,8 +121,8 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
   const sourceRecord = physicalSource.record;
   const boundPhysical = Boolean(session.physicalObjectId);
   const physicalTask = useMemo(() => physicalSource.configuration ? {
-    id: sourceRecord?.id ?? physicalSource.experiment?.id ?? physicalSource.configuration.id, name: physicalSource.trial?.name ?? physicalSource.experiment?.name ?? physicalSource.configuration.name, source: '物理对象试验记录', status: sourceRecord ? '已完成' : '尚无记录',
-    experimentFile: (sourceRecord?.rawFiles ?? physicalSource.trial?.records.flatMap(record => record.rawFiles) ?? []).map(file => file.name).join('、') || sourceRecord?.name || '尚无 CSV 文件',
+    id: sourceRecord?.id ?? physicalSource.experiment?.id ?? physicalSource.configuration.id, name: physicalSource.trial?.name ?? physicalSource.experiment?.name ?? physicalSource.configuration.name, source: '物理对象试验记录', status: sourceRecord ? '已完成' : "",
+    experimentFile: (sourceRecord?.rawFiles ?? physicalSource.trial?.records.flatMap(record => record.rawFiles) ?? []).map(file => file.name).join('、') || sourceRecord?.name || "",
     environmentFile: '记录中的实际条件', controlFile: '记录中的试验设置', modelData: '', conditions: sourceRecord ? 1 : physicalSource.trial?.records.length ?? 0,
     dataCount: (sourceRecord?.rawFiles ?? physicalSource.trial?.records.flatMap(record => record.rawFiles) ?? []).reduce((count, file) => count + file.rowCount, 0),
   } : null, [sourceRecord, physicalSource.experiment, physicalSource.configuration, physicalSource.trial]);
@@ -157,6 +153,7 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
   const [savedResultIds, setSavedResultIds] = useSessionState<Partial<Record<SaveKind, string>>>('savedResultIds', {});
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useSessionState('analyzed', false);
+  const [analysisRun,setAnalysisRun] = useSessionState<{id:string;cfgId?:string;startedAt:string;completedAt?:string;sourceScope?:NonNullable<BusinessRouteState['workspaceSession']>;inputs:Record<string,unknown>} | undefined>('analysisRun',undefined);
   const [activeTab, setActiveTab] = useSessionState('activeTab', 'trend');
   const [selectedAnomaly, setSelectedAnomaly] = useSessionState('selectedAnomaly', ANOMALIES[0]);
   const [selectedMeasurementPoint, setSelectedMeasurementPoint] = useSessionState('selectedMeasurementPoint', MEASUREMENT_POINTS[3]);
@@ -184,16 +181,18 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
   };
 
   const startAnalysis = () => {
-    if (!preparationReady) return message.warning('请先确认全部分析准备项');
-    if (rootCauseOnly && (!cfgSelection?.cfgId || !selectedDataFile)) return message.warning('请先选择试验构型 CFG 和分析数据');
+    if (!preparationReady) return;
+    if (rootCauseOnly && (!cfgSelection?.cfgId || !selectedDataFile)) return;
     if (timer.current !== null) window.clearTimeout(timer.current);
     setSavedResultIds({});
+    const snapshot = {id:createLocalId(),cfgId:cfgSelection?.cfgId,startedAt:new Date().toISOString(),sourceScope:incoming?.workspaceSession,inputs:structuredClone({config,dataFile:selectedDataFile,model:activeModel})};
     setAnalyzing(true);
     setAnalyzed(false);
     setSavedAnalysisProjectId(null);
     setSavedRootCauseProjectId(null);
     timer.current = window.setTimeout(() => {
       setAnalyzing(false);
+      setAnalysisRun({...snapshot,completedAt:new Date().toISOString()});
       setAnalyzed(true);
       setActiveTab('trend');
       setSelectedAnomaly(ANOMALIES[0]);
@@ -276,7 +275,7 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
           },
         });
 
-    const artifact = addArtifact(projectId, { ...artifactInput, id: savedResultIds[kind] });
+    const artifact = addArtifact(projectId, { ...artifactInput, id: savedResultIds[kind], payload:{...artifactInput.payload,execution:analysisRun,sourceScope:analysisRun?.sourceScope,resultMode:'demo'} });
     if (!artifact) return null;
     setSavedResultIds(previous => ({ ...previous, [kind]: artifact.id }));
     recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
@@ -286,10 +285,10 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
     setSaveTargetOpen(false);
     message.success(session.sessionId ? `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存${boundPhysical ? '到原试验的分析成果' : '到当前会话'}` : `${kind === 'analysis' ? '分析结果' : '根因结论'}已保存到项目“${project.name}”`);
     return artifact.id;
-  }, [savedResultIds, setSavedResultIds, trendOption, analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId, boundPhysical, businessScope?.experimentId, businessScope?.physicalObjectId, sourceRecord, selectedDataFile]);
+  }, [analysisRun, savedResultIds, setSavedResultIds, trendOption, analyzed, projects, task, data, activeModel, config, selectedAnomaly, selectedMeasurementPoint, rootCauseRows, primaryRootCause, addArtifact, recordArtifactForTaskItem, setSavedProjectId, setSavedAnalysisProjectId, setSavedRootCauseProjectId, setSaveTargetOpen, session.sessionId, boundPhysical, businessScope?.experimentId, businessScope?.physicalObjectId, sourceRecord, selectedDataFile]);
 
   const requestSave = (kind: SaveKind) => {
-    if (!analyzed) return message.warning('请先完成试验数据分析');
+    if (!analyzed) return;
     if (boundProject) {
       persistResult(boundProject.id, kind);
       return;
@@ -299,7 +298,7 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
   };
 
   const handleBusinessAction = useCallback((action: BusinessAction) => {
-    if (!analyzed) return message.warning('请先完成试验数据分析');
+    if (!analyzed) return;
     const taskContract: TaskContract = { taskId: task.id, taskName: task.name, taskType: '已执行试验', source: task.source, status: '已完成' };
     const dataContract: DataContract = { dataId: sourceRecord?.id ?? `data-${task.id}`, dataName: data.experimentFile, dataType: sourceRecord ? '物理对象试验执行记录' : '演示试验数据', source: '试验数据分析', taskId: incoming?.task?.taskId ?? incoming?.workspaceSession?.taskBookId ?? task.id };
     const result = { resultType: '试验数据分析', resultSummary: '发现 3 个异常事件，高转速区域温度异常，建议重新校准模型', abnormalRange: '7600～8000 rpm', metrics: config.metrics };
@@ -385,7 +384,7 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
     },
     {
       key: 'root', label: '根因分析', children: <>
-        <Alert type="warning" showIcon title={`异常事件：${selectedAnomaly.event}`} style={{ marginBottom: 16 }} />
+
         <Table size="small" pagination={false} dataSource={rootCauseRows} columns={[
           { title: '排序', render: (_value: unknown, _record: unknown, index: number) => index + 1, width: 80 },
           { title: '可能原因', dataIndex: 'reason' }, { title: '关联程度', dataIndex: 'relevance', render: levelTag },
@@ -484,7 +483,7 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
         {analyzing ? (
           <div style={{ padding: '48px 12%' }}><Progress percent={72} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在执行趋势、异常与根因分析...</Paragraph></div>
         ) : analyzed ? (
-          <><Alert type="warning" showIcon title="分析完成，发现 3 个异常事件" style={{ marginBottom: 16 }} /><Tabs activeKey={activeTab} onChange={setActiveTab} items={tabs} />
+          <><Tabs activeKey={activeTab} onChange={setActiveTab} items={tabs} />
             <div className="workspace-result-actions"><Space wrap>
               <Button icon={<SaveOutlined />} onClick={() => requestSave('analysis')}>{savedAnalysisProjectId ? '分析结果已保存' : '保存分析结果'}</Button>
               <Button icon={<CheckCircleOutlined />} onClick={() => requestSave('rootCause')}>{savedRootCauseProjectId ? '根因已确认' : `确认根因：${primaryRootCause.reason}`}</Button>
@@ -495,7 +494,7 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
             </Space></div>
           </>
         ) : (
-          <Alert type="info" showIcon title="当前任务数据已就绪，点击“开始分析”生成分析结果" />
+          null
         )}
       </Card>
 
@@ -526,12 +525,12 @@ export const LegacyAnalysisProjects: React.FC<{ rootCauseOnly?: boolean; selecte
   return (
     <div className="workspace-business-page">
       {incoming?.source && (incoming.task || incoming.data || incoming.model || incoming.result || incoming.validation) && (
-        <Alert showIcon type="info" title={`已从${incoming.source === 'intelligentDesign' ? '试验设计' : incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`} description={[incoming.task && `任务：${incoming.task.taskName}`, incoming.data && `数据：${incoming.data.dataName}`, incoming.result && `结果：${incoming.result.resultSummary}`, incoming.validation && `验证目标：${incoming.validation.goal}`].filter(Boolean).join('；')} style={{ marginBottom: 16 }} />
+        null
       )}
       {rootCauseOnly ? diagnosisContent : <Tabs className="workspace-subfunction-tabs" defaultActiveKey={physicalSource.trial ? 'csv' : 'diagnosis'} items={[
         { key: 'csv', label: '数据浏览与可视化', children: physicalSource.trial
           ? <TrialCsvAnalysis trialId={physicalSource.trial.id} initialRecordId={physicalSource.record?.id} artifacts={getTrialArtifacts(projects, sourceSessions, session, physicalSource.trial)} />
-          : <Alert type="info" showIcon message="CSV 数据分析需要当前具体试验上下文。" /> },
+          : null },
         { key: 'diagnosis', label: '异常与根因分析', children: diagnosisContent },
       ]} />}
     </div>
@@ -542,6 +541,6 @@ const AnalysisProjects: React.FC = () => {
   const workspace = useTrialWorksheet();
   const [showDemo, setShowDemo] = useState(false);
   if (workspace && !showDemo) return <TrialDataAnalysisWorkspace onShowDemo={() => setShowDemo(true)} />;
-  return <>{workspace && <Alert type="warning" showIcon message="独立演示：不代表底部当前 CSV 的分析结论" action={<Button onClick={() => setShowDemo(false)}>返回当前 CSV 分析</Button>} />}<LegacyAnalysisProjects /></>;
+  return <>{workspace && <Button onClick={() => setShowDemo(false)}>返回当前 CSV 分析</Button>}<LegacyAnalysisProjects /></>;
 };
 export default AnalysisProjects;

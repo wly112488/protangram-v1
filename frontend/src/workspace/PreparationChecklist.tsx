@@ -41,9 +41,7 @@ const PreparationChecklist: React.FC<PreparationChecklistProps> = ({ title = '�
             ) : (
               <div className="workspace-preparation-item">{content}</div>
             )}
-            <div className="workspace-preparation-preview" aria-live="polite">
-              {item.confirmed ? item.preview ?? item.value : <span className="workspace-preparation-preview-empty">确认后在此显示成果预览</span>}
-            </div>
+            {item.confirmed && <div className="workspace-preparation-preview" aria-live="polite">{item.preview ?? item.value}</div>}
           </div>
         );
       })}

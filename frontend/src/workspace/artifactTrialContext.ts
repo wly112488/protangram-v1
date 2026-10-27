@@ -23,6 +23,8 @@ export function resolveArtifactTrialScope(
   artifact: Pick<ProjectArtifact,'payload'>, sessions: WorkSession[], objects: PhysicalObject[], configurations: TrialConfiguration[],
 ): PhysicalBusinessScope | undefined {
   const payload=artifact.payload;
+  // Explicitly unbound results stay unbound when their originating session later adopts a trial.
+  if (payload.trialContext === null) return undefined;
   const trialContext=payload.trialContext as PhysicalBusinessScope | undefined;
   if (trialContext) return resolveTrial(trialContext,objects);
   const source=payload.sourceScope as PhysicalBusinessScope | undefined;

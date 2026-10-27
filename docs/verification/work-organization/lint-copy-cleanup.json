@@ -1,0 +1,11 @@
+{
+  "baseline": {
+    "errors": 36,
+    "warnings": 7
+  },
+  "current": {
+    "errors": 27,
+    "warnings": 7
+  },
+  "added": []
+}

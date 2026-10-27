@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import { Button, Card, Descriptions, Drawer, Empty, Input, Space, Tag, Typography } from 'antd';
+import { Button, Card, Descriptions, Drawer, Input, Space, Tag, Typography } from 'antd';
 import { ClearOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons';
 import type { BusinessAction } from '@/types/businessContext';
 import { useSessionState } from '@/workspace/useSessionState';
@@ -57,11 +57,11 @@ export const TrialAIAssistantProvider: React.FC<{ children: React.ReactNode }> =
 export const useTrialAIAssistant = () => useContext(AssistantContext);
 
 const getMockAnswer = (context: AIAssistantContext, prompt: string): ChatMessage => {
-  if (!context.resultReady) return { role: 'assistant', content: `当前${context.pageName}尚未完成业务执行，暂时没有可解释的最终结果。请先完成当前页面的校准、方案生成、分析或预测。` };
+  if (!context.resultReady) return { role: 'assistant', content: '' };
   if (prompt === '生成报告草稿') {
     return {
       role: 'assistant', report: true,
-      content: `分析摘要\n\n当前任务：${context.taskName ?? '未指定'}。${context.resultSummary ?? '暂无摘要'}。\n\n结合当前模型 ${context.modelName ?? '未指定'} 与数据 ${context.dataName ?? '未指定'}，建议针对异常区域开展补充验证，并使用本次数据重新校准数字孪生模型。`,
+      content: ['分析摘要', context.taskName, context.resultSummary, context.modelName, context.dataName].filter(Boolean).join('\n\n'),
     };
   }
   const answers: Record<AIAssistantContext['pageType'], string> = {
@@ -70,7 +70,7 @@ const getMockAnswer = (context: AIAssistantContext, prompt: string): ChatMessage
     dataAnalysis: '结合当前数据，7600rpm 后冷却流量下降、压力波动增加，同时模型历史数据覆盖不足。建议验证 7600～8200rpm 区域，并使用本次数据重新校准模型。',
     virtualCondition: '当前高风险区域靠近模型可信范围边界，预测不确定性明显增加。这张工况表就是本次虚拟工况分析结果；保存后会回到当前任务，任务报告整理时会统一读取这项成果。',
   };
-  return { role: 'assistant', content: `${answers[context.pageType]}\n\n当前对象：${context.taskName ?? context.projectName ?? context.pageName}；当前模型：${context.modelName ?? '未指定'}；当前结果：${context.resultSummary ?? '暂无'}。\n针对“${prompt}”，以上结论由当前页面 Mock 上下文生成。` };
+  return { role: 'assistant', content: [answers[context.pageType], context.taskName ?? context.projectName ?? context.pageName, context.modelName, context.resultSummary].filter(Boolean).join('\n\n') };
 };
 
 const TrialAIAssistant: React.FC<{ sessionId?: string; embedded?: boolean }> = ({ sessionId, embedded = false }) => {
@@ -81,13 +81,15 @@ const TrialAIAssistant: React.FC<{ sessionId?: string; embedded?: boolean }> = (
   const config = context ? pageConfig[context.pageType] : null;
   const sessionKey = context ? `${sessionId ?? 'legacy'}-${context.pageType}-${context.resultReady ? 'ready' : 'pending'}` : 'workspace-idle';
   const messages: ChatMessage[] = context && config
-    ? sessions[sessionKey] ?? [{
-        role: 'assistant',
-        content: context.resultReady
-          ? config.welcome
-          : `已读取当前${context.pageName}上下文。当前业务尚未执行完成，我会先协助检查配置，不会提前给出最终结果。`,
-      }]
+    ? sessions[sessionKey] ?? (context.resultReady ? [{ role: 'assistant', content: config.welcome }] : [])
     : [];
+  const visibleMessages = messages.flatMap(item => {
+    if (item.role === 'user') return [item];
+    if (/尚未完成业务执行|当前业务尚未执行完成/.test(item.content)) return [];
+    const content = item.content.replace(/\n针对“[^”]*”，以上结论由当前页面 Mock 上下文生成。$/, '')
+      .replace(/当前(?:任务|模型|结果)：(?:未指定|暂无摘要|暂无)[。；]?/g, '').trim();
+    return content ? [{ ...item, content }] : [];
+  });
 
   const contextItems = useMemo(() => {
     if (!context) return [];
@@ -115,7 +117,7 @@ const TrialAIAssistant: React.FC<{ sessionId?: string; embedded?: boolean }> = (
       ...messages,
       { role: 'user' as const, content: prompt.trim() },
       getMockAnswer(context, prompt.trim()),
-    ];
+    ].filter(item => item.content);
     setSessions((prev) => ({ ...prev, [sessionKey]: next }));
     setInput('');
   };
@@ -129,7 +131,7 @@ const TrialAIAssistant: React.FC<{ sessionId?: string; embedded?: boolean }> = (
     if (!context || !config) {
       return (
         <div className="workspace-ai-empty">
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="打开业务功能后，AI 会自动读取当前上下文" />
+
           <Text type="secondary">项目概览阶段不会伪造业务结果。</Text>
         </div>
       );
@@ -148,7 +150,7 @@ const TrialAIAssistant: React.FC<{ sessionId?: string; embedded?: boolean }> = (
         </div>
 
         <div className="workspace-ai-messages">
-          {messages.map((item, index) => (
+          {visibleMessages.map((item, index) => (
             <div key={`${item.role}-${index}`} className={`workspace-ai-message ${item.role}`}>
               <Tag color={item.role === 'user' ? 'blue' : 'purple'}>{item.role === 'user' ? '用户' : 'AI'}</Tag>
               <Card size="small" className="workspace-ai-message-card">

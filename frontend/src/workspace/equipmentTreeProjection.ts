@@ -16,6 +16,6 @@ export function getEquipmentCategoryViews(categories: PhysicalObject[]): Equipme
     id: category.id,
     name: category.name,
     sourceCategoryIds: [category.id, ...(category === regular && demo ? [demo.id] : [])],
-    configurations: [...category.configurations, ...(category === regular && demo ? demo.configurations : [])],
+    configurations: [...new Map([...category.configurations, ...(category.children ?? []), ...(category === regular && demo ? [...demo.configurations, ...(demo.children ?? [])] : [])].map(item=>[item.id,item])).values()],
   }));
 }

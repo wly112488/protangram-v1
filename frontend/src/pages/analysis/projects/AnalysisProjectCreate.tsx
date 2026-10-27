@@ -1,20 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Card, Typography, Button, Form, Select, Input, Space, Descriptions, Tag, message,
-} from 'antd';
-import {
-  ArrowLeftOutlined, SaveOutlined, PlayCircleOutlined, LinkOutlined,
-} from '@ant-design/icons';
+import { Card, Typography, Button, Form, Select, Input, Space, Descriptions, Tag, message } from 'antd';
+import { ArrowLeftOutlined, SaveOutlined, PlayCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
 import useAppStore from '@/stores/useAppStore';
-import {
-  loadExperiments, loadAnalysisTemplates, loadAnalysisProjects, saveAnalysisProjects,
-} from '@/utils/storage';
+import { loadExperiments, loadAnalysisTemplates, loadAnalysisProjects, saveAnalysisProjects } from '@/utils/storage';
 import type { AnalysisProject } from '@/types';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 /**
  * 数据分析项目新建页面
@@ -81,7 +75,7 @@ const AnalysisProjectCreate: React.FC = () => {
         navigate('/analysis/projects');
       }
     } catch {
-      message.error('请填写必要信息');
+      message.error('操作失败');
     }
   };
 
@@ -99,7 +93,7 @@ const AnalysisProjectCreate: React.FC = () => {
               <Input placeholder="可选，默认使用试验名称" />
             </Form.Item>
             <Form.Item label="选择试验卡片" name="experimentId"
-              rules={[{ required: true, message: '请选择试验卡片' }]}>
+              rules={[{ required: true, message: "" }]}>
               <Select placeholder="选择试验卡片" onChange={(v) => setSelectedExpId(v)}
                 options={experiments.map((e) => ({
                   label: <span>{e.name} <Tag color={e.hasOutline ? 'green' : 'default'} style={{ fontSize: 11 }}>{e.hasOutline ? '有大纲' : '无大纲'}</Tag></span>,
@@ -107,7 +101,7 @@ const AnalysisProjectCreate: React.FC = () => {
                 }))} />
             </Form.Item>
             <Form.Item label="选择分析模板" name="templateId"
-              rules={[{ required: true, message: '请选择分析模板' }]}>
+              rules={[{ required: true, message: "" }]}>
               <Select placeholder="选择分析模板"
                 options={analysisTemplates.map((t) => ({
                   label: `${t.name} (${t.experimentName || '通用'})`,
@@ -128,7 +122,7 @@ const AnalysisProjectCreate: React.FC = () => {
             <Descriptions column={2} size="small">
               <Descriptions.Item label="试验名称">{selectedExp.name}</Descriptions.Item>
               <Descriptions.Item label="创建时间">{selectedExp.createTime}</Descriptions.Item>
-              <Descriptions.Item label="试验目的" span={2}>{selectedExp.testGoal || '未填写'}</Descriptions.Item>
+              <Descriptions.Item label="试验目的" span={2}>{selectedExp.testGoal || ""}</Descriptions.Item>
               <Descriptions.Item label="试验对象">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                   {selectedExp.testObjectNames.slice(0, 5).map((n, i) => <Tag key={i} color="blue">{n}</Tag>)}
@@ -150,7 +144,7 @@ const AnalysisProjectCreate: React.FC = () => {
                       查看大纲
                     </Button>
                   </span>
-                ) : <Tag color="default">暂无大纲</Tag>}
+                ) : null}
               </Descriptions.Item>
             </Descriptions>
           </Card>

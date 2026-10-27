@@ -17,7 +17,8 @@ export function resolveTrialCreationContext(search: string, tasks: TaskRecord[],
     const task = tasks.find(item => item.id === taskId);
     if (!task) return { mode: 'missing-task', taskId };
     if (projectId && !project) return { mode: 'missing-project', projectId };
-    const target = project ?? projects.find(item => item.id === task.projectId && !item.sessionOwnerId);
+    const target = projects.find(item => item.id === task.projectId && !item.sessionOwnerId);
+    if (!target || project && project.id !== target.id) return {mode:'missing-project',projectId:task.projectId};
     return { mode: 'task', taskId, taskName: task.title, ...(target ? { projectId: target.id } : {}) };
   }
   if (projectId) {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Button, Card, Input, Modal, Radio, Select, Tooltip, Typography } from 'antd';
+import { Button, Card, Input, Modal, Radio, Select, Tooltip, Typography } from 'antd';
 import { AppstoreOutlined, DeleteOutlined, EditOutlined, HomeOutlined, InboxOutlined, PlusOutlined, PushpinOutlined, RightOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSessionStore } from './sessionStore';
@@ -100,7 +100,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
         <div className="session-section-label"><button className="session-section-toggle" aria-expanded={sectionExpanded.recent} onClick={() => toggleSection('recent')}><RightOutlined className={sectionExpanded.recent ? 'is-expanded' : ''} /><span>{showArchived ? '已归档会话' : '最近会话'}</span></button>{!showArchived && <Tooltip title="新建对话或实验"><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建对话或实验" onClick={() => create()} /></Tooltip>}</div>
         {sectionExpanded.recent && <>
           {independent.filter(session => showArchived || !session.pinned).slice(0, 30).map(row)}
-          {independent.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的独立会话' : showArchived ? '暂无归档会话' : '从一项工作开始'}</p>}
+          {independent.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的独立会话' : showArchived ? "" : '从一项工作开始'}</p>}
         </>}
       </section>
       <section className="session-nav-section session-nav-section--separated session-nav-section--label-highlight">
@@ -127,7 +127,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
             </div>}
           </div>;
         })}
-        {sectionExpanded.projects && groups.length === 0 && <p className="session-nav-empty">{showArchived ? '暂无归档项目' : '需要时再用项目归类会话'}</p>}
+        {sectionExpanded.projects && groups.length === 0 && <p className="session-nav-empty">{showArchived ? "" : '需要时再用项目归类会话'}</p>}
       </section>
       <section className="session-nav-section session-nav-section--separated session-nav-section--label-highlight">
         <div className="session-section-label">
@@ -158,7 +158,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
             </div>}
           </div>;
         })}
-        {sectionExpanded.tasks && visibleTasks.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的正式任务' : showArchived ? '暂无归档任务' : '还没有正式任务'}</p>}
+        {sectionExpanded.tasks && visibleTasks.length === 0 && <p className="session-nav-empty">{search ? '没有匹配的正式任务' : showArchived ? "" : '还没有正式任务'}</p>}
       </section>
     </div>
     <div className="session-sidebar-footer"><button className="session-sidebar-link" onClick={() => setShowArchived(!showArchived)}><InboxOutlined />{showArchived ? '返回最近会话' : '已归档'}</button></div>
@@ -191,7 +191,7 @@ const SessionSidebar: React.FC<{ activeId?: string | null; onNavigate: () => voi
             }))}
             onChange={setSelectedTemplateId}
             onClick={(event) => event.stopPropagation()}
-          /> : <Alert type="info" showIcon title="暂无 DOE 模板，可先全新创建并在设计配置中保存模板。" />}
+          /> : null}
         </Card>
       </Radio.Group>
     </Modal>

@@ -109,8 +109,8 @@ const ModuleManagement: React.FC = () => {
         const modules = data?.algorithm_specification?.modules || [];
         setCalculationModules(modules);
       })
-      .catch(() => {
-        message.warning('加载data-processing.json失败，使用默认配置');
+      .catch(error => {
+        console.error(error);
       });
   }, [setCalculationModules]);
 

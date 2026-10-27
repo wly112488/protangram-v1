@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
@@ -26,7 +26,10 @@ function App() {
   }, [setExperiments, setAnalysisTemplates, setAnalysisProjects, setAnalysisReports]);
 
   return (
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={zhCN} renderEmpty={() => null} form={{ validateMessages: { default: '', required: '', whitespace: '', enum: '',
+      string: { len: '', min: '', max: '', range: '' }, number: { len: '', min: '', max: '', range: '' },
+      types: { string: '', number: '', boolean: '', method: '', regexp: '', integer: '', float: '', array: '', object: '', date: '', url: '', hex: '', email: '' },
+      pattern: { mismatch: '' } } }}>
       <ThemeProvider>
         <RouterProvider router={router} />
       </ThemeProvider>

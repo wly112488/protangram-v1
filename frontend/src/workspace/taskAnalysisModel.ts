@@ -1,3 +1,4 @@
+import { createLocalId } from '../utils/createLocalId';
 import type { PhysicalObject } from './physicalObjectStore';
 import type { TaskRecord, TaskRequirement, TaskTrialDraft } from './taskTypes';
 import type { SessionCapability } from './sessionModel';
@@ -9,7 +10,7 @@ export const taskCapabilityRoute: Record<NonNullable<TaskRequirement['capability
   dataAnalysis: 'analysis', digitalTwin: 'digitalTwin', virtualCondition: 'virtualCondition', experimentDesign: 'doe', report: 'report',
 };
 
-const id = () => crypto.randomUUID();
+const id = () => createLocalId();
 // Reuse the existing front-end planning sequence. Only explicit source values
 // are used to fill business fields; document extraction can replace this adapter.
 export function createTaskAnalysisPreview(sourceName: string, sourceText: string, objects: PhysicalObject[]) {

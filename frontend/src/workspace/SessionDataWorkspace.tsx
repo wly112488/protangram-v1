@@ -1,5 +1,6 @@
+import { createLocalId } from '../utils/createLocalId';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert, Button, Card, Empty, Form, Input, Modal, Select, Space, Tabs, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, Form, Input, Modal, Select, Space, Tabs, Typography, Upload, message } from 'antd';
 import { CloseOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import { useBlocker, useParams } from 'react-router-dom';
 import type { RcFile } from 'antd/es/upload/interface';
@@ -8,13 +9,14 @@ import { useSessionStore } from './sessionStore';
 import { useProjectStore } from './projectStore';
 import { usePhysicalObjectStore, type RawDataFile } from './physicalObjectStore';
 import { useTrialConfigurationStore } from './trialConfigurationStore';
-import { collectSessionResourceGroups,collectTrialResourceGroups, type ResourceOwner } from './sessionResourceModel';
-import {resolvePhysicalSource} from './physicalBusinessContext';
+import { collectWorkspaceResourceGroups, type ResourceOwner } from './sessionResourceModel';
+import { resolvePhysicalSource } from './physicalBusinessContext';
 import { saveOwnedArtifact } from './sessionResourceStore';
 import { parseTrialCsv, readTrialFile, saveTrialFile } from './trialDataFiles';
 import { serializeWorksheet } from './csvWorksheetModel';
 import { useProfessionalScope } from './professionalScopeContext';
 import { useProfessionalCfgSelection } from './professionalScopeContext';
+import ProfessionalCfgField from './ProfessionalCfgField';
 import ModelChoiceStrip from './ModelChoiceStrip';
 import { PROFESSIONAL_MODEL_OPTIONS } from './professionalModelCatalog';
 import './trialWorksheet.css';
@@ -48,9 +50,7 @@ export default function SessionDataWorkspace({ professional = false, rootCauseCo
   const session=sessions.find(item=>item.id===sessionId);
   const selectedCfgId = cfgSelection?.cfgId ?? scope?.cfgId;
   const owner: ResourceOwner = professional && selectedCfgId ? {kind:'cfg',cfgId:selectedCfgId} : {kind:'session',sessionId:sessionId ?? ''};
-  const trialId=professional?scope?.trialId:session?.businessScope?.trialId;
-  const resourceGroups=useMemo(()=>trialId?collectTrialResourceGroups(projects,sessions,objects,configurations,{trialId,sessionId:sessionId ?? '',projectId:session?.projectId ?? session?.storageProjectId})
-    :collectSessionResourceGroups(projects,sessions,objects,configurations,sessionId ?? ''),[trialId,projects,sessions,objects,configurations,sessionId,session?.projectId,session?.storageProjectId]);
+  const resourceGroups=useMemo(()=>collectWorkspaceResourceGroups(projects,sessions,objects,configurations,sessionId ?? ''),[projects,sessions,objects,configurations,sessionId]);
   const group = resourceGroups.find(item=>item.id===(professional&&selectedCfgId?selectedCfgId:'generic'));
   const sourceTrial=professional && scope?.trialId?resolvePhysicalSource(objects,scope).trial:undefined;
   const allowedGroups=useMemo(()=>professional?resourceGroups.filter(item=>item.id==='generic'||(selectedCfgId && item.id===selectedCfgId)):resourceGroups.filter(item=>item.id==='generic'),[professional,resourceGroups,selectedCfgId]);
@@ -61,11 +61,11 @@ export default function SessionDataWorkspace({ professional = false, rootCauseCo
   const active = files.find(file=>file.id===activeId) ?? files[0];
   const featureTabs=useMemo(()=>[
     {key:'charts',label:'数据图表',children:<>
-      <Card size="small" style={{marginBottom:16}}><Form layout="vertical" style={{maxWidth:720}}><Form.Item label="关联试验构型 CFG"><Select aria-label="图表关联试验构型 CFG" allowClear showSearch optionFilterProp="label" placeholder="不选择时，数据和图表保存在当前会话" value={selectedCfgId} onChange={value=>cfgSelection?.selectCfg(value ?? '')} options={configurations.map(item=>({value:item.id,label:`${item.name} · ${item.id}`}))} /></Form.Item></Form></Card>
-      {files.length===0 && <Empty description="导入数据或新建数据表开始工作" />}
+      <Card size="small" style={{marginBottom:16}}><Form layout="vertical" style={{maxWidth:720}}><ProfessionalCfgField /></Form></Card>
+
     </>},
-    {key:'diagnosis',label:'异常与根因分析',children:rootCauseContent ?? <Empty description="异常与根因分析" />},
-  ],[selectedCfgId,cfgSelection,configurations,files.length,rootCauseContent]);
+    {key:'diagnosis',label:'异常与根因分析',children:rootCauseContent ?? null},
+  ],[rootCauseContent]);
   useEffect(()=>{
     const ids=availableFileIds?availableFileIds.split('\u0000'):[];
     const opened=openedKey?openedKey.split('\u0000').filter(id=>ids.includes(id)):[];
@@ -79,9 +79,10 @@ export default function SessionDataWorkspace({ professional = false, rootCauseCo
     update();window.addEventListener('resize',update);const observer=new ResizeObserver(update);if(main)observer.observe(main);
     return()=>{observer.disconnect();window.removeEventListener('resize',update);};
   },[]);
-  if (!sessionId || !session) return <Empty description="当前会话不存在" />;
+  if (!sessionId || !session) return null;
   const save = (input: Parameters<typeof saveOwnedArtifact>[2]) => {
     if(!sessionId) throw new Error('当前会话不存在');
+    if (professional && !scope?.cfgId) throw new Error('请明确选择本次使用的 CFG');
     return saveOwnedArtifact(sessionId,owner,{
       ...input,payload:{...input.payload,sourceCapability:professional?'analysis':'tools',sourceScope:professional?scope:undefined},
     });
@@ -102,12 +103,12 @@ export default function SessionDataWorkspace({ professional = false, rootCauseCo
         if(serializeWorksheet(await readTrialFile(existing.id))===normalizedContents) {
           setActiveId(existing.id);
           setOpenedIds(previous=>previous.includes(existing.id)?previous:[...previous,existing.id]);setDockClosed(false);setDockExpanded(true);
-          message.info('当前会话已存在相同 CSV，已打开现有文件，没有重复导入');
+
           return false;
         }
       } catch { /* A stale file reference should not block a new valid import. */ }
     }
-    const id=`raw-${crypto.randomUUID()}`;
+    const id=`raw-${createLocalId()}`;
     await saveTrialFile(id,file);
     addFile({id,name:file.name,mimeType:file.type || 'text/csv',size:file.size,addedAt:new Date().toISOString(),headers:parsed.headers,rowCount:parsed.rows.length,status:'available'});
     setActiveId(id);
@@ -117,7 +118,7 @@ export default function SessionDataWorkspace({ professional = false, rootCauseCo
   const upload = async (file:RcFile) => {
     setImports(value=>value+1);
     try {if(await importFile(file)) message.success('数据已保存');}
-    catch(cause) {message.error(cause instanceof Error?cause.message:'导入失败');}
+    catch(cause) { console.error(cause);message.error('导入失败');}
     finally {setImports(value=>value-1);}
   };
   const storage:WorksheetStorage = {
@@ -138,14 +139,14 @@ export default function SessionDataWorkspace({ professional = false, rootCauseCo
     },
   };
   const selectFile = (id:string) => {
-    if(dirtyIds.size && id!==active?.id) Modal.confirm({title:'切换数据文件？',content:'当前修改尚未保存，可以取消后先保存工作副本。',okText:'放弃修改并切换',cancelText:'取消',onOk:()=>{setDirtyIds(new Set());setActiveId(id);}});
+    if(dirtyIds.size && id!==active?.id) Modal.confirm({title:'切换数据文件？',content:"",okText:'放弃修改并切换',cancelText:'取消',onOk:()=>{setDirtyIds(new Set());setActiveId(id);}});
     else setActiveId(id);
   };
   const createEmptyTable = async ({name}:{name:string}) => {
     const filename=name.trim().toLowerCase().endsWith('.csv')?name.trim():`${name.trim()}.csv`;
     setImports(value=>value+1);setManualError('');
     try {await importFile(new File(['字段1,字段2'],filename,{type:'text/csv'}));setCreating(false);}
-    catch(cause) {setManualError(cause instanceof Error?cause.message:'创建失败');}
+    catch(cause) { console.error(cause);setManualError('创建失败');}
     finally {setImports(value=>value-1);}
   };
   return <div className="workspace-business-page session-data-workspace" style={professional?{paddingBottom:dockClosed?0:dockExpanded?dockHeight+10:48}:undefined}>
@@ -153,12 +154,12 @@ export default function SessionDataWorkspace({ professional = false, rootCauseCo
     {professional && <div className="workspace-top-choice-row"><Typography.Text type="secondary">模型</Typography.Text><ModelChoiceStrip models={PROFESSIONAL_MODEL_OPTIONS} value={selectedModel.modelId} ariaLabel="数据分析模型选择" onChange={next=>{const matched=PROFESSIONAL_MODEL_OPTIONS.find(item=>item.modelId===next.modelId);if(matched)setSelectedModel(matched);}} /></div>}
     <Card size="small">
       <Space wrap>
-      <Upload accept=".csv,text/csv" multiple showUploadList={false} disabled={imports>0 || dirtyIds.size>0} beforeUpload={file=>{void upload(file);return false;}}><Button type="primary" loading={imports>0} disabled={dirtyIds.size>0}>导入数据</Button></Upload>
-      <Button disabled={imports>0 || dirtyIds.size>0} onClick={()=>{manualForm.resetFields();setManualError('');setCreating(true);}}>新建数据表</Button>
-      <Typography.Text type="secondary">打开工作表后可编辑、绘图并保存成果。</Typography.Text>
+      <Upload accept=".csv,text/csv" multiple showUploadList={false} disabled={imports>0 || dirtyIds.size>0 || (professional && !scope?.cfgId)} beforeUpload={file=>{void upload(file);return false;}}><Button type="primary" loading={imports>0} disabled={dirtyIds.size>0 || (professional && !scope?.cfgId)}>导入数据</Button></Upload>
+      <Button disabled={imports>0 || dirtyIds.size>0 || (professional && !scope?.cfgId)} onClick={()=>{manualForm.resetFields();setManualError('');setCreating(true);}}>新建数据表</Button>
+      <Typography.Text type="secondary">{professional && !scope?.cfgId ? "" : '打开工作表后可编辑、绘图并保存成果。'}</Typography.Text>
       </Space>
     </Card>
-    {professional ? <Tabs activeKey={activeFeature} onChange={setActiveFeature} items={featureTabs} /> : files.length===0 && <Empty description="导入数据或新建数据表开始工作" />}
+    {professional ? <Tabs activeKey={activeFeature} onChange={setActiveFeature} items={featureTabs} /> : files.length===0 && null}
     <div ref={setPreviewTarget} className="session-data-preview" />
     <button type="button" className="worksheet-reopen-handle" aria-label="打开工作表区" title="上拉或点击展开工作表" hidden={!dockClosed || openedIds.length===0} onClick={()=>{setDockClosed(false);setDockExpanded(true);}}><UpOutlined /></button>
     <div ref={dockRoot} className={`trial-worksheet-dock ${dockExpanded?'is-expanded':'is-collapsed'}`} hidden={dockClosed || openedIds.length===0} style={{left:dockGeometry.left,width:dockGeometry.width,height:dockExpanded?dockHeight:44}}>
@@ -175,7 +176,7 @@ export default function SessionDataWorkspace({ professional = false, rootCauseCo
         <Button type="primary" htmlType="submit" loading={imports>0}>创建并打开</Button>
       </Form>
     </Modal>
-    <Modal title={imports?'数据正在保存':'有未保存的修改'} open={blocker.state==='blocked'} okText="放弃修改并离开" cancelText="继续工作" okButtonProps={{disabled:imports>0}} onOk={()=>blocker.state==='blocked' && blocker.proceed()} onCancel={()=>blocker.state==='blocked' && blocker.reset()}>
+    <Modal title={imports?'数据正在保存':""} open={blocker.state==='blocked'} okText="放弃修改并离开" cancelText="继续工作" okButtonProps={{disabled:imports>0}} onOk={()=>blocker.state==='blocked' && blocker.proceed()} onCancel={()=>blocker.state==='blocked' && blocker.reset()}>
       {imports?'请等待数据保存完成。':'离开前可取消并保存工作副本。'}
     </Modal>
   </div>;

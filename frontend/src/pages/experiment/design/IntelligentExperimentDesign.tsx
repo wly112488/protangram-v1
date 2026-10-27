@@ -1,13 +1,9 @@
+import { createLocalId } from '../../../utils/createLocalId';
 import { UNSELECTED_MODEL } from '@/types/businessContext';
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert, Button, Card, Checkbox, Col, Descriptions, Form, InputNumber, Modal, Progress,
-  Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message,
-} from 'antd';
-import {
-  ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, ExperimentOutlined, ReloadOutlined,
-} from '@ant-design/icons';
+import { Button, Card, Checkbox, Col, Descriptions, Form, InputNumber, Modal, Progress, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
+import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, ExperimentOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
 import FunctionBar from '@/workbench/FunctionBar';
@@ -15,7 +11,7 @@ import type { BusinessAction, BusinessRouteState, PlanCondition, TaskContract } 
 import PreparationChecklist from '@/workspace/PreparationChecklist';
 import ModelChoiceStrip from '@/workspace/ModelChoiceStrip';
 import ProfessionalCfgField from '@/workspace/ProfessionalCfgField';
-import { useProfessionalCfgSelection } from '@/workspace/professionalScopeContext';
+import { useProfessionalCfgSelection, useProfessionalScope } from '@/workspace/professionalScopeContext';
 import { PROFESSIONAL_MODEL_OPTIONS } from '@/workspace/professionalModelCatalog';
 import ProjectSaveTargetModal from '@/workspace/ProjectSaveTargetModal';
 import { createDesignArtifactInput, createDoeArtifactInput } from '@/workspace/projectModel';
@@ -80,6 +76,8 @@ const IntelligentExperimentDesign: React.FC = () => {
   const { setContext } = useTrialAIAssistant();
   const { projects, session, targetProject, recordArtifactForTaskItem, physicalSource, sources, addArtifact } = useWorkspaceBusinessSession(incoming);
   const cfgSelection = useProfessionalCfgSelection();
+  const operationScope = useProfessionalScope();
+  const [runSnapshot,setRunSnapshot] = useSessionState<{id:string;cfgId?:string;sourceScope?:typeof operationScope;startedAt:string;completedAt?:string;inputs:Record<string,unknown>} | undefined>('designRunSnapshot',undefined);
   const addArtifactToReport = useTaskStore((state) => state.addArtifactToReport);
   const setRequirementStatus = useTaskStore((state) => state.setRequirementStatus);
   const autoExecute = Boolean(incoming?.autoExecute && session.mode === 'task' && session.taskItemId);
@@ -127,14 +125,16 @@ const IntelligentExperimentDesign: React.FC = () => {
   };
 
   const generatePlan = () => {
-    if (cfgSelection && (!cfgSelection.cfgId || cfgSelection.error)) return message.warning('请在试验配置中选择有效的试验构型 CFG');
-    if (!preparationReady) return message.warning('请先确认全部方案生成准备项');
+    if (cfgSelection && (!cfgSelection.cfgId || cfgSelection.error)) return;
+    if (!preparationReady) return;
     if (timer.current !== null) window.clearTimeout(timer.current);
+    const snapshot = {id:createLocalId(),cfgId:operationScope?.cfgId,sourceScope:structuredClone(operationScope),startedAt:new Date().toISOString(),inputs:structuredClone({config,constraints,model,datasets})};
     setGenerating(true);
     setGenerated(false);
     timer.current = window.setTimeout(() => {
       const next = createPlan(config);
       setPlan(next);
+      setRunSnapshot({...snapshot,completedAt:new Date().toISOString()});
       setGenerating(false);
       setGenerated(true);
       setActiveTab('plan');
@@ -163,10 +163,10 @@ const IntelligentExperimentDesign: React.FC = () => {
       title: `${config.target} · 智能推荐方案`,
       summary: `推荐 ${plan.length} 个试验工况，预计覆盖率 86%，高风险工况 ${plan.filter((row) => row.risk === '高').length} 个`,
       payload: {
-        model,
-        datasets,
-        config,
-        constraints,
+        model, datasets, config, constraints,
+        ...runSnapshot?.inputs,
+        sourceScope:runSnapshot?.sourceScope, execution:runSnapshot,
+        resultMode:'demo',
         plan,
         coverage: 86,
         highRiskCount: plan.filter((row) => row.risk === '高').length,
@@ -176,7 +176,7 @@ const IntelligentExperimentDesign: React.FC = () => {
     recordArtifactForTaskItem({ projectId, artifactId: artifact.id });
     message.success(session.sessionId ? '推荐方案已保存到当前会话' : `推荐方案已保存到项目“${project.name}”`);
     return artifact;
-  }, [projects, addArtifact, config, plan, model, datasets, constraints, recordArtifactForTaskItem, session.sessionId]);
+  }, [projects, addArtifact, config, plan, model, datasets, constraints, recordArtifactForTaskItem, session.sessionId, runSnapshot]);
 
   const persistDoeDesign = useCallback((design: {
     method: string;
@@ -185,7 +185,7 @@ const IntelligentExperimentDesign: React.FC = () => {
     replicates?: { count?: number; hardToChange?: number; easyToChange?: string };
   }) => {
     if (cfgSelection && (!cfgSelection.cfgId || cfgSelection.error)) {
-      message.warning('请先在试验配置中选择有效的试验构型 CFG');
+
       return false;
     }
     if (!targetProject) {
@@ -225,8 +225,8 @@ const IntelligentExperimentDesign: React.FC = () => {
   };
 
   const confirmPlan = () => {
-    if (cfgSelection && (!cfgSelection.cfgId || cfgSelection.error)) return message.warning('请在试验配置中选择有效的试验构型 CFG');
-    if (!generated) return message.warning('请先生成推荐方案');
+    if (cfgSelection && (!cfgSelection.cfgId || cfgSelection.error)) return;
+    if (!generated) return;
     if (session.mode === 'task' && session.taskItemId && targetProject) {
       const artifact = persistDesign(targetProject.id);
       if (!artifact) return;
@@ -236,7 +236,7 @@ const IntelligentExperimentDesign: React.FC = () => {
       return;
     }
     if (targetProject) {
-      if (persistDesign(targetProject.id)) createTask(session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: targetProject.id });
+      if (persistDesign(targetProject.id) && !session.sessionId) createTask(session.mode === 'task' ? session : { ...session, mode: 'project', targetProjectId: targetProject.id });
       return;
     }
     setSaveTargetOpen(true);
@@ -272,7 +272,7 @@ const IntelligentExperimentDesign: React.FC = () => {
 
   const handleBusinessAction = useCallback((action: BusinessAction) => {
     if (action === '调整方案') {
-      if (!generated) return message.warning('请先生成推荐方案');
+      if (!generated) return;
       setAdjustOpen(true);
       return;
     }
@@ -364,18 +364,13 @@ const IntelligentExperimentDesign: React.FC = () => {
       </div>
 
       {incoming?.source && (
-        <Alert
-          type="success"
-          showIcon
-          title={`已从${incoming.source === 'digitalTwin' ? '试验数字孪生' : incoming.source === 'virtualCondition' ? '虚拟工况扩展' : '试验数据分析'}带入业务上下文`}
-          description={incoming.validation ? `建议重点验证：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}` : '已继承来源数据与成果'}
-        />
+        null
       )}
 
       <PreparationChecklist
         title="方案生成准备"
         items={[
-          ...(cfgSelection ? [{ key: 'cfg', label: '试验构型 CFG', value: cfgSelection.cfgId && !cfgSelection.error ? '已选择' : '未选择或无效', confirmed: Boolean(cfgSelection.cfgId && !cfgSelection.error), onClick: openConfig, preview: <Tag>{cfgSelection.cfgId && !cfgSelection.error ? '本次方案将关联到所选 CFG' : '请在试验配置中选择有效 CFG'}</Tag> }] : []),
+          ...(cfgSelection ? [{ key: 'cfg', label: '试验构型 CFG', value: cfgSelection.cfgId && !cfgSelection.error ? '已选择' : "", confirmed: Boolean(cfgSelection.cfgId && !cfgSelection.error), onClick: openConfig, preview: <Tag>{cfgSelection.cfgId && !cfgSelection.error ? '本次方案将关联到所选 CFG' : '请在试验配置中选择有效 CFG'}</Tag> }] : []),
           { key: 'config', label: '试验配置', value: `${config.target} / 最多 ${config.maxRuns} 次`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">目标：{config.target}</Tag><Tag>转速 {config.speedMin}～{config.speedMax} rpm</Tag><Tag>温度 {config.temperatureMin}～{config.temperatureMax} ℃</Tag><Tag>压力 {config.pressureMin}～{config.pressureMax} MPa</Tag><Tag>最多 {config.maxRuns} 次 · {config.strategy}</Tag></Space> },
           { key: 'constraints', label: '约束', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints, preview: <Space size={[4, 4]} wrap><Tag color="green">转速 ≤ {constraints.speedMax} rpm</Tag><Tag>温度 ≤ {constraints.temperatureMax} ℃</Tag><Tag>压力 ≥ {constraints.pressureMin} MPa</Tag><Tag>{constraints.safety ? '启用安全约束' : '未启用安全约束'}</Tag><Tag>{constraints.excludeAbnormal ? '排除异常工况' : '保留异常工况'}</Tag></Space> },
         ]}
@@ -390,6 +385,7 @@ const IntelligentExperimentDesign: React.FC = () => {
           <div style={{ padding: '48px 12%' }}><Progress percent={76} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在评估参数空间、信息增益与安全边界...</Paragraph></div>
         ) : generated ? (
           <>
+
             <Row gutter={16} style={{ marginBottom: 16 }}>
               <Col span={6}><Card size="small"><Statistic title="推荐试验数" value={plan.length} /></Card></Col>
               <Col span={6}><Card size="small"><Statistic title="预计覆盖率" value={86} suffix="%" /></Card></Col>
@@ -399,16 +395,16 @@ const IntelligentExperimentDesign: React.FC = () => {
             <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabs} />
             <div className="workspace-result-actions"><Space>
               <Button onClick={() => setAdjustOpen(true)}>调整方案</Button>
-              <Button type="primary" onClick={confirmPlan}>确认方案并创建试验任务</Button>
+              <Button type="primary" onClick={confirmPlan}>{session.sessionId ? '保存推荐方案' : '确认方案并创建试验任务'}</Button>
             </Space></div>
           </>
         ) : (
-          <Alert type="info" showIcon title="确认试验配置和约束后，点击“生成推荐方案”" />
+          null
         )}
       </Card>
 
       <Modal title="试验配置" width={680} open={configOpen} onCancel={() => setConfigOpen(false)} onOk={() => { setConfig(draftConfig); setConfirmed((prev) => ({ ...prev, config: true })); setConfigOpen(false); invalidate(); }}><Form labelCol={{ span: 5 }} wrapperCol={{ span: 18 }}>
-        <ProfessionalCfgField />
+        <ProfessionalCfgField disabled={generating} />
         <Form.Item label="试验目标"><Select value={draftConfig.target} onChange={(value) => setDraftConfig({ ...draftConfig, target: value })} options={[draftConfig.target, '最大化性能', '最小化能耗', '提高稳定性'].filter((value, index, rows) => rows.indexOf(value) === index).map((value) => ({ value }))} /></Form.Item>
         {[['转速', 'speedMin', 'speedMax'], ['温度', 'temperatureMin', 'temperatureMax'], ['压力', 'pressureMin', 'pressureMax']].map(([label, minKey, maxKey]) => <Form.Item label={label} key={label}><Space><InputNumber value={draftConfig[minKey as keyof typeof draftConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [minKey]: value ?? 0 })} /><Text>～</Text><InputNumber value={draftConfig[maxKey as keyof typeof draftConfig] as number} onChange={(value) => setDraftConfig({ ...draftConfig, [maxKey]: value ?? 0 })} /></Space></Form.Item>)}
         <Form.Item label="最大试验次数"><InputNumber min={1} max={30} value={draftConfig.maxRuns} onChange={(value) => setDraftConfig({ ...draftConfig, maxRuns: value ?? 10 })} /></Form.Item>
@@ -487,7 +483,7 @@ export const ExperimentTaskResult: React.FC = () => {
   return (
     <div className="workspace-business-page">
       <div className="workspace-business-heading workspace-page-heading"><div><Title level={4}>试验任务</Title><Text type="secondary">按确认后的推荐工况执行并回流试验数据</Text></div></div>
-      <Alert type={status === '已完成' ? 'success' : 'info'} showIcon title={status === '已完成' ? '试验任务执行完成' : '试验任务已创建'} description={`来源方案：${task.source}`} />
+
       <Card title={task.taskName} size="small" className="workspace-business-card"><Descriptions column={2} items={[
         { key: 'id', label: '任务编号', children: task.taskId }, { key: 'source', label: '创建来源', children: task.source },
         { key: 'type', label: '任务类型', children: task.taskType },

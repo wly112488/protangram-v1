@@ -6,7 +6,7 @@ globalThis.localStorage = { getItem: key => memory.get(key) ?? null, setItem: (k
 const bundle = await build({ stdin: { contents: "export * from './src/workspace/taskAnalysisModel'; export * from './src/workspace/taskTrialWorkflow'; export { usePhysicalObjectStore } from './src/workspace/physicalObjectStore'; export { useProjectStore } from './src/workspace/projectStore'; export { useSessionStore } from './src/workspace/sessionStore'; export { useTaskStore } from './src/workspace/taskStore'; export * from './src/workspace/sessionSidebarModel';", resolveDir: process.cwd() }, bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent' });
 const api = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const { usePhysicalObjectStore: physical, useProjectStore: projects, useTaskStore: tasks, useSessionStore: sessions } = api;
-beforeEach(() => { memory.clear(); physical.setState({ objects: [] }); projects.setState({ projects: [], activeProjectId: null }); tasks.setState({ tasks: [] }); sessions.setState({ sessions: [], activeSessionId: null, saveError: null }); });
+beforeEach(() => { memory.clear(); physical.setState({ objects: [] }); projects.setState({ projects: [], activeProjectId: null }); projects.setState({projects:[{id:'test-project',name:'试验项目',artifacts:[],datasets:[],trialSources:[],basicInfo:{}}]}); tasks.setState({ tasks: [] }); sessions.setState({ sessions: [], activeSessionId: null, saveError: null }); });
 function fixture() {
   const p = physical.getState(), category = p.addRoot({ name: '风扇类别', type: '风扇' });
   const object = p.addConfiguration(category, { name: '风扇甲' });
@@ -41,20 +41,20 @@ test('ambiguous matches stay unresolved rather than choosing the first physical 
 test('confirmed task trials are idempotent, hidden while working, and published only after valid completion', () => {
   const f = fixture();
   const preview = api.createTaskAnalysisPreview('任务书.txt', '试验名称：静推力试验\n风扇甲 构型甲\n载荷谱：LS-01', physical.getState().objects);
-  const taskId = tasks.getState().createTask({ title: preview.title, projectId: '', requirementTexts: [] });
+  const taskId = tasks.getState().createTask({ title: preview.title, projectId: 'test-project', requirementTexts: [] });
   tasks.getState().setAnalysisPlan(taskId, preview.requirements, preview.trialDrafts);
   const draft = preview.trialDrafts[0];
   const values = { name: draft.name, loadSpectrum: draft.loadSpectrum, physicalObjectId: f.object, experimentId: f.config };
   const id = api.confirmTaskTrialDraft(taskId, draft.id, values);
   assert.equal(api.confirmTaskTrialDraft(taskId, draft.id, values), id);
   assert.equal(sessions.getState().sessions.length, 1);
-  assert.equal(sessions.getState().sessions[0].projectId, undefined);
+  assert.equal(sessions.getState().sessions[0].projectId, 'test-project');
   assert.deepEqual(api.getRecentSessionsForHome(sessions.getState().sessions), []);
   const req = preview.requirements[0];
   assert.throws(() => api.completeTaskRequirement(taskId, req.id, ''), /完成依据/);
   assert.deepEqual(api.getRecentSessionsForHome(sessions.getState().sessions), []);
   api.completeTaskRequirement(taskId, req.id, '已复核分析结论');
-  assert.equal(api.getRecentSessionsForHome(sessions.getState().sessions)[0].id, id);
+  assert.equal(sessions.getState().sessions.find(item => item.id === id).projectId, 'test-project');
   assert.equal(tasks.getState().tasks[0].requirements[0].status, '已满足');
   assert.equal(api.getTaskProgress(tasks.getState().tasks[0]).completed, 1);
   assert.equal(physical.getState().objects[0].configurations[0].experiments[0].trials.length, 1);
@@ -65,7 +65,7 @@ test('confirmed task trials are idempotent, hidden while working, and published 
 test('missing required template data does not create a trial or session', () => {
   const f = fixture();
   const preview = api.createTaskAnalysisPreview('任务书.pdf', '', physical.getState().objects);
-  const taskId = tasks.getState().createTask({ title: preview.title, projectId: '', requirementTexts: [] });
+  const taskId = tasks.getState().createTask({ title: preview.title, projectId: 'test-project', requirementTexts: [] });
   tasks.getState().setAnalysisPlan(taskId, preview.requirements, preview.trialDrafts);
   assert.throws(() => api.confirmTaskTrialDraft(taskId, preview.trialDrafts[0].id, { name: ' ', loadSpectrum: ' ', physicalObjectId: f.object, experimentId: f.config }), /试验名称/);
   assert.equal(sessions.getState().sessions.length, 0);

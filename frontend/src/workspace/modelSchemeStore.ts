@@ -1,3 +1,4 @@
+import { createLocalId } from '../utils/createLocalId';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { resolveCfgTrialTarget } from './cfgTrialBridge';
@@ -23,7 +24,7 @@ export const useModelSchemeStore=create<ModelSchemeState>()(persist((set,get)=>(
       if(!plan.candidateIds.includes(chosen)) throw new Error('所选模型方案不匹配当前 CFG 与配置');
       return get().schemes.find(item=>item.id===chosen)!;
     }
-    const scheme:ModelScheme={...structuredClone(request),...structuredClone(details),id:`om-${crypto.randomUUID()}`,resultMode:'demo'};
+    const scheme:ModelScheme={...structuredClone(request),...structuredClone(details),id:`om-${createLocalId()}`,resultMode:'demo'};
     set(state=>({schemes:[...state.schemes,scheme]}));return scheme;
   },
 }),{name:'protangram-model-schemes-v1',version:1,storage:createJSONStorage(()=>localStorage)}));

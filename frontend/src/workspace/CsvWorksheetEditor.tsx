@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ColumnType } from 'antd/es/table';
-import { Alert, Button, Card, Dropdown, Input, Modal, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Dropdown, Input, Modal, Space, Table, Typography, message } from 'antd';
 import { EditOutlined, SaveOutlined, LineChartOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { createPortal } from 'react-dom';
@@ -43,10 +43,13 @@ export default function CsvWorksheetEditor({ file, trial, record, owner, tabName
   const [editing, setEditing] = useState<{ row: number; field: string; value: string }>();
   const [renaming, setRenaming] = useState<{ field: string; name: string }>();
   const [copyName, setCopyName] = useState<string>();
+  const copyBaseName = copyName?.trim() ?? '';
+  const copyFilename = copyBaseName.toLowerCase().endsWith('.csv') ? copyBaseName : `${copyBaseName}.csv`;
+  const copyNameInvalid = copyName !== undefined && (!copyBaseName || storage.files.some(item => item.status !== 'removed' && item.name.toLocaleLowerCase() === copyFilename.toLocaleLowerCase()));
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     let current = true;
-    readTrialFile(file.id).then(value => { if (current) { originalData.current = value; setData(value); } }).catch(reason => { if (current) setError(reason instanceof Error ? reason.message : '读取 CSV 失败'); });
+    readTrialFile(file.id).then(value => { if (current) { originalData.current = value; setData(value); } }).catch(reason => { console.error(reason); if (current) setError('读取 CSV 失败'); });
     return () => { current = false; };
   }, [file.id]);
   const rows = useMemo(() => data?.rows.map((values, rowIndex) => ({ values, rowIndex })) ?? [], [data]);
@@ -63,28 +66,28 @@ export default function CsvWorksheetEditor({ file, trial, record, owner, tabName
       const option = createTrialChartOption(config, data.rows) as Record<string, unknown>;
       setPreviews(previous => ({ ...previous, [capability]: { config: { ...config, sourceCapability: capability }, option } })); setDialog(undefined);
       requestAnimationFrame(() => previewTarget?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-    } catch (reason) { message.error(reason instanceof Error ? reason.message : '无法绘图'); }
+    } catch (reason) { console.error(reason); message.error('无法绘图'); }
   };
   const saveChart = () => {
-    if (dirty) return message.warning('请先保存编辑后的 CSV 工作副本，再保存成果');
+    if (dirty) return;
     if (!currentPreview) return;
     try {
       storage.saveChart(currentPreview.config,currentPreview.option);
       message.success('图表已保存到本机，可在左侧共享数据与成果中查看');
-    } catch (reason) { message.error(reason instanceof Error ? reason.message : '保存失败'); }
+    } catch (reason) { console.error(reason); message.error('保存失败'); }
   };
   const saveTable = () => {
-    if (dirty) return message.warning('请先保存编辑后的 CSV 工作副本，再保存成果');
+    if (dirty) return;
     try {
       storage.saveTable(tableName?.trim() || `${tabName} · 数据表`,selectedFields,data!);
       setTableName(undefined); message.success('数据表已保存到本机，可在左侧共享数据与成果中查看');
-    } catch (reason) { message.error(reason instanceof Error ? reason.message : '保存失败'); }
+    } catch (reason) { console.error(reason); message.error('保存失败'); }
   };
   const saveCopy = async () => {
     if (!data) return;
-    if (!copyName?.trim()) return message.warning('请填写工作副本文件名');
+    if (!copyName?.trim()) return;
     const filename = copyName.trim().toLowerCase().endsWith('.csv') ? copyName.trim() : `${copyName.trim()}.csv`;
-    if (storage.files.some(item => item.status !== 'removed' && item.name.toLocaleLowerCase() === filename.toLocaleLowerCase())) return message.warning('已有同名 CSV，请修改名称');
+    if (storage.files.some(item => item.status !== 'removed' && item.name.toLocaleLowerCase() === filename.toLocaleLowerCase())) return;
     setSaving(true);
     try {
       const id = `raw-${uuid()}`, contents = serializeWorksheet(data);
@@ -96,20 +99,20 @@ export default function CsvWorksheetEditor({ file, trial, record, owner, tabName
       setData(originalData.current); setSelected([]); setPreviews({});
       setDirty(false); onDirtyChange(file.id, false); setCopyName(undefined); onSavedCopy(id);
       message.success('工作副本已保存到本机；原始 CSV 和既有成果保持原来源');
-    } catch (reason) { message.error(reason instanceof Error ? reason.message : '保存工作副本失败'); }
+    } catch (reason) { console.error(reason); message.error('保存工作副本失败'); }
     finally { setSaving(false); }
   };
   if (error) return <Alert type="error" showIcon message={error} />;
   if (!data) return <div className="physical-chart-loading">正在读取 CSV…</div>;
   return <div className="csv-worksheet-editor">
-    <div className="csv-worksheet-status"><Typography.Text type="secondary">{file.name} · {data.rows.length} 行 · {data.headers.length} 列</Typography.Text>{dirty && <Tag color="orange">有未保存修改</Tag>}<Button icon={<SaveOutlined />} disabled={!dirty} onClick={() => setCopyName(`${tabName.replace(/\.csv$/i, '')}（编辑副本）.csv`)}>保存工作副本</Button></div>
+    <div className="csv-worksheet-status"><Typography.Text type="secondary">{file.name} · {data.rows.length} 行 · {data.headers.length} 列</Typography.Text><Button icon={<SaveOutlined />} disabled={!dirty} onClick={() => setCopyName(`${tabName.replace(/\.csv$/i, '')}（编辑副本）.csv`)}>保存工作副本</Button></div>
     <Space className="csv-worksheet-actions" wrap>
       <Dropdown trigger={['click']} menu={{ items: plotKinds.map(item => ({ key: item.value, label: item.label })), onClick: ({ key }) => setDialog({ kind: key as PlotKind, key: Date.now() }) }}><Button aria-label="绘图" icon={<LineChartOutlined />}>绘图</Button></Dropdown>
       <Button onClick={()=>data && modify({...data,rows:[...data.rows,Object.fromEntries(data.headers.map(field=>[field,'' as string]))]})}>添加数据行</Button>
       <Button disabled={dirty} onClick={() => setTableName(`${tabName} · 数据表`)}>保存数据表</Button>
       <Typography.Text type="secondary">选列后右键绘图 · Ctrl 多选 / Shift 连选 · 双击或直接输入编辑</Typography.Text>
     </Space>
-    {active && currentPreview && previewTarget && createPortal(<Card className="worksheet-chart-preview" size="small" title={currentPreview.config.name} extra={<Space>{dirty && <Tag color="orange">未保存数据预览</Tag>}<Button type="primary" disabled={dirty} onClick={saveChart}>保存图表</Button><Button onClick={() => setDialog({ kind: currentPreview.config.plotKind ?? 'line', key: Date.now() })}>重新绘图</Button></Space>}>
+    {active && currentPreview && previewTarget && createPortal(<Card className="worksheet-chart-preview" size="small" title={currentPreview.config.name} extra={<Space><Button type="primary" disabled={dirty} onClick={saveChart}>保存图表</Button><Button onClick={() => setDialog({ kind: currentPreview.config.plotKind ?? 'line', key: Date.now() })}>重新绘图</Button></Space>}>
       <Typography.Text type="secondary">{file.name} · {currentPreview.config.averageEvery && currentPreview.config.averageEvery > 1 ? `每 ${currentPreview.config.averageEvery} 行取平均` : '原始数值'}</Typography.Text>
       <ReactECharts option={currentPreview.option} style={{ height: 320 }} notMerge />
     </Card>, previewTarget)}
@@ -131,8 +134,8 @@ export default function CsvWorksheetEditor({ file, trial, record, owner, tabName
       if (!renaming) return;
       if (renaming.name.trim() === renaming.field) { setRenaming(undefined); return; }
       try { modify(renameWorksheetField(data, renaming.field, renaming.name)); setSelected(selected.map(field => field === renaming.field ? renaming.name.trim() : field)); setRenaming(undefined); }
-      catch (reason) { message.error(reason instanceof Error ? reason.message : '重命名失败'); }
+      catch (reason) { console.error(reason); message.error('重命名失败'); }
     }}><Input aria-label="新字段名称" value={renaming?.name} onChange={event => renaming && setRenaming({ ...renaming, name: event.target.value })} /></Modal>
-    <Modal title="保存 CSV 工作副本" open={copyName !== undefined} confirmLoading={saving} closable={!saving} maskClosable={!saving} keyboard={!saving} cancelButtonProps={{ disabled: saving }} okText="保存到本机" cancelText="取消" onCancel={() => { if (!saving) setCopyName(undefined); }} onOk={() => { if (!saving) void saveCopy(); }}><Typography.Paragraph>原始文件保留，修改后的 CSV 会保存为工作副本。</Typography.Paragraph><Input aria-label="工作副本文件名" value={copyName} onChange={event => setCopyName(event.target.value)} /></Modal>
+    <Modal title="保存 CSV 工作副本" open={copyName !== undefined} confirmLoading={saving} closable={!saving} maskClosable={!saving} keyboard={!saving} cancelButtonProps={{ disabled: saving }} okButtonProps={{ disabled: copyNameInvalid }} okText="保存到本机" cancelText="取消" onCancel={() => { if (!saving) setCopyName(undefined); }} onOk={() => { if (!saving) void saveCopy(); }}><Input aria-label="工作副本文件名" status={copyNameInvalid ? 'error' : undefined} value={copyName} onChange={event => setCopyName(event.target.value)} /></Modal>
   </div>;
 }

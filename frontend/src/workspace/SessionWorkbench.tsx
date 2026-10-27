@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Dropdown, Empty, Input, Modal, Select, Tag } from 'antd';
-import { ArrowRightOutlined, BarChartOutlined, DatabaseOutlined, EllipsisOutlined, ExperimentOutlined, FileTextOutlined, LineChartOutlined, PushpinOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Alert, Button, Dropdown, Input, Modal, Select, Tag } from 'antd';
+import { ArrowRightOutlined, DatabaseOutlined, EllipsisOutlined, PushpinOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getCapabilityFromPath, getSessionEntryPath, getSessionPath, sessionCapabilities } from './sessionModel';
 import { useSessionStore } from './sessionStore';
@@ -13,15 +13,7 @@ import { sessionResourcesPath } from './sharedResourcesModel';
 import TrialSettingsPanel from './TrialSettingsPanel';
 import SessionProfessionalBoundary from './SessionProfessionalBoundary';
 import SessionOverview from './SessionOverview';
-
-const capabilityIcons = {
-  doe: <ExperimentOutlined />,
-  analysis: <BarChartOutlined />,
-  digitalTwin: <DatabaseOutlined />,
-  virtualCondition: <LineChartOutlined />,
-  report: <FileTextOutlined />,
-  task: <UnorderedListOutlined />,
-};
+import SessionTrialAssociation from './SessionTrialAssociation';
 
 const SessionWorkbench: React.FC = () => {
   const { sessionId } = useParams();
@@ -33,6 +25,7 @@ const SessionWorkbench: React.FC = () => {
   const objects = usePhysicalObjectStore(state => state.objects);
   const [editOpen, setEditOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [associationOpen, setAssociationOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [projectId, setProjectId] = useState<string | undefined>();
   const [lastSavedArtifactId, setLastSavedArtifactId] = useState<string | null>(null);
@@ -44,10 +37,9 @@ const SessionWorkbench: React.FC = () => {
     window.addEventListener('protangram:session-artifact-saved', onArtifactSaved);
     return () => window.removeEventListener('protangram:session-artifact-saved', onArtifactSaved);
   }, [session?.id]);
-  if (!session) return <div className="session-missing"><Empty description="此会话不存在或本机数据不可用" /><Button onClick={() => navigate('/')}>返回工作台</Button></div>;
+  if (!session) return <div className="session-missing"><Button onClick={() => navigate('/')}>返回工作台</Button></div>;
   const capability = getCapabilityFromPath(location.pathname);
   const professional = sessionCapabilities.some(item => item.key === capability);
-  const taskReportMode = Boolean(session.taskId && capability === 'report');
   const project = projects.find(item => item.id === session.projectId && !item.sessionOwnerId);
   const context = useSessionStore.getState().getWorkspaceSession(session.id);
   const physicalSource = resolvePhysicalSource(objects, session.businessScope);
@@ -63,17 +55,17 @@ const SessionWorkbench: React.FC = () => {
     setLastSavedArtifactId(null);
   };
   return <div className="session-workbench">
-    <header className="session-workbench-header"><div><div className="session-title-line"><h1>{session.title}</h1>{session.pinned && <PushpinOutlined />}{session.archived && <Tag>已归档</Tag>}</div><div className="session-meta"><span>{session.businessScope ? physicalSourceLabel : session.taskId ? '正式任务会话' : project ? project.name : '独立会话'}</span><span className={saveError ? 'session-save-error' : 'session-saved'}>{saveError ? '尚未保存' : '已保存到本机'}</span></div></div><div className="session-header-actions">{session.taskWork && <Button onClick={() => navigate(taskBookPath(session.taskWork!.taskId, 'progress'))}>返回任务进度</Button>}{physicalSource.trial && !physicalSource.missing && <Button onClick={() => setSettingsOpen(true)}>试验设置</Button>}<Button aria-label="数据与成果" icon={<DatabaseOutlined />} onClick={() => openSessionResources()}>数据与成果</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'edit', label: '重命名与项目归属' }, { key: 'pin', label: session.pinned ? '取消置顶' : '置顶会话' }, { key: 'archive', label: session.archived ? '恢复会话' : '归档会话' }], onClick: ({ key }) => { if (key === 'edit') { setTitle(session.title); setProjectId(session.projectId); setEditOpen(true); } if (key === 'pin') useSessionStore.getState().togglePinned(session.id); if (key === 'archive') useSessionStore.getState().archiveSession(session.id, !session.archived); } }}><Button icon={<EllipsisOutlined />} aria-label="会话操作" /></Dropdown></div></header>
-    {saveError && <Alert type="error" showIcon title={saveError} action={<Button size="small" onClick={() => useSessionStore.getState().retrySave()}>重试保存</Button>} />}
+    <header className="session-workbench-header"><div><div className="session-title-line"><h1>{session.title}</h1>{session.pinned && <PushpinOutlined />}{session.archived && <Tag>已归档</Tag>}</div><div className="session-meta"><span>{session.businessScope ? physicalSourceLabel : session.taskId ? '正式任务会话' : project ? project.name : '独立会话'}</span><span className={saveError ? 'session-save-error' : 'session-saved'}>{saveError ? "保存失败" : '已保存到本机'}</span></div></div><div className="session-header-actions">{session.taskWork && <Button onClick={() => navigate(taskBookPath(session.taskWork!.taskId, 'progress'))}>返回任务进度</Button>}{physicalSource.trial && !physicalSource.missing && <Button onClick={() => setSettingsOpen(true)}>试验设置</Button>}<Button aria-label="数据与成果" icon={<DatabaseOutlined />} onClick={() => openSessionResources()}>数据与成果</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'edit', label: '重命名与项目归属' }, { key: 'pin', label: session.pinned ? '取消置顶' : '置顶会话' }, { key: 'archive', label: session.archived ? '恢复会话' : '归档会话' }], onClick: ({ key }) => { if (key === 'edit') { setTitle(session.title); setProjectId(session.projectId); setEditOpen(true); } if (key === 'pin') useSessionStore.getState().togglePinned(session.id); if (key === 'archive') useSessionStore.getState().archiveSession(session.id, !session.archived); } }}><Button icon={<EllipsisOutlined />} aria-label="会话操作" /></Dropdown></div></header>
+    {saveError && <Alert type="error" showIcon title="保存失败" action={<Button size="small" onClick={() => useSessionStore.getState().retrySave()}>重试保存</Button>} />}
     {lastSavedArtifact && <Alert type="success" showIcon closable title={`“${lastSavedArtifact.title}”已保存`} action={<Button type="link" icon={<ArrowRightOutlined />} onClick={() => openSessionResources(lastSavedArtifact.id)}>查看刚保存的结果</Button>} />}
-    {!taskReportMode && <><div className="session-section-label">专业功能</div><nav className="session-capability-tabs" aria-label="当前会话专业能力">
-      {session.taskId && <button className={capability === 'task' ? 'is-active' : ''} aria-current={capability === 'task' ? 'page' : undefined} onClick={() => navigate(`${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId!)}`, { state: { workspaceSession: context } })}>
-        <span className="session-capability-tab-icon">{capabilityIcons.task}</span><span className="session-capability-tab-copy"><strong>任务工作台</strong><small>事项与结果跟踪</small></span>
-      </button>}
-      {sessionCapabilities.map(item => <button key={item.key} className={capability === item.key ? 'is-active' : ''} aria-current={capability === item.key ? 'page' : undefined} onClick={() => navigate(getSessionPath(session.id, item.key), { state: { workspaceSession: context } })}>
-        <span className="session-capability-tab-icon">{capabilityIcons[item.key]}</span><span className="session-capability-tab-copy"><strong>{item.label}</strong></span>
-      </button>)}
-    </nav><div className="session-general-actions"><Button type={capability==='tools'?'primary':'default'} onClick={()=>navigate(getSessionPath(session.id,'tools'))}>通用工具</Button></div></>}
+    <div className="session-general-actions">
+      {session.taskId && <Button icon={<UnorderedListOutlined />} onClick={() => navigate(`${getSessionPath(session.id)}/tasks/${encodeURIComponent(session.taskId!)}`, { state: { workspaceSession: context } })}>任务工作台</Button>}
+      <Button type={capability === 'tools' ? 'primary' : 'default'} onClick={() => navigate(getSessionPath(session.id, 'tools'))}>通用工具</Button>
+    </div>
+    {professional && !session.taskId && !session.taskWork && !physicalSource.trial && <div className="session-trial-association">
+      <Button onClick={() => setAssociationOpen(true)}>关联具体试验</Button>
+    </div>}
+    {associationOpen && <SessionTrialAssociation sessionId={session.id} onClose={() => setAssociationOpen(false)} />}
     <TaskArtifactScope />
     {physicalSource.trial && !physicalSource.missing && <>
       <Modal title="试验设置" open={settingsOpen} onCancel={() => setSettingsOpen(false)} footer={null} destroyOnHidden width={820}>
@@ -94,4 +86,7 @@ export const SessionEntryRedirect: React.FC = () => {
   if (!session) return <Navigate to="/" replace />;
   return session.taskId ? <Navigate to={getSessionEntryPath(session)} replace /> : <SessionOverview />;
 };
-export default SessionWorkbench;
+export default function SessionWorkbenchRoute() {
+  const { sessionId } = useParams();
+  return <SessionWorkbench key={sessionId} />;
+}

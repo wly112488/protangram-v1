@@ -1,23 +1,24 @@
 import type { Project, ProjectArtifact } from './types';
-import type { WorkSession } from './sessionModel';
+import { getSessionResourcesPath, type WorkSession } from './sessionModel';
 import type { PhysicalObject } from './physicalObjectStore';
 import { collectAnalysisResults, getTrialArtifacts, type ResultEntry } from './analysisResultModel';
 import { getProjectTrialEntries } from './projectTrialModel';
 
-export const projectWorkspacePath = (projectId: string, view: 'trials' | 'resources' = 'trials', trialId?: string) =>
+export const projectWorkspacePath = (projectId: string, view: 'analysis' | 'trials' | 'resources' = 'trials', trialId?: string) =>
   `/projects?${new URLSearchParams({ projectId, view, ...(trialId ? { trialId } : {}) })}`;
 
 export function sessionResourcesPath(session: WorkSession, projects: Project[]) {
   void projects; // Retained for existing project and task navigation callers.
-  return `/shared?${new URLSearchParams({sessionId:session.id})}`;
+  return getSessionResourcesPath(session.id);
 }
 
 export function artifactResourcesPath(artifact: ProjectArtifact, projects: Project[], sessions: WorkSession[]) {
-  const project = projects.find(item => item.id === artifact.projectId);
   const scope = artifact.payload.sourceScope as { trialId?: string } | undefined;
-  if (project && !project.sessionOwnerId) return projectWorkspacePath(project.id, 'resources', scope?.trialId);
-  const session = sessions.find(item => item.storageProjectId === artifact.projectId);
-  return session ? sessionResourcesPath(session, projects)
+  const session = sessions.find(item => item.id === artifact.payload.sourceSessionId)
+    ?? sessions.find(item => item.storageProjectId === artifact.projectId);
+  if (session) return sessionResourcesPath(session, projects);
+  const project = projects.find(item => item.id === artifact.projectId);
+  return project && !project.sessionOwnerId ? projectWorkspacePath(project.id, 'resources', scope?.trialId)
     : `/shared?${new URLSearchParams({ projectId: artifact.projectId, ...(scope?.trialId ? { trialId: scope.trialId } : {}) })}`;
 }
 

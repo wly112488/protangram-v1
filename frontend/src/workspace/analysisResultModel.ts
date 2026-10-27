@@ -16,6 +16,8 @@ export function predictionArtifactInput(task: PredictionResultTask) {
     payload: {
       resultMode: task.resultMode, resultNature: task.service === 'digitalTwin' ? 'digitalTwin' : 'virtualPrediction', predictionTaskId: task.taskId, model: task.model, inputs: task.inputs,
       targetConfiguration: task.targetConfiguration,
+      sourceScope: task.context?.scope,
+      execution: {id:task.taskId, completedAt:task.completedAt, cfgId:task.context?.scope.cfgId, trialId:task.context?.scope.trialId, testRecordId:task.context?.scope.testRecordId, inputs:structuredClone(task.inputs)},
       ...(task.modelPlan?{modelPlan:structuredClone(task.modelPlan)}:{}),
       sourceContext: task.context ? { rawFiles: task.context.rawFiles } : undefined,
       upstreamResultKeys: task.context?.results.map(result => result.key),

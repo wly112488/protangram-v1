@@ -2,13 +2,8 @@ import { useSessionRouteState, useSessionState } from '@/workspace/useSessionSta
 import { useSessionStore } from '@/workspace/sessionStore';
 import { getSessionDraftKey, getSessionPath } from '@/workspace/sessionModel';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Alert, Card, Typography, Button, Row, Col, Tag, message, Modal, Space, Select, Empty,
-} from 'antd';
-import {
-  ArrowLeftOutlined, FileTextOutlined, CheckCircleOutlined,
-  EyeOutlined, SaveOutlined, FileDoneOutlined,
-} from '@ant-design/icons';
+import { Card, Typography, Button, Row, Col, Tag, message, Modal, Space, Select } from 'antd';
+import { ArrowLeftOutlined, FileTextOutlined, CheckCircleOutlined, EyeOutlined, SaveOutlined, FileDoneOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisReports, saveAnalysisReports } from '@/utils/storage';
@@ -191,7 +186,7 @@ const ReportGenerate: React.FC = () => {
             ? saveOwnedArtifact(scope.sessionId,{kind:'cfg',cfgId:scope.cfgId},input)
           : addArtifact(workspaceProject.id,input);
         if(!reportArtifact) throw new Error('报告成果未保存，请重试');
-      } catch(cause) {message.error(cause instanceof Error?cause.message:'报告成果未保存，请重试');return;}
+      } catch(cause) { console.error(cause);message.error('操作失败');return;}
       if (reportArtifact && report?.taskId) {
         setFormalTaskReportArtifact(report.taskId, { projectId: reportArtifact.projectId, artifactId: reportArtifact.id });
         const reportRequirementId = report.taskItemId ?? task?.requirements.find((requirement) => requirement.capability === 'report')?.id;
@@ -224,10 +219,10 @@ const ReportGenerate: React.FC = () => {
     : 0;
 
   const confirmGenerateReport = () => {
-    if (task && usingDemo) return message.error('任务报告不能用演示成果编制，请调整来源选择');
-    if (usingDemo && hasFormalEvidence) return message.error('正式报告不能用演示成果覆盖；请创建独立演示报告');
+    if (task && usingDemo) return message.error('操作失败');
+    if (usingDemo && hasFormalEvidence) return message.error('操作失败');
     if (unavailableBindings || !hasReportContent) {
-      message.error('请先选择可用成果并修正失效绑定');
+      message.error('操作失败');
       return;
     }
     if (!usingDemo && unmetTaskItemCount > 0) {
@@ -254,9 +249,9 @@ const ReportGenerate: React.FC = () => {
         </Tag>
       </div>
 
-      {usingDemo && <Alert type="warning" showIcon message="演示报告 · 模拟成果" description="选定内容含演示成果，不登记为正式任务证据，也不改变事项满足状态。请返回配置调整成果选择。" style={{ marginBottom: 12 }} action={selectedArtifacts.some(isDemoArtifact) ? undefined : <Button onClick={() => setDemoEnabled(false)}>退出演示</Button>} />}
-      {unavailableBindings && <Alert type="error" showIcon message="部分绑定成果已不可用，请重新选择或解绑后生成报告。" style={{ marginBottom: 12 }} />}
-      {taskSourceChanged && <Alert type="warning" showIcon message="部分试验已不再关联当前任务书，保留历史报告引用；请返回任务报告重新配置当前资料。" style={{ marginBottom: 12 }} />}
+      {usingDemo && selectedArtifacts.some(isDemoArtifact) ? undefined : <Button onClick={() => setDemoEnabled(false)}>退出演示</Button>}
+
+
       {report?.reportContent && (
         <Card size="small" title="任务报告草稿内容" style={{ marginBottom: 12, maxHeight: 180, overflow: 'auto' }}>
           <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{report.reportContent}</Paragraph>
@@ -264,13 +259,7 @@ const ReportGenerate: React.FC = () => {
       )}
 
       {report?.taskId && !usingDemo && (
-        <Alert
-          type="info"
-          showIcon
-          message="当前正在编制正式报告"
-          description="保存正文和资料引用后即可形成当前版本的正式报告。"
-          style={{ marginBottom: 12 }}
-        />
+        null
       )}
 
       {referencedCharts.length > 0 && <Card title="引用的原始记录图表" style={{ marginBottom: 16 }}>{referencedCharts.map(item => <Card key={recordChartKey(item.reference)} size="small" title={item.chart.name}><TrialChart chart={item.chart} rawFile={item.rawFile} /></Card>)}</Card>}
@@ -286,10 +275,7 @@ const ReportGenerate: React.FC = () => {
               可拖拽成果，也可在每个标签右侧选择成果
             </Text>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {outputVariables.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前报告没有可引用的成果">
-                {!task && <Button disabled={hasFormalEvidence} onClick={() => setDemoEnabled(true)}>启用演示报告数据</Button>}
-                {hasFormalEvidence && <Paragraph type="secondary" style={{ marginTop: 8 }}>此报告已有正式成果，请新建报告体验演示数据。</Paragraph>}
-              </Empty>}
+              {outputVariables.length === 0 && <> <Button disabled={hasFormalEvidence} onClick={() => setDemoEnabled(true)}>启用演示报告数据</Button> </>}
               {outputVariables.map((item) => (
                 <div
                   key={item.id}
@@ -399,7 +385,7 @@ const ReportGenerate: React.FC = () => {
         {report?.reportContent && <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{report.reportContent}</Paragraph>}
         {selectedArtifacts.map(artifact => <Card size="small" key={`${artifact.projectId}/${artifact.id}`} title={artifact.title}><Tag>{artifactResultLabel(artifact)}</Tag><Paragraph style={{ whiteSpace: 'pre-wrap' }}>{artifact.summary}</Paragraph></Card>)}
         {referencedCharts.map(item => <Card size="small" key={recordChartKey(item.reference)} title={item.chart.name}><TrialChart chart={item.chart} rawFile={item.rawFile} /></Card>)}
-        {!report?.reportContent && !selectedArtifacts.length && !referencedCharts.length && <Empty description="暂无可预览的正文或资料" />}
+
       </Modal>
     </div>
   );

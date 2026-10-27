@@ -4,8 +4,10 @@ import type { Project } from './types';
 import { artifactResultMode, getSourceArtifacts, resolvePhysicalSource } from './physicalBusinessContext';
 import { collectAnalysisResults, getTrialArtifacts } from './analysisResultModel';
 import { artifactOwner } from './sessionResourceModel';
+import { resolveArtifactTrialScope } from './artifactTrialContext';
+import type { TrialConfiguration } from './trialConfigurationModel';
 
-export function getProfessionalSources(objects: PhysicalObject[], projects: Project[], sessions: WorkSession[], scope: PhysicalBusinessScope) {
+export function getProfessionalSources(objects: PhysicalObject[], projects: Project[], sessions: WorkSession[], scope: PhysicalBusinessScope & {sessionId?:string}, configurations: TrialConfiguration[] = []) {
   const source = resolvePhysicalSource(objects, scope);
   const trials = source.trial ? [source.trial] : source.experiment?.trials ?? [];
   const records = trials.flatMap(trial => trial.records.map(record => ({ trial, record })));
@@ -31,6 +33,15 @@ export function getProfessionalSources(objects: PhysicalObject[], projects: Proj
       if (owner?.kind === 'cfg' && owner.cfgId === scope.cfgId) artifacts.set(`${artifact.projectId}/${artifact.id}`, artifact);
     }
   }
+  const workSession = sessions.find(item => item.id === scope.sessionId);
+  if (source.trial || workSession) for (const [key, artifact] of artifacts) {
+    const artifactScope = resolveArtifactTrialScope(artifact, sessions, objects, configurations);
+    const explicitlyReferenced = [source.experiment?.designArtifactRef, source.trial?.designArtifactRef].some(ref => ref?.projectId === artifact.projectId && ref?.artifactId === artifact.id);
+    const ownUnbound = workSession && (artifact.payload.sourceSessionId === workSession.id
+      || workSession.resourceRefs?.some(ref => ref.projectId === artifact.projectId && ref.artifactId === artifact.id)
+      || !artifact.payload.sourceSessionId && projects.find(project => project.id === artifact.projectId)?.sessionOwnerId === workSession.id);
+    if (artifactScope ? artifactScope.trialId !== source.trial?.id : !explicitlyReferenced && !ownUnbound) artifacts.delete(key);
+  }
   const results = [...trials.flatMap(trial => collectAnalysisResults(trial, [])), ...collectAnalysisResults(undefined, [...artifacts.values()])].map(entry => {
     const scope = entry.artifact?.payload.sourceScope as PhysicalBusinessScope | undefined;
     return entry.artifact ? { ...entry, record: records.find(item => item.record.id === scope?.testRecordId)?.record } : entry;
@@ -40,7 +51,7 @@ export function getProfessionalSources(objects: PhysicalObject[], projects: Proj
     const file = artifact.payload.dataFile as RawDataFile | undefined;
     if (file && file.status !== 'removed' && !files.some(item=>item.id===file.id)) files.push(file);
   }
-  return { source, results, files, rawFiles: source.record ? files.filter(file => file.sourceRecordId === source.record!.id) : files };
+  return { source, scope, results, files, rawFiles: source.record ? files.filter(file => file.sourceRecordId === source.record!.id) : files };
 }
 
 export interface ProfessionalDataContext {
@@ -61,7 +72,7 @@ export function professionalDataContext(sources: ReturnType<typeof getProfession
   const rawFiles = sources.files.filter(file => sources.rawFiles.some(current => current.id === file.id) || requiredFiles.has(file.id));
   const trials = source.trial ? [source.trial] : source.experiment?.trials ?? [];
   return {
-    scope: { physicalObjectId: source.configuration.id, experimentId: source.experiment?.id, ...(source.trial?.cfgId?{cfgId:source.trial.cfgId}:{}), trialId: source.trial?.id, testRecordId: source.record?.id },
+    scope: { physicalObjectId: source.configuration.id, experimentId: source.experiment?.id, ...(sources.scope.cfgId?{cfgId:sources.scope.cfgId}:{}), trialId: source.trial?.id, testRecordId: source.record?.id },
     objectParameters: source.configuration.parameters, configurationParameters: source.experiment?.parameters ?? [], loadSpectrum: source.trial?.loadSpectrum,
     records: trials.flatMap(trial => trial.records.filter(record => !source.record || record.id === source.record.id || rawFiles.some(file => file.sourceRecordId === record.id)).map(record => ({ id: record.id, trialId: trial.id, trialName: trial.name, loadSpectrum: trial.loadSpectrum, name: record.name, actualConditions: record.actualConditions, measurements: record.measurements }))),
     rawFiles,

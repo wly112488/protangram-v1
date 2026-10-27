@@ -7,7 +7,7 @@ import { useProfessionalScope } from './professionalScopeContext';
 
 // Only serializable work state uses this hook; loading flags and open dialogs
 // remain local useState values and never resurrect as unfinished background jobs.
-// When the active CFG changes, reload that CFG's draft without remounting the page.
+// CFG selection keeps the current input. Persist it under the selected CFG without loading another run over the user's work.
 export const useSessionState = <T,>(name: string, initial: T | (() => T)): [T, Dispatch<SetStateAction<T>>] => {
   const location = useLocation();
   const routeState = useSessionRouteState();
@@ -24,11 +24,11 @@ export const useSessionState = <T,>(name: string, initial: T | (() => T)): [T, D
     return readSessionDraft(session,capability,key,legacy);
   },[id,initial,scope,capability,name,routeState,key]);
   const [stored,setStored] = useState<{key:string;value:T}>(()=>({key,value:readValue()}));
-  const value = stored.key===key?stored.value:readValue();
+  const value = stored.value;
   const stateRef = useRef({ stored, value, readValue });
   useEffect(() => { stateRef.current = { stored, value, readValue }; }, [stored, value, readValue]);
   const update = useCallback<Dispatch<SetStateAction<T>>>((action) => {
-    const previous = stateRef.current.stored.key === key ? stateRef.current.value : stateRef.current.readValue();
+    const previous = stateRef.current.value;
     const next = typeof action === 'function' ? (action as (previous: T) => T)(previous) : action;
     const nextStored = {key,value:next};
     stateRef.current = { stored: nextStored, value: next, readValue: stateRef.current.readValue };

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
-import { Button, Dropdown, Empty, Input, Modal, Space, message } from 'antd';
+import { Button, Dropdown, Input, Modal, Space } from 'antd';
 import { CloseOutlined, DownOutlined, EditOutlined, FullscreenOutlined, PlusOutlined, UpOutlined } from '@ant-design/icons';
 import type { ConcreteTrial } from './physicalObjectStore';
 import { useTrialWorksheet, type WorksheetFile } from './trialWorksheetContext';
@@ -87,18 +87,18 @@ export default function TrialWorksheetDock({ trial, files, enabled, capability, 
       {files.map(({ file, record }) => <div key={file.id} hidden={!enabled || active?.file.id !== file.id}>
         <WorksheetTabEditor load={enabled && !view.closed && view.expanded && active?.file.id === file.id} file={file} record={record} trial={trial} tabName={aliases[file.id] ?? file.name} capability={capability} previewTarget={previewTarget} active={enabled && active?.file.id === file.id} onSavedCopy={id => openFile(id, true)} onDirtyChange={onDirtyChange} />
       </div>)}
-      {!active && <Empty description="选择下方工作表" />}
+
     </div>
     <div className="worksheet-bottom-bar">
       <div className="worksheet-file-tabs" role="tablist" aria-label="CSV 工作表">{tabs.map(({ file, record }) => <div role="tab" aria-selected={file.id === active?.file.id} tabIndex={0} key={file.id} className={file.id === active?.file.id ? 'is-active' : ''} title={`${file.name} · ${recordLabel(record)}`} onClick={() => openFile(file.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openFile(file.id); } }} onDoubleClick={() => setRename({ id: file.id, name: aliases[file.id] ?? file.name })}><span>{aliases[file.id] ?? file.name}{dirtyFiles.has(file.id) ? ' *' : ''}</span><button type="button" aria-label={`关闭工作表 ${aliases[file.id] ?? file.name}`} onClick={event => { event.stopPropagation(); onClose(file.id); }}><CloseOutlined /></button></div>)}</div>
-      <Dropdown trigger={['click']} menu={{ style: { maxHeight: 320, overflowY: 'auto' }, items: workspace.files.length ? workspace.files.map(({ file, record }) => ({ key: file.id, label: `${aliases[file.id] ?? file.name} · ${recordLabel(record)}` })) : [{ key: 'empty', label: '尚无 CSV，请在数据分析中导入', disabled: true }], onClick: ({ key }) => openFile(key) }}><Button type="text" icon={<PlusOutlined />} aria-label="打开已有 CSV" /></Dropdown>
+      <Dropdown trigger={['click']} menu={{ style: { maxHeight: 320, overflowY: 'auto' }, items: workspace.files.map(({ file, record }) => ({ key: file.id, label: `${aliases[file.id] ?? file.name} · ${recordLabel(record)}` })), onClick: ({ key }) => openFile(key) }}><Button type="text" disabled={!workspace.files.length} icon={<PlusOutlined />} aria-label="打开已有 CSV" /></Dropdown>
       <Button type="text" className="worksheet-toggle" aria-label={expanded ? '收起表格' : '展开表格'} icon={expanded ? <DownOutlined /> : <UpOutlined />} onClick={() => { if (!active && workspace.files[0]) openFile(workspace.files[0].file.id, true); else updateView({ expanded: !expanded }); }}>{expanded ? '收起表格' : '展开表格'}</Button>
       <Button type="text" icon={<CloseOutlined />} aria-label="关闭工作表区" title="完全关闭工作表区" onClick={() => updateView({ closed: true })} />
     </div>
     <Modal title="重命名工作表标签" open={Boolean(rename)} okText="保存名称" cancelText="取消" onCancel={() => setRename(undefined)} onOk={() => {
-      if (!rename?.name.trim()) return message.warning('请填写标签名称');
-      if (workspace.files.some(({ file }) => file.id !== rename.id && (aliases[file.id] ?? file.name) === rename.name.trim())) return message.warning('已有同名标签，请使用其他名称');
+      if (!rename?.name.trim()) return;
+      if (workspace.files.some(({ file }) => file.id !== rename.id && (aliases[file.id] ?? file.name) === rename.name.trim())) return;
       onRename(rename.id, rename.name.trim()); setRename(undefined);
-    }}><Input aria-label="工作表标签名称" value={rename?.name} onChange={event => rename && setRename({ ...rename, name: event.target.value })} /><p>只修改标签名称，不改变原文件和成果来源。</p></Modal>
+    }}><Input aria-label="工作表标签名称" status={rename && (!rename.name.trim() || workspace.files.some(({file}) => file.id !== rename.id && (aliases[file.id] ?? file.name) === rename.name.trim())) ? 'error' : undefined} value={rename?.name} onChange={event => rename && setRename({ ...rename, name: event.target.value })} /><p>只修改标签名称，不改变原文件和成果来源。</p></Modal>
   </div></>;
 }

@@ -32,10 +32,10 @@ export default function PhysicalTrialsTable({ trials, tasks, params, onQueryChan
       {(search || taskFilter !== 'all') && <Button onClick={() => onQueryChange({ trialSearch: '', trialTask: '', trialPage: '1' })}>重置筛选</Button>}
     </div>
     <Table<ConcreteTrial> size="middle" rowKey="id" dataSource={filtered} scroll={{ x: 780 }}
-      locale={{ emptyText: trials.length ? '没有匹配的具体试验' : '暂无具体试验' }}
+      locale={{ emptyText: null }}
       columns={[
         { title: '试验名称', dataIndex: 'name', width: 240, render: (name: string, trial) => <Button className="physical-trial-name" type="link" onClick={() => onOpen(trial.id)}>{name}</Button> },
-        { title: '载荷谱', dataIndex: 'loadSpectrum', width: 180, render: (value: string) => value || <Tag>待补充</Tag> },
+        { title: '载荷谱', dataIndex: 'loadSpectrum', width: 180, render: (value: string) => value || null },
         { title: '关联任务书', dataIndex: 'taskBookId', width: 210, render: (id?: string) => id ? <span title={`任务书 ID：${id}`}>{taskNames.get(id) || id}</span> : <Tag>自主试验</Tag> },
         { title: '执行次数', width: 90, render: (_, trial) => trial.records.length },
         { title: 'CSV 文件', width: 90, render: (_, trial) => trial.records.reduce((count, record) => count + record.rawFiles.length, 0) },

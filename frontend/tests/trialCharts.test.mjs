@@ -74,7 +74,7 @@ test('persisted migration and refresh retain the one shared collection and origi
   const f=fixture();f.store.saveChart(f.trialId,f.first,chart('转速曲线','first-csv'));f.store.saveChart(f.trialId,f.second,chart('推力曲线','second-csv'));
   const before=structuredClone(physical.getState().objects);await physical.persist.rehydrate();
   assert.deepEqual(physical.getState().objects,before);
-  const saved=JSON.parse(localStorage.getItem('protangram-physical-objects-v1'));assert.equal(saved.version,6);
+  const saved=JSON.parse(localStorage.getItem('protangram-physical-objects-v1'));assert.equal(saved.version,7);
   assert.equal(saved.state.objects[0].configurations[0].experiments[0].trials[0].charts.length,2);
 });
 test('task books and report references read the canonical trial results for every execution', () => {

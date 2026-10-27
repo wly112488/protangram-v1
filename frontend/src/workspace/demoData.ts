@@ -1,4 +1,4 @@
-import { usePhysicalObjectStore, type PhysicalObject, type PhysicalConfiguration, type ConcreteTrial, type ValueField } from './physicalObjectStore';
+import { usePhysicalObjectStore, migratePhysicalState, type PhysicalObject, type PhysicalConfiguration, type ConcreteTrial, type ValueField } from './physicalObjectStore';
 import { useProjectStore } from './projectStore';
 import { useSessionStore } from './sessionStore';
 import { useTaskStore } from './taskStore';
@@ -72,7 +72,7 @@ export function createDemoData() {
       return { id: experimentId, name: `${kind}构型 ${letter}`, description: '演示构型，可在对象树查看参数。', testType: 'thrust', parameters: [field(`demo-angle-${index}`, '安装角度', configurationIndex ? '5' : '0', '°'), field(`demo-target-${index}`, '目标转速', '5000', 'rpm')], trials: [trial] };
     }),
   }));
-  const category: PhysicalObject = { ...blank, id: 'demo-category-fan', name: '涵道风扇（演示）', type: '涵道风扇', description: '两台演示风扇，每台包含两个试验构型。', configurations: devices };
+  const category: PhysicalObject = { ...blank, id: 'category-fan', name: '涵道风扇', type: '涵道风扇', description: '两台演示风扇，每台包含两个试验构型。', configurations: devices };
   const capabilities: NonNullable<TaskRequirement['capability']>[] = ['dataAnalysis', 'digitalTwin', 'virtualCondition', 'experimentDesign', 'report'];
   const requirements: TaskRequirement[] = capabilities.map((capability, index) => ({ id: `demo-requirement-${index}`, text: ['分析高转速试验数据及推力变化', '评估数字孪生预测结果', '扩展未覆盖的虚拟工况', '制定补充试验方案', '汇总证据并形成性能验证报告'][index], capability, status: index < 2 ? '已满足' : index === 2 ? '进行中' : '待完成', executionProgress: index < 2 ? 100 : index === 2 ? 40 : 0, dependsOnIds: index ? [`demo-requirement-${index - 1}`] : [], ...(index < 2 ? { satisfactionNote: '演示样例已复核，关联成果可在共享数据与成果查看。' } : {}) }));
   const task: TaskRecord = { id: taskId, title: '涵道风扇性能验证任务书（演示）', sourceName: '涵道风扇性能验证任务书.txt', sourceText: DEMO_TASK_TEXT, projectId, planConfirmed: true, status: '进行中', requirements, trialDrafts: [{ id: 'demo-task-trial-draft', name: scopes[1].trialName!, loadSpectrum: 'LS-DEMO-02', categoryId: category.id, physicalObjectId: scopes[1].physicalObjectId, experimentId: scopes[1].experimentId, requirementIds: requirements.map(item => item.id), source: scopes[1], sessionId: 'demo-session-1', confirmedAt: timestamp }], artifactRefs: projects.find(item => item.id === projectId)!.artifacts.filter(item => item.id.startsWith('demo-artifact-1-')).map(item => ({ projectId, artifactId: item.id, addedAt: timestamp })), reportDraft: { status: 'draft', updatedAt: timestamp, sections: [{ id: 'task-background', title: '任务背景与目标', body: '验证两型涵道风扇在不同转速和安装条件下的推力响应。', artifactRefs: [] }, { id: 'task-analysis', title: '分析过程与结果', body: '已完成数据复核和数字孪生样例评估；正在开展虚拟工况扩展。', artifactRefs: [] }, { id: 'task-conclusion', title: '结论与建议', body: '在高转速区域增加补充试验点，并汇总最终报告。', artifactRefs: [] }] }, createdAt: timestamp, updatedAt: timestamp };
@@ -87,7 +87,11 @@ export async function initializeDemoData() {
     try { await readTrialFile(file.id); }
     catch { await saveTrialFile(file.id, new File([file.contents], file.name, { type: 'text/csv' })); }
   }
-  usePhysicalObjectStore.setState(state => ({ objects: merge(state.objects, demo.objects) }));
+  usePhysicalObjectStore.setState(state => {
+    const objects = migratePhysicalState({objects:state.objects}).objects;
+    const fan = objects.find(category => category.name === '涵道风扇')!;
+    return {objects:objects.map(category => category.id === fan.id ? {...category, configurations:merge(category.configurations, demo.objects[0].configurations)} : category)};
+  });
   useProjectStore.setState(state => ({ projects: merge(state.projects, demo.projects), activeProjectId: state.activeProjectId ?? 'demo-project-fan-validation' }));
   useTaskStore.setState(state => ({ tasks: merge(state.tasks, demo.tasks) }));
   useSessionStore.setState(state => ({ sessions: merge(state.sessions, demo.sessions) }));

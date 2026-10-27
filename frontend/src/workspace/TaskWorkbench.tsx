@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Card, Drawer, Empty, Input, List, Modal, Popconfirm, Progress, Select, Space, Spin, Tabs, Tag, Typography, message } from 'antd';
+import { Button, Card, Drawer, Input, List, Modal, Popconfirm, Progress, Select, Space, Spin, Tabs, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, FileSearchOutlined, FileTextOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { TaskProfessionalCapability, TaskProfessionalProject, TaskRequirement } from './taskTypes';
@@ -121,7 +121,7 @@ const TaskWorkbench: React.FC = () => {
   }, [saveReportAiCompletion, task, taskArtifacts]);
 
   const confirmReportComplete = () => {
-    if (!task?.reportDraft.aiCompletedAt) return message.info('请先让 AI 补全任务报告');
+    if (!task?.reportDraft.aiCompletedAt) return;
     const reportRequirement = task.requirements.find((requirement) => requirement.capability === 'report');
     const unmetCount = task.requirements.filter((requirement) =>
       requirement.id !== reportRequirement?.id && requirement.status !== '已满足').length;
@@ -157,7 +157,7 @@ const TaskWorkbench: React.FC = () => {
     if (!satisfactionRequirementId) return;
     const note = satisfactionNote.trim();
     if (!note && !satisfactionArtifactKey) {
-      message.warning('请填写满足依据，或关联一项已有成果');
+
       return;
     }
     if (satisfactionArtifactKey) {
@@ -174,7 +174,7 @@ const TaskWorkbench: React.FC = () => {
   const reopenSatisfiedRequirement = (requirementId: string) => {
     setPlanConfirmed(taskId, false);
     reopenRequirement(taskId, requirementId);
-    message.info('事项已重新打开；已关联成果会保留，请复核规划后继续');
+
   };
 
   useEffect(() => {
@@ -223,7 +223,7 @@ const TaskWorkbench: React.FC = () => {
 
   const saveRequirement = () => {
     const text = requirementText.trim();
-    if (!text) return message.warning('请填写事项内容');
+    if (!text) return;
     if (editingRequirementId) {
       updateRequirement(taskId, editingRequirementId, { text, capability: requirementCapability });
       message.success('任务事项已更新，请重新复核规划');
@@ -312,7 +312,7 @@ const TaskWorkbench: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [addArtifact, addArtifactToTaskItem, project, runningRequirement, setRequirementProgress, setRequirementStatus, task]);
 
-  if (!task) return <Card><Empty description="未找到这项任务，可能已被删除。"><Button onClick={() => navigate('/')}>返回工作台</Button></Empty></Card>;
+  if (!task) return <Card>{<> <Button onClick={() => navigate('/')}>返回工作台</Button> </>}</Card>;
 
   const professionalProjects = task.professionalProjects ?? [];
   const openProfessionalProject = (professionalProject: TaskProfessionalProject) => {
@@ -355,7 +355,7 @@ const TaskWorkbench: React.FC = () => {
   };
 
   const confirmProfessionalProject = (professionalProject: TaskProfessionalProject) => {
-    if (professionalProject.artifactRefs.length === 0) return message.warning('该专业工作项目还没有保存成果');
+    if (professionalProject.artifactRefs.length === 0) return;
     setProfessionalProjectStatus(task.id, professionalProject.id, '已完成');
     const requirement = professionalProject.relatedRequirementId
       ? task.requirements.find((item) => item.id === professionalProject.relatedRequirementId)
@@ -378,7 +378,7 @@ const TaskWorkbench: React.FC = () => {
   };
 
   const handleReferenceArtifact = () => {
-    if (!referenceArtifactKey || !referenceRequirementId) return message.warning('请选择成果和对应事项');
+    if (!referenceArtifactKey || !referenceRequirementId) return;
     const reference = JSON.parse(referenceArtifactKey) as { projectId: string; artifactId: string };
     linkArtifactToRequirement(reference.projectId, reference.artifactId, referenceRequirementId);
     setReferenceArtifactOpen(false);
@@ -394,11 +394,6 @@ const TaskWorkbench: React.FC = () => {
     const remaining = task.requirements.filter((requirement) => requirement.status !== '已满足');
     const missingReport = !task.reportDraft.formalReportArtifact;
     if (remaining.length || missingReport) {
-      const details = [
-        remaining.length ? `${remaining.length} 项任务事项尚未确认满足` : '',
-        missingReport ? '尚未生成正式报告' : '',
-      ].filter(Boolean).join('；');
-      message.warning(`暂不能完成任务：${details}`);
       setActiveTab(missingReport ? 'report' : 'requirements');
       return;
     }
@@ -430,20 +425,14 @@ const TaskWorkbench: React.FC = () => {
         {task.sourceName && <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>{task.sourceName}</Text>}
         {task.sourceText
           ? <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{task.sourceText}</Paragraph>
-          : <Alert type="info" showIcon message="尚未提取任务书正文" description="可直接打开原始 PDF 核对内容。任务事项及其来源定位显示在上方的规划复核区域。" />}
+          : null}
       </Card>
     </div>
   );
 
   const reportTab = (
     <div className="task-report-sections">
-      <Alert
-        type="info"
-        showIcon
-        message="报告在当前任务工作台内编制"
-        description="原型模拟 AI 会根据已回流的专业成果补全空白章节，并将报告保存为结构化 JSON；已有正文不会被覆盖。"
-        style={{ marginBottom: 12 }}
-      />
+
       {task.reportDraft.sections.map((section) => (
         <Card key={section.id} title={section.title} size="small">
           <TextArea
@@ -496,7 +485,7 @@ const TaskWorkbench: React.FC = () => {
         <Text type="secondary">任务成果会在补全任务报告时自动汇总；独立成果可在此关联到任务事项。</Text>
         <Button icon={<PlusOutlined />} onClick={() => setReferenceArtifactOpen(true)}>引用已有成果</Button>
       </div>
-      {taskArtifacts.length === 0 ? <Empty description="还没有关联到本任务的分析成果" /> : (
+      {taskArtifacts.length === 0 ? null : (
         <List
           dataSource={[...taskArtifacts].sort((left, right) => right.artifact.updatedAt.localeCompare(left.artifact.updatedAt))}
           renderItem={({ artifact, projectName }) => {
@@ -526,7 +515,7 @@ const TaskWorkbench: React.FC = () => {
           <Space wrap>
             <Tag color={task.status === '进行中' ? 'blue' : 'green'}>{task.status}</Tag>
             {task.sourceName && <Text type="secondary">任务书：{task.sourceName}</Text>}
-            <Text type="secondary">关联项目：{project?.name ?? '未关联'}</Text>
+            <Text type="secondary">关联项目：{project?.name ?? ""}</Text>
           </Space>
         )}
         actions={(
@@ -553,8 +542,8 @@ const TaskWorkbench: React.FC = () => {
         title={<Space>任务规划复核{task.demo && <Tag color="purple">AI 模拟拆解</Tag>}</Space>}
         extra={<Space wrap><Button icon={<PlusOutlined />} onClick={openNewRequirement}>补充任务事项</Button><Text type="secondary">{task.demo ? '确认后，系统按前置关系自动配置并执行可开始事项' : '确认规划后可按前置要求启动事项'}</Text><Button type={task.planConfirmed ? 'default' : 'primary'} onClick={() => setPlanConfirmed(task.id, !task.planConfirmed)}>{task.planConfirmed ? '撤销确认并暂停' : task.demo ? '确认规划并开始自动执行' : '确认规划并解锁执行'}</Button></Space>}
       >
-        {task.demo && <Alert className="task-demo-note" type="info" showIcon message={`原型模拟：${task.sourceName || '已选择的任务书 PDF'}尚未被实际解析；事项来源定位、推荐能力和分析输入均为预设演示数据，请先逐项核对后再确认规划。`} />}
-        <Alert className="task-demo-note" type="warning" showIcon message="任务事项在当前工作台内自动执行" description="当前原型的执行进度和分析结果为模拟数据；确认规划后，系统会按已配置的前置关系逐项执行并将结果显示在对应事项下。" />
+
+
         <List
           className="task-plan-list"
           dataSource={task.requirements}
@@ -661,7 +650,7 @@ const TaskWorkbench: React.FC = () => {
           同一任务可以分别开展多个数据分析、数字孪生或虚拟工况工作。每个工作项目独立保存名称、关联事项和成果，不会覆盖其他项目。
         </Text>
         {professionalProjects.length === 0 ? (
-          <Empty description="还没有专业工作项目。按任务需要新建一项，再进入对应专业能力开展工作。" />
+          null
         ) : (
           <List
             className="task-professional-project-list"
@@ -736,7 +725,7 @@ const TaskWorkbench: React.FC = () => {
           <label className="task-professional-project-field">关联任务事项（可选）
             <Select allowClear value={professionalProjectRequirementId} onChange={setProfessionalProjectRequirementId} options={task.requirements.filter((item) => item.capability !== 'report').map((item) => ({ value: item.id, label: item.text }))} placeholder="可关联一项任务事项" style={{ width: '100%' }} />
           </label>
-          <Alert showIcon type="info" message="每次创建都会保留为独立工作项目" description="专业结果会保存到本任务共用的数据空间，并归入本工作项目；关联事项的既有确认状态不会因补充分析而被重置。" />
+
         </Space>
       </Modal>
 
@@ -781,7 +770,7 @@ const TaskWorkbench: React.FC = () => {
             autoSize={{ minRows: 3, maxRows: 6 }}
             value={satisfactionNote}
             onChange={(event) => setSatisfactionNote(event.target.value)}
-            placeholder="简要说明已核对的资料或结论（填写依据或关联成果至少一项）"
+            placeholder=""
           />
           <Select
             allowClear
@@ -794,7 +783,7 @@ const TaskWorkbench: React.FC = () => {
               label: `${artifact.title} · ${projectName}`,
             }))}
             placeholder="关联一项已有成果（可选）"
-            notFoundContent={<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无可关联成果" />}
+            notFoundContent={null}
             style={{ width: '100%' }}
           />
           <Text type="secondary">填写核对依据或关联已有成果后，事项才会标记为已满足。撤销确认时，关联成果会保留。</Text>
@@ -873,13 +862,7 @@ const TaskWorkbench: React.FC = () => {
         destroyOnHidden
       >
         {task.demo && !isGeneralTaskBookPreview && (
-          <Alert
-            type="warning"
-            showIcon
-            message="当前事项的页码和摘录是演示定位"
-            description="下面显示的是你导入的原始 PDF；页码定位尚未由真实 AI 解析，请结合原文核对。"
-            style={{ marginBottom: 12 }}
-          />
+          null
         )}
         <input ref={sourcePdfPicker} type="file" accept="application/pdf,.pdf" onChange={handleTaskBookReplacement} hidden />
         {sourcePdfLoading ? (
@@ -891,9 +874,7 @@ const TaskWorkbench: React.FC = () => {
             style={{ width: '100%', height: 'calc(100vh - 210px)', border: '1px solid #d9d9d9', borderRadius: 6 }}
           />
         ) : sourcePdfMissing || sourcePdfError ? (
-          <Empty description={sourcePdfMissing ? '本机未找到已保存的任务书 PDF' : '任务书 PDF 打开失败'}>
-            <Button icon={<UploadOutlined />} onClick={() => sourcePdfPicker.current?.click()}>重新选择 PDF</Button>
-          </Empty>
+          <> <Button icon={<UploadOutlined />} onClick={() => sourcePdfPicker.current?.click()}>重新选择 PDF</Button> </>
         ) : null}
       </Drawer>
     </div>

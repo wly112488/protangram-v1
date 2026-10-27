@@ -4,10 +4,8 @@ import { getSessionPath } from '@/workspace/sessionModel';
 import { useSessionRouteState } from '@/workspace/useSessionState';
 import type { AnalysisReport } from '@/types';
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Button, Row, Col, Tag, Empty, Space } from 'antd';
-import {
-  PlusOutlined, EyeOutlined, FileTextOutlined, CalendarOutlined,
-} from '@ant-design/icons';
+import { Card, Typography, Button, Row, Col, Tag, Space } from 'antd';
+import { PlusOutlined, EyeOutlined, FileTextOutlined, CalendarOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '@/stores/useAppStore';
 import { loadAnalysisReports } from '@/utils/storage';
@@ -75,7 +73,7 @@ const ReportList: React.FC = () => {
               <Tag key={artifact.id} color="geekblue">{artifact.title} · {artifactResultLabel(artifact)}</Tag>
             ))}
           </Space>
-        ) : <Paragraph type="secondary" style={{ margin: '8px 0 0' }}>当前项目暂无可纳入报告的成果</Paragraph>}
+        ) : null}
         {projectReports.length > 0 && <div style={{ marginTop: 16 }}>
           <Text type="secondary">项目内已生成报告（{projectReports.length}）</Text>
           {projectReports.map((artifact) => <div key={artifact.id} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
@@ -94,12 +92,7 @@ const ReportList: React.FC = () => {
 
       {analysisReports.length === 0 ? (
         <Card style={{ marginTop: 32 }}>
-          <Empty description={
-            <span>暂无分析报告，点击
-              <Button type="link" onClick={createProjectReport}>新建报告</Button>
-              或通过数据分析流程自动生成
-            </span>
-          } />
+          {<> <Button type="link" onClick={createProjectReport}>新建报告</Button> </>}
         </Card>
       ) : (
         <Row gutter={[16, 16]}>
@@ -130,16 +123,16 @@ const ReportList: React.FC = () => {
                   <div>
                     <Text strong style={{ fontSize: 12 }}>试验目的：</Text>
                     <Paragraph ellipsis={{ rows: 1 }} style={{ fontSize: 12, marginBottom: 0 }}>
-                      {report.testGoal || '未填写'}
+                      {report.testGoal || ""}
                     </Paragraph>
                   </div>
                   <div>
                     <Text strong style={{ fontSize: 12 }}>试验对象：</Text>
-                    <Text style={{ fontSize: 12 }}>{report.testObject || '未指定'}</Text>
+                    <Text style={{ fontSize: 12 }}>{report.testObject || ""}</Text>
                   </div>
                   <div>
                     <Text strong style={{ fontSize: 12 }}>试验科目：</Text>
-                    <Text style={{ fontSize: 12 }}>{report.testSubject || '未指定'}</Text>
+                    <Text style={{ fontSize: 12 }}>{report.testSubject || ""}</Text>
                   </div>
                   <div>
                     <Tag color={report.status === 'generated' ? 'green' : 'orange'}>

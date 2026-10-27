@@ -7,15 +7,20 @@ import {loadWorkspace,MemoryStorage} from './helpers/workspaceTest.mjs';
 
 const frontendRoot = fileURLToPath(new URL('..', import.meta.url));
 
-test('workspace sidebar groups workbench sessions, projects and formal tasks', () => {
+test('workspace sidebar organizes formal work under projects without session history', () => {
   const sidebar = readFileSync(path.join(frontendRoot, 'src/workspace/BusinessSidebar.tsx'), 'utf8');
   assert.match(sidebar, /工作台/);
-  assert.match(sidebar, /最近会话/);
+  assert.doesNotMatch(sidebar, /最近会话|会话历史/);
+  assert.match(sidebar, /新建会话/);
   assert.match(sidebar, /项目/);
-  assert.match(sidebar, /正式任务/);
-  assert.match(sidebar, /搜索会话/);
+  assert.doesNotMatch(sidebar, /正式任务/);
+  const tree = readFileSync(path.join(frontendRoot, 'src/workspace/projectNavigationModel.ts'), 'utf8');
+  assert.match(tree, /分析任务书/);
+  assert.match(tree, /试验任务/);
+  assert.doesNotMatch(sidebar, /项目共享数据与成果/);
+  assert.match(sidebar, /搜索项目/);
   assert.match(sidebar, /新建项目/);
-  assert.match(sidebar, /projectWorkspacePath\(project.id\)/);
+  assert.match(sidebar, /buildProjectNavigation/);
   assert.match(sidebar, /business-object-tree/);
   assert.match(sidebar, /物理对象/);
 });

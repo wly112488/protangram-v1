@@ -62,11 +62,11 @@ export const getLegacySessionPath = (pathname: string, id: string): string | nul
   if (pathname === '/analysis/digital-twin') return `${base}/digital-twin`;
   if (pathname === '/analysis/virtual-condition') return `${base}/virtual-condition`;
   if (pathname.startsWith('/report/')) return `${base}${pathname}`;
-  if (pathname.startsWith('/experiment/info/')) return `${base}${pathname}`;
+  if (['/experiment/info/bom', '/experiment/info/subjects', '/experiment/info/methods'].includes(pathname)) return `${base}${pathname}`;
   return null;
 };
 
-export const getSessionWorkspaceContext = (session: WorkSession): WorkspaceSessionState => ({
+export const getSessionWorkspaceContext = (session: Pick<WorkSession, 'id' | 'taskId' | 'storageProjectId' | 'businessScope'>): WorkspaceSessionState => ({
   ...(session.taskId
     ? { mode: 'task' as const, taskId: session.taskId, targetProjectId: session.storageProjectId }
     : { mode: 'project' as const, targetProjectId: session.storageProjectId }),

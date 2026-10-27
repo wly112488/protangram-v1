@@ -35,7 +35,7 @@ test('repeat executions have distinct records; records own raw files and tables 
   assert.equal(trial().records[0].rawFiles.length, 2);assert.equal(trial().records[0].tables[0].id, tableId);
   assert.equal(trial().records[1].rawFiles.length, 1);assert.equal(getRecordCharts(trial(), second).length, 0);
   store.updateTrialRecord(trialId, second, { description: '复测说明' });assert.equal(trial().records[0].description, undefined);
-  const saved = JSON.parse(localStorage.getItem('protangram-physical-objects-v1'));assert.equal(saved.version, 6);assert.equal(saved.state.objects[0].configurations[0].experiments[0].trials[0].records.length, 2);
+  const saved = JSON.parse(localStorage.getItem('protangram-physical-objects-v1'));assert.equal(saved.version, 7);assert.equal(saved.state.objects[0].configurations[0].experiments[0].trials[0].records.length, 2);
 });
 test('write operations require the exact record and never route files or results to another execution', () => {
   const { store, trialId, trial } = fixture();const a = store.addTrialRecord(trialId, {}), b = store.addTrialRecord(trialId, {});
@@ -138,7 +138,7 @@ test('the first store import hydrates v3 data before any page action, without an
   const fresh = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}#initial-hydration`);
   assert.equal(fresh.usePhysicalObjectStore.persist.hasHydrated(),true);
   const objects=fresh.usePhysicalObjectStore.getState().objects;assert.equal(objects.length,3);assert.equal(objects[0].configurations[0].experiments[0].trials[0].records[0].id,'old-record');
-  assert.equal(JSON.parse(localStorage.getItem('protangram-physical-objects-v1')).version,6);
+  assert.equal(JSON.parse(localStorage.getItem('protangram-physical-objects-v1')).version,7);
 });
 
 

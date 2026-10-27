@@ -1,12 +1,7 @@
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert, Button, Card, Col, Descriptions, Form, InputNumber, Modal, Progress, Row,
-  Space, Statistic, Table, Tabs, Tag, Typography, message,
-} from 'antd';
-import {
-  BarChartOutlined, DownloadOutlined, ExperimentOutlined, ReloadOutlined,
-} from '@ant-design/icons';
+import { Alert, Button, Card, Col, Descriptions, Form, InputNumber, Modal, Progress, Row, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
+import { BarChartOutlined, DownloadOutlined, ExperimentOutlined, ReloadOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
@@ -112,10 +107,10 @@ const DigitalTwin: React.FC = () => {
   };
 
   const startCalibration = () => {
-    if (cfgSelection && !operationScope?.cfgId) return message.warning('请在工况参数中选择试验构型 CFG');
-    if (!preparationReady) return message.warning('请先确认全部校准准备项');
+    if (cfgSelection && !operationScope?.cfgId) return;
+    if (!preparationReady) return;
     if (!activeModel || !activeSimulationFile || !activeMeasuredFile) {
-      message.warning('请先选择模型并导入仿真、实测数据');
+
       return;
     }
     setCalibrating(true);
@@ -147,7 +142,7 @@ const DigitalTwin: React.FC = () => {
 
   const exportResult = () => {
     if (!calibrated) {
-      message.warning('请先完成模型校准');
+
       return;
     }
     const payload = JSON.stringify({ model: activeModel, simulationFile: activeSimulationFile, measuredFile: activeMeasuredFile, params, calibrationRows, parameterRows }, null, 2);
@@ -171,12 +166,12 @@ const DigitalTwin: React.FC = () => {
       }
     }
     if (!calibrated || !activeModel) {
-      message.warning('请先完成模型校准');
+
       return null;
     }
     const project = projects.find((item) => item.id === projectId);
     if (!project) {
-      message.warning('目标项目不存在');
+
       return null;
     }
     const saved = addArtifact(projectId, createCalibrationArtifactInput({
@@ -316,12 +311,12 @@ const DigitalTwin: React.FC = () => {
         </div>
         <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
-      {incoming?.source === 'dataAnalysis' && <Alert type="success" showIcon title={`已从试验数据分析带入：${incoming.task?.taskName ?? '试验任务'}`} description={`${incoming.data?.dataName ?? '未提供数据'}；异常工况：${incoming.result?.abnormalRange ?? '未提供'}；${incoming.result?.resultSummary ?? '暂无分析摘要'}`} style={{ marginBottom: 16 }} />}
+
 
       <PreparationChecklist
         title="校准准备"
         items={[
-          ...(cfgSelection ? [{ key: 'cfg', label: '试验构型 CFG', value: cfgSelection.cfgId || '未选择', confirmed: Boolean(operationScope?.cfgId), onClick: () => { setDraftParams(params); setParamsModalOpen(true); }, preview: <Tag>{cfgSelection.cfgId ? '已选择 CFG' : '请选择 CFG'}</Tag> }] : []),
+          ...(cfgSelection ? [{ key: 'cfg', label: '试验构型 CFG', value: cfgSelection.cfgId || "", confirmed: Boolean(operationScope?.cfgId), onClick: () => { setDraftParams(params); setParamsModalOpen(true); }, preview: <Tag>{cfgSelection.cfgId ? '已选择 CFG' : ""}</Tag> }] : []),
           { key: 'simulation', label: '仿真数据', value: activeSimulationFile || '未导入', confirmed: confirmed.simulationData, onClick: () => confirmOrChooseData('simulationData', Boolean(activeSimulationFile)), preview: <Space size={[4, 4]} wrap><Tag color="blue">基准输入</Tag><span>{activeSimulationFile || '请导入仿真数据文件'}</span></Space> },
           { key: 'measured', label: '实测数据', value: activeMeasuredFile || '未导入', confirmed: Boolean(physicalSource.record) || confirmed.measuredData, onClick: physicalSource.record ? undefined : () => confirmOrChooseData('measuredData', Boolean(activeMeasuredFile)), preview: <Space size={[4, 4]} wrap><Tag color="blue">校准对照</Tag><span>{activeMeasuredFile || '请导入实测数据文件'}</span></Space> },
           { key: 'params', label: '参数配置', value: `温度 ${params.temperature}℃ / 转速 ${params.speed}`, confirmed: confirmed.params, onClick: () => { setDraftParams(params); setParamsModalOpen(true); }, preview: <Space size={[4, 4]} wrap><Tag>温度 {params.temperature} ℃</Tag><Tag>压力 {params.pressure} kPa</Tag><Tag>转速 {params.speed} r/min</Tag></Space> },
@@ -335,16 +330,16 @@ const DigitalTwin: React.FC = () => {
       <input ref={measuredInputRef} type="file" hidden onChange={(event) => { handleDataFile('measuredData', event.target.files?.[0]); event.currentTarget.value = ''; }} />
 
       <Card title="当前配置" size="small" className="workspace-business-card"><Descriptions column={2} size="small" items={[
-        { key: 'model', label: '当前模型', children: activeModel ? `${activeModel.modelName} ${activeModel.version}` : <Text type="secondary">未选择</Text> },
+        { key: 'model', label: '当前模型', children: activeModel ? `${activeModel.modelName} ${activeModel.version}` : null },
         { key: 'simulation', label: '仿真数据文件', children: activeSimulationFile || <Text type="secondary">未导入</Text> },
         { key: 'measured', label: '实测数据文件', children: activeMeasuredFile || <Text type="secondary">未导入</Text> },
         { key: 'params', label: '当前工况/模型参数', children: `温度 ${params.temperature} ℃；压力 ${params.pressure} kPa；转速 ${params.speed} r/min` },
       ]} /></Card>
 
-      <Card id="business-result" title="分析结果" size="small" className="workspace-business-card" extra={<Space><Button icon={<BarChartOutlined />} disabled={!calibrated} onClick={() => message.info('下方已显示结果对比图')}>结果对比</Button><Button icon={<DownloadOutlined />} onClick={exportResult}>导出结果</Button></Space>}>
+      <Card id="business-result" title="分析结果" size="small" className="workspace-business-card" extra={<Space><Button icon={<BarChartOutlined />} disabled={!calibrated} onClick={() => void 0}>结果对比</Button><Button icon={<DownloadOutlined />} onClick={exportResult}>导出结果</Button></Space>}>
         {calibrating ? <div style={{ padding: '40px 12%' }}><Progress percent={78} status="active" /><Paragraph type="secondary" style={{ textAlign: 'center' }}>正在进行参数寻优与模型校准...</Paragraph></div>
           : calibrated ? <><Alert type="success" showIcon title={`校准完成，当前会话模型 ${activeModel?.modelName ?? ''} ${activeModel?.version ?? ''} 已更新，拟合度 R² = 0.946`} style={{ marginBottom: 16 }} /><Tabs items={resultTabs} /><Card size="small" title="结果对比" style={{ marginTop: 16 }}><ReactECharts option={comparisonChart} style={{ height: 280 }} /></Card>{effectiveSession.mode === 'task' && <div className="workspace-result-actions"><Button type="primary" onClick={addCalibrationToTaskReport}>加入任务报告</Button></div>}</>
-            : <Alert type="info" showIcon title="完成模型、数据和参数配置后，点击“开始校准”查看结果" />}
+            : null}
       </Card>
 
       <Modal title="参数配置" open={paramsModalOpen} onCancel={() => setParamsModalOpen(false)} onOk={() => { setParams(draftParams); setConfirmed((prev) => ({ ...prev, params: true })); setParamsModalOpen(false); setCalibrated(false); message.success('参数配置已保存'); }}>

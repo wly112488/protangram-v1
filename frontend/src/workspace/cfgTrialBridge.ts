@@ -21,13 +21,22 @@ export function resolveCfgTrialTarget(cfgId: string) {
   return {cfg,primary};
 }
 
-/** Keeps the legacy source chain readable; this container is not a second CFG. */
-export function createTrialFromCfg(cfgId:string,input:{name:string;description?:string;taskBookId?:string;loadSpectrum?:string;loadSpectrumDescription?:string}):CfgTrialSource {
+type TrialInput = {name:string;description?:string;taskBookId?:string;loadSpectrum?:string;loadSpectrumDescription?:string};
+
+/** Uses the existing trial storage without making a CFG part of trial identity. */
+export function createTrialForEquipment(objectId:string,input:TrialInput) {
   if (!input.name.trim()) throw new Error('请填写具体试验名称');
-  const {cfg,primary} = resolveCfgTrialTarget(cfgId);
+  const primary = flattenEquipment(usePhysicalObjectStore.getState().objects).find(item => item.id === objectId);
+  if (!primary) throw new Error('物理对象不存在或已失效');
   const store = usePhysicalObjectStore.getState();
   const experimentId = primary.equipment.experiments.find(item=>item.category==='internal:cfg-trials')?.id
     ?? store.addExperiment(primary.id,{name:'具体试验',category:'internal:cfg-trials',parameters:[]});
-  const trialId = store.addConcreteTrial(experimentId,{...input,name:input.name.trim(),loadSpectrum:input.loadSpectrum?.trim() ?? '',cfgId:cfg.id});
-  return {physicalObjectId:primary.id,physicalObjectName:primary.name,experimentId,experimentName:cfg.name,trialId,trialName:input.name.trim(),cfgId:cfg.id,taskBookId:input.taskBookId};
+  const trialId = store.addConcreteTrial(experimentId,{name:input.name.trim(),description:input.description,taskBookId:input.taskBookId,loadSpectrum:input.loadSpectrum?.trim() ?? '',loadSpectrumDescription:input.loadSpectrumDescription});
+  return {physicalObjectId:primary.id,physicalObjectName:primary.name,experimentId,experimentName:'具体试验',trialId,trialName:input.name.trim(),taskBookId:input.taskBookId};
+}
+
+// Compatibility for explicit older CFG creation links; no fixed CFG on the trial.
+export function createTrialFromCfg(cfgId:string,input:TrialInput):CfgTrialSource {
+  const {cfg,primary} = resolveCfgTrialTarget(cfgId);
+  return {...createTrialForEquipment(primary.id,input),cfgId:cfg.id};
 }

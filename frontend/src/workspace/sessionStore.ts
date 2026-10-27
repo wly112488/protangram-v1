@@ -1,3 +1,4 @@
+import { createLocalId } from '../utils/createLocalId';
 import { create } from 'zustand';
 import type { BusinessRouteState, ModelContract, WorkspaceSessionState } from '../types/businessContext';
 import { useProjectStore } from './projectStore';
@@ -5,11 +6,10 @@ import { useTaskStore } from './taskStore';
 import { getProjectDeletionBlock, getSessionWorkspaceContext, isCompatibleSessionHandoff, getSessionDraftKey, type SessionCapability, type PhysicalBusinessScope, type SessionCreationSource, type WorkSession } from './sessionModel';
 import { resolvePhysicalSource, samePhysicalSource } from './physicalBusinessContext';
 import { usePhysicalObjectStore } from './physicalObjectStore';
+import { getSessionTrialCandidates } from './sessionTrialAssociationModel';
 
 export const SESSION_STORAGE_KEY = 'protangram-work-sessions-v1';
-const createSessionId = () => `session-${typeof crypto !== 'undefined' && 'randomUUID' in crypto
-  ? crypto.randomUUID()
-  : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`;
+const createSessionId = () => `session-${createLocalId()}`;
 
 const load = (): { sessions: WorkSession[]; activeSessionId: string | null; saveError: string | null } => {
   try {
@@ -41,6 +41,7 @@ interface SessionStore {
   openSession: (id: string | null, capability?: SessionCapability) => void;
   renameSession: (id: string, title: string) => void;
   moveSession: (id: string, projectId?: string) => void;
+  bindTrialToSession: (id: string, scope: PhysicalBusinessScope, projectId?: string) => void;
   togglePinned: (id: string) => void;
   archiveSession: (id: string, archived: boolean) => void;
   deleteSession: (id: string) => void;
@@ -124,8 +125,9 @@ export const useSessionStore = create<SessionStore>((set, get) => {
       return create({ title: task.title, projectId: project?.id, taskId: task.id, storageProjectId: project?.id, businessScope });
     },
     ensureProjectSession: (projectId, businessScope) => {
-      const existing = get().sessions.find(session => !session.taskId && !session.archived && session.storageProjectId === projectId
-        && (businessScope ? samePhysicalSource(session.businessScope, businessScope) : !session.businessScope));
+      const existing = get().sessions.find(session => !session.taskId && !session.archived
+        && (businessScope ? (session.projectId === projectId || session.storageProjectId === projectId) && samePhysicalSource(session.businessScope, businessScope)
+          : session.storageProjectId === projectId && !session.businessScope));
       if (existing) {
         if (businessScope) update(existing.id, session => ({ ...session, businessScope: { ...session.businessScope, ...businessScope } }));
         return existing.id;
@@ -150,6 +152,37 @@ export const useSessionStore = create<SessionStore>((set, get) => {
     },
     renameSession: (id, title) => { if (title.trim()) update(id, session => ({ ...session, title: title.trim() })); },
     moveSession: (id, projectId) => update(id, session => ({ ...session, projectId })),
+    bindTrialToSession: (id, scope, requestedProjectId) => {
+      const session = get().sessions.find(item => item.id === id);
+      if (!session) throw new Error('当前会话已不存在');
+      if (session.taskId || session.taskWork) throw new Error('任务书试验请从原任务中继续');
+      if (session.businessScope?.trialId && !samePhysicalSource(session.businessScope, scope)) throw new Error('当前工作已关联其他具体试验，请新建会话开展其他试验');
+      const projects = useProjectStore.getState();
+      const candidate = getSessionTrialCandidates(session, usePhysicalObjectStore.getState().objects, projects.projects, get().sessions, useTaskStore.getState().tasks)
+        .find(item => item.scope.trialId === scope.trialId && item.scope.physicalObjectId === scope.physicalObjectId && item.scope.experimentId === scope.experimentId);
+      if (!candidate) throw new Error('试验来源或项目归属不匹配，请重新选择');
+      const projectId = session.projectId ?? requestedProjectId ?? candidate.projectId;
+      if (requestedProjectId && requestedProjectId !== projectId || candidate.projectId && candidate.projectId !== projectId) throw new Error('不能关联其他项目的具体试验');
+      if (projectId && !projects.projects.some(project => project.id === projectId && !project.sessionOwnerId)) throw new Error('所属项目已不可用');
+      const resolved = resolvePhysicalSource(usePhysicalObjectStore.getState().objects, scope);
+      if (resolved.missing || !resolved.trial) throw new Error('具体试验来源已失效');
+      // Freeze previously unbound result ownership before changing the live session context.
+      const preserved = projects.projects.map(project => ({ ...project, artifacts: project.artifacts.map(artifact => {
+        const payload = artifact.payload;
+        const fromSession = payload.sourceSessionId === id || !payload.sourceSessionId && project.sessionOwnerId === id;
+        const captured = payload.sourceScope as PhysicalBusinessScope | undefined;
+        const context = (payload.sourceContext as { scope?: PhysicalBusinessScope } | undefined)?.scope;
+        if (!fromSession || Object.hasOwn(payload, 'trialContext') && payload.trialContext !== undefined
+          || captured?.trialId || captured?.testRecordId || context?.trialId || context?.testRecordId) return artifact;
+        return { ...artifact, payload: { ...payload, trialContext: null } };
+      }) }));
+      if (preserved.some((project, index) => project.artifacts.some((artifact, artifactIndex) => artifact !== projects.projects[index].artifacts[artifactIndex]))) {
+        useProjectStore.setState({ projects: preserved });
+      }
+      if (projectId) projects.retainTrialSource(projectId, { physicalObjectId: candidate.scope.physicalObjectId!, experimentId: candidate.scope.experimentId!, trialId: candidate.scope.trialId! });
+      update(id, current => ({ ...current, projectId, businessScope: { ...candidate.scope,
+        ...(resolved.record ? { testRecordId: resolved.record.id, testRecordName: resolved.record.name } : {}) } }));
+    },
     togglePinned: (id) => update(id, session => ({ ...session, pinned: !session.pinned })),
     archiveSession: (id, archived) => update(id, session => ({ ...session, archived })),
     // Keep artifact spaces: existing reports and task evidence may reference them.

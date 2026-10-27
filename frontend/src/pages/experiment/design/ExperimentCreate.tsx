@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Typography, Form, Input, Button, Tree, Upload, message, Space,
-} from 'antd';
-import {
-  SaveOutlined, ArrowLeftOutlined, UploadOutlined, RobotOutlined, DeleteOutlined,
-} from '@ant-design/icons';
+import { Typography, Form, Input, Button, Tree, Upload, message, Space } from 'antd';
+import { SaveOutlined, ArrowLeftOutlined, UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
@@ -206,7 +202,7 @@ const ExperimentCreate: React.FC = () => {
       message.success(isEdit ? '试验卡片已更新' : '试验卡片已创建');
       navigate('/experiment/design');
     } catch {
-      message.error('请填写必要信息');
+      message.error('操作失败');
     }
   };
 
@@ -258,7 +254,6 @@ const ExperimentCreate: React.FC = () => {
         </Title>
         <Space>
           <Button onClick={() => navigate('/experiment/design')}>取消</Button>
-          <Button icon={<RobotOutlined />}>AI 辅助填写</Button>
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>保存</Button>
         </Space>
       </div>
@@ -273,7 +268,7 @@ const ExperimentCreate: React.FC = () => {
         }}>
           {/* 试验名称 */}
           <div style={{ background: '#fafafa', borderRadius: 8, padding: '10px 14px', border: '1px solid #f0f0f0' }}>
-            <Form.Item label="试验名称" name="name" rules={[{ required: true, message: '请输入试验名称' }]} style={{ marginBottom: 0 }}>
+            <Form.Item label="试验名称" name="name" rules={[{ required: true, message: '' }]} style={{ marginBottom: 0 }}>
               <Input placeholder="请输入试验名称" />
             </Form.Item>
           </div>

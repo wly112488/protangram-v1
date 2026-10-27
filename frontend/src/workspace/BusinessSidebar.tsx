@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Dropdown, Input, Modal, Tree, Typography, message, type TreeDataNode } from 'antd';
-import { BookOutlined, DeleteOutlined, FileSearchOutlined, FolderOpenOutlined, HomeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Input, Modal, Tree, Typography, type TreeDataNode } from 'antd';
+import { FolderOpenOutlined, HomeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useProjectStore } from './projectStore';
 import { useSessionStore } from './sessionStore';
 import { useTaskStore } from './taskStore';
-import { getSessionEntryPath, type WorkSession } from './sessionModel';
-import { getRecentSessionsForHome, getSessionCreationSource, getSessionSidebarContent, isSessionVisibleInSidebar } from './sessionSidebarModel';
+import { getProjectTrialEntries } from './projectTrialModel';
+import { getSessionIdFromLocation, getSessionPath, getSessionResumePath } from './sessionModel';
+import { getSessionSidebarContent } from './sessionSidebarModel';
 import { taskBookPath } from './taskTrialModel';
 import { projectWorkspacePath } from './sharedResourcesModel';
 import comacLogo from '@/assets/comac_logo.png';
@@ -15,6 +16,8 @@ import { buildPhysicalTreeModel, resolvePhysicalNavigation } from './physicalNav
 import { getEquipmentCategoryViews } from './equipmentTreeProjection';
 import { useTrialConfigurationStore } from './trialConfigurationStore';
 import { listCfgCategoryGroups } from './cfgCategoryModel';
+import { SessionCreateDialog } from './SessionCreate';
+import { buildProjectNavigation, type ProjectNavigationNode } from './projectNavigationModel';
 
 const { Text } = Typography;
 const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }> = ({ mobileOpen, onNavigate }) => {
@@ -24,19 +27,20 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
   const setActiveProject = useProjectStore(state => state.setActiveProject);
   const createProject = useProjectStore(state => state.createProject);
   const sessions = useSessionStore(state => state.sessions);
+  const currentSessionId = getSessionIdFromLocation(location.pathname);
   const tasks = useTaskStore(state => state.tasks);
   const objects = usePhysicalObjectStore(state => state.objects);
   const cfgCategories = useTrialConfigurationStore(state => state.categories);
   const cfgs = useTrialConfigurationStore(state => state.configurations);
   const cfgGroups = listCfgCategoryGroups(cfgCategories, cfgs);
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState({ objects: false, cfgs: true, recent: true, projects: true, tasks: true });
+  const [expanded, setExpanded] = useState({ objects: false, cfgs: true, projects: true });
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [sessionCreateOpen, setSessionCreateOpen] = useState(false);
+  const [collapsedProjects, setCollapsedProjects] = useState<string[]>([]);
   const [projectName, setProjectName] = useState('');
-  const content = useMemo(() => getSessionSidebarContent(projects, sessions, tasks, search, false), [projects, sessions, tasks, search]);
-  const visibleProjects = content.visibleProjects.filter(project => !search.trim() || project.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
-    || sessions.some(session => !session.archived && session.projectId === project.id && session.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())));
-  const recent = getRecentSessionsForHome(sessions).filter(item => item.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+  const visibleProjects = projects.filter(project => !project.sessionOwnerId && project.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+  const { independentSessions } = getSessionSidebarContent(projects, sessions, tasks, search, false);
   const treeModel = useMemo(() => buildPhysicalTreeModel(objects), [objects]);
   const treeNodeByKey = new Map<string, (typeof treeModel)[number]>();
   const collectTreeNodes = (nodes: typeof treeModel) => nodes.forEach(node => { treeNodeByKey.set(node.key, node); collectTreeNodes(node.children); });
@@ -55,26 +59,52 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
   });
   const treeData=treeModel.map(renderTreeNode);
   const open = (path: string) => { navigate(path); onNavigate(); };
-  const startSession = () => open('/sessions/' + useSessionStore.getState().createSession());
-  const sessionLink = (session: WorkSession) => <Dropdown key={session.id} trigger={['contextMenu']} menu={{ items: [
-    { key: 'delete', label: '删除会话', icon: <DeleteOutlined />, danger: true },
-  ], onClick: () => Modal.confirm({
-    title: `删除会话“${session.title}”？`,
-    content: '将删除此会话及工作草稿。具体试验、执行记录、CSV 和已保存成果都会保留。',
-    okText: '删除会话', cancelText: '取消', okButtonProps: { danger: true },
-    onOk: () => {
-      useSessionStore.getState().deleteSession(session.id);
-      if (useSessionStore.getState().saveError) message.error('删除尚未保存到本机，请重试保存');
-      else message.success('会话已删除，试验数据与成果已保留');
-      if (location.pathname.startsWith(`/sessions/${encodeURIComponent(session.id)}`)) open('/');
-    },
-  }) }}><button className={`session-sidebar-link business-child-link ${location.pathname.includes(encodeURIComponent(session.id)) ? 'is-active' : ''}`} title="右键可删除会话" onClick={() => open(getSessionEntryPath(session))}><span>{session.title}</span></button></Dropdown>;
+  const startSession = () => setSessionCreateOpen(true);
+  const openTrial = (projectId: string, trialId: string) => {
+    const entry = getProjectTrialEntries(projectId, objects, projects, sessions).find(item => item.trial.id === trialId);
+    if (!entry) return;
+    const id = useSessionStore.getState().ensureProjectSession(projectId, {physicalObjectId:entry.object.id, experimentId:entry.experiment.id, trialId, taskBookId:entry.trial.taskBookId});
+    open(getSessionPath(id));
+  };
   const selectTreeNode = (keys: React.Key[]) => {
     const node = treeNodeByKey.get(String(keys[0] ?? ''));
     if (!node) return;
     const query: Record<string, string> = node.kind === 'category' ? { objectId: node.id }
       : { objectId: node.categoryId!, configurationId: node.id };
     open(`/physical-objects?${new URLSearchParams(query)}`);
+  };
+  const projectTree = buildProjectNavigation(visibleProjects, sessions, objects, tasks);
+  const projectNodes = new Map<string, ProjectNavigationNode>();
+  const projectBranches: string[] = [];
+  const currentSession = sessions.find(session => session.id === currentSessionId);
+  const params = new URLSearchParams(location.search);
+  const selectedProjectKeys: string[] = [];
+  const renderProjectNode = (node: ProjectNavigationNode): TreeDataNode => {
+    projectNodes.set(node.key, node);
+    if (['project', 'trials', 'analysis'].includes(node.kind)) projectBranches.push(node.key);
+    if (node.kind === 'trial' && currentSession?.businessScope?.trialId === node.targetId && currentSession?.projectId === node.projectId
+      || node.kind === 'draft' && currentSessionId === node.targetId
+      || node.kind === 'taskBook' && location.pathname === '/task-center' && params.get('taskId') === node.targetId
+      || !currentSessionId && location.pathname === '/projects' && params.get('projectId') === node.projectId
+        && node.kind === (params.get('view') === 'analysis' ? 'analysis' : 'trials')) selectedProjectKeys.push(node.key);
+    return { key: node.key, isLeaf: !['project', 'trials', 'analysis'].includes(node.kind), children: node.children.map(renderProjectNode),
+      title: <span className={`project-nav-title project-nav-title--${node.kind}`} title={node.name}
+        data-project-id={node.kind === 'project' ? node.projectId : undefined}
+        data-trial-id={node.kind === 'trial' ? node.targetId : undefined}
+        data-project-draft-id={node.kind === 'draft' ? node.targetId : undefined}>
+        <FolderOpenOutlined /><span className="project-nav-name">{node.name}</span>
+        {node.count !== undefined && <span className="project-nav-count">{node.count}</span>}
+      </span> };
+  };
+  // Build titles before Tree reads its controlled expansion and selection props.
+  const projectTreeData = projectTree.map(renderProjectNode);
+  const selectProjectNode = (node?: ProjectNavigationNode) => {
+    if (!node) return;
+    setActiveProject(node.projectId);
+    if (node.kind === 'trial') openTrial(node.projectId, node.targetId!);
+    else if (node.kind === 'draft') { const session = sessions.find(item => item.id === node.targetId); if (session) open(getSessionResumePath(session)); }
+    else if (node.kind === 'taskBook') open(taskBookPath(node.targetId!));
+    else open(projectWorkspacePath(node.projectId, node.kind === 'analysis' ? 'analysis' : 'trials'));
   };
   const saveProject = () => {
     if (!projectName.trim()) return;
@@ -88,46 +118,41 @@ const BusinessSidebar: React.FC<{ mobileOpen: boolean; onNavigate: () => void }>
         <img className="session-brand-logo" src={comacLogo} alt="中国商飞 COMAC" />
         <span>实验敏捷迭代智能管理平台<small>ProTangram</small></span>
       </button>
-      <Input className="business-nav-search" prefix={<SearchOutlined />} allowClear placeholder="搜索会话" aria-label="搜索会话、项目和正式任务" value={search} onChange={event => setSearch(event.target.value)} />
+      <Input className="business-nav-search" prefix={<SearchOutlined />} allowClear placeholder="搜索项目与会话" aria-label="搜索项目与会话" value={search} onChange={event => setSearch(event.target.value)} />
       <button className={`session-sidebar-link business-workbench-link ${workbenchActive ? 'is-active' : ''}`} onClick={() => open('/')}><HomeOutlined />工作台</button>
-      <button className={`session-sidebar-link ${location.pathname === '/task-book-analysis' ? 'is-active' : ''}`} onClick={() => open('/task-book-analysis')}><FileSearchOutlined />分析任务书</button>
-      <button className={`session-sidebar-link ${location.pathname === '/task-center' ? 'is-active' : ''}`} onClick={()=>open('/task-center')}><BookOutlined />试验任务</button>
-
-
-      <section className="session-nav-section session-nav-section--label-highlight">
-        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, recent: !value.recent }))} aria-expanded={expanded.recent}>⌄ 最近会话</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建会话" title="新建会话" onClick={startSession} /></div>
-        {expanded.recent && (recent.length ? recent.slice(0, 8).map(sessionLink) : <p className="session-nav-empty">从一项工作开始</p>)}
-      </section>
+      <button className="session-sidebar-link" aria-label="新建会话" onClick={startSession}><PlusOutlined />新建会话</button>
+      {independentSessions.length > 0 && <nav className="business-session-list" aria-label="独立会话">
+        {independentSessions.map(session => <button key={session.id} type="button" data-session-id={session.id}
+          className={`session-sidebar-link business-session-link ${currentSessionId === session.id ? 'is-active' : ''}`}
+          aria-current={currentSessionId === session.id ? 'page' : undefined} title={session.title || '新会话'}
+          onClick={() => open(getSessionResumePath(session))}>{session.title || '新会话'}</button>)}
+      </nav>}
 
       <section className="session-nav-section session-nav-section--label-highlight">
         <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, projects: !value.projects }))} aria-expanded={expanded.projects}>⌄ 项目</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建项目" title="新建项目" onClick={() => setNewProjectOpen(true)} /></div>
-        {expanded.projects && (visibleProjects.length ? visibleProjects.map(project => {
-          const children = sessions.filter(session => isSessionVisibleInSidebar(session) && !session.archived && !session.taskId && getSessionCreationSource(session) === 'project' && session.projectId === project.id && session.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
-          return <div className="business-project-group" key={project.id}>
-            <div className="business-project-row"><button type="button" className="business-project-open" onClick={() => { setActiveProject(project.id); open(projectWorkspacePath(project.id)); }}><FolderOpenOutlined />{project.name}<Text type="secondary">{children.length}</Text></button><Button type="text" size="small" icon={<PlusOutlined />} aria-label={`在项目${project.name}中新建具体试验`} title="创建具体试验" onClick={() => open(`/trials/new?projectId=${encodeURIComponent(project.id)}`)} /></div>
-            {children.length ? children.map(sessionLink) : <p className="session-nav-empty business-project-empty">暂无工作会话，可从项目试验列表继续工作</p>}
-            <button className="session-sidebar-link business-child-link business-project-resources" onClick={() => { setActiveProject(project.id); open(projectWorkspacePath(project.id, 'resources')); }}>项目共享数据与成果</button>
-          </div>;
-        }) : <p className="session-nav-empty">暂无项目</p>)}
+        {expanded.projects && <Tree className="business-project-tree" aria-label="项目树" blockNode
+          treeData={projectTreeData} expandedKeys={projectBranches.filter(key => !collapsedProjects.includes(key))}
+          onExpand={keys => setCollapsedProjects(projectBranches.filter(key => !keys.includes(key)))}
+          selectedKeys={selectedProjectKeys} onSelect={(_keys, info) => selectProjectNode(projectNodes.get(String(info.node.key)))} />}
       </section>
 
-      <section className="session-nav-section session-nav-section--label-highlight">
-        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, tasks: !value.tasks }))} aria-expanded={expanded.tasks}>⌄ 正式任务 <small>{content.visibleTasks.length}</small></button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建正式任务" title="新建正式任务" onClick={() => open('/task-book-analysis')} /></div>
-        {expanded.tasks && (content.visibleTasks.length ? content.visibleTasks.map(task => <button key={task.id} className="session-sidebar-link business-task-link" onClick={() => open(taskBookPath(task.id))}><BookOutlined /><span>{task.title}</span></button>) : <p className="session-nav-empty">暂无正式任务</p>)}
-      </section>
       <section className="session-nav-section session-nav-section--label-highlight business-object-nav">
         <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({ ...value, objects: !value.objects }))} aria-expanded={expanded.objects}>⌄ 物理对象</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="新建对象类别" title="新建对象类别" onClick={() => open('/physical-objects?create=family')} /></div>
-        {expanded.objects && (treeData.length ? <Tree className="business-object-tree" blockNode defaultExpandAll treeData={treeData} selectedKeys={selectedTreeKey ? [selectedTreeKey] : []} onSelect={(_keys, info) => selectTreeNode([info.node.key])} /> : <p className="session-nav-empty">暂无对象类别</p>)}
+        {expanded.objects && (treeData.length ? <Tree className="business-object-tree" blockNode defaultExpandAll treeData={treeData} selectedKeys={selectedTreeKey ? [selectedTreeKey] : []} onSelect={(_keys, info) => selectTreeNode([info.node.key])} /> : null)}
       </section>
       <section className="session-nav-section session-nav-section--label-highlight business-cfg-nav" aria-label="试验构型分类">
-        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({...value,cfgs:!value.cfgs}))} aria-expanded={expanded.cfgs}>⌄ 试验构型</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="管理 CFG 分类" onClick={() => open('/trial-configurations')} /></div>
-        {expanded.cfgs && cfgGroups.map(group => <button key={group.id} className={`session-sidebar-link business-child-link ${location.pathname === '/trial-configurations' && new URLSearchParams(location.search).get('categoryId') === group.id ? 'is-active' : ''}`}
-          onClick={() => open(`/trial-configurations?categoryId=${encodeURIComponent(group.id)}`)}>{group.name}<Text type="secondary"> {group.cfgIds.length}</Text></button>)}
+        <div className="session-section-label"><button type="button" onClick={() => setExpanded(value => ({...value,cfgs:!value.cfgs}))} aria-expanded={expanded.cfgs}>⌄ 试验构型 CFG</button><Button type="text" size="small" icon={<PlusOutlined />} aria-label="管理 CFG 分类" onClick={() => open('/trial-configurations')} /></div>
+        {expanded.cfgs && cfgGroups.map(group => <div key={group.id}>
+          <button className={`session-sidebar-link business-child-link ${location.pathname === '/trial-configurations' && new URLSearchParams(location.search).get('categoryId') === group.id ? 'is-active' : ''}`}
+            onClick={() => open(`/trial-configurations?categoryId=${encodeURIComponent(group.id)}`)}>{group.name}<Text type="secondary"> {group.cfgIds.length}</Text></button>
+          {cfgs.filter(cfg => group.cfgIds.includes(cfg.id)).map(cfg => <button key={cfg.id} className="session-sidebar-link business-child-link" onClick={() => open(`/trial-configurations?${new URLSearchParams({categoryId:group.id,cfgId:cfg.id})}`)}>{cfg.name}</button>)}
+        </div>)}
       </section>
     </div>
     <Modal title="新建项目" open={newProjectOpen} onCancel={() => setNewProjectOpen(false)} onOk={saveProject} okText="创建" cancelText="取消">
       <Input autoFocus aria-label="项目名称" placeholder="项目名称" value={projectName} onChange={event => setProjectName(event.target.value)} onPressEnter={saveProject} />
     </Modal>
+    <SessionCreateDialog open={sessionCreateOpen} onCancel={() => setSessionCreateOpen(false)} onCreated={() => setSessionCreateOpen(false)} />
   </aside>;
 };
 export default BusinessSidebar;

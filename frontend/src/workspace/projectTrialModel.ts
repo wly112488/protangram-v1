@@ -11,6 +11,13 @@ export interface ProjectTrialEntry {
   sessions: WorkSession[];
 }
 
+export function getProjectTrialDraftSessions(projectId: string, sessions: WorkSession[]): WorkSession[] {
+  return sessions.filter(session => session.projectId === projectId && !session.archived
+    && !session.taskId && !session.taskWork && !session.businessScope?.trialId
+    && (session.creationSource ?? 'project') === 'project')
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
 const artifactScope = (artifact: ProjectArtifact): PhysicalBusinessScope | undefined =>
   artifact.payload.sourceScope as PhysicalBusinessScope | undefined;
 

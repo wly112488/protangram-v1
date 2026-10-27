@@ -1,12 +1,7 @@
 import { useSessionState, useSessionRouteState } from '@/workspace/useSessionState';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert, Button, Card, Checkbox, Col, Descriptions, Form, InputNumber, Modal, Progress,
-  Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message,
-} from 'antd';
-import {
-  ExperimentOutlined, PlayCircleOutlined, ReloadOutlined, SaveOutlined,
-} from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, Col, Descriptions, Form, InputNumber, Modal, Progress, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
+import { ExperimentOutlined, PlayCircleOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
 import { useTrialAIAssistant } from '@/components/TrialAIAssistant';
@@ -122,11 +117,11 @@ const VirtualConditionExtension: React.FC = () => {
   };
 
   const generateConditions = () => {
-    if (cfgSelection && (!cfgSelection.cfgId || cfgSelection.error)) return message.warning('请在工况参数中选择有效的试验构型 CFG');
-    if (!preparationReady) return message.warning('请先确认全部工况扩展准备项');
+    if (cfgSelection && (!cfgSelection.cfgId || cfgSelection.error)) return;
+    if (!preparationReady) return;
     const count = Math.max(1, Math.min(100, Number.isFinite(config.count) ? config.count : DEFAULT_CONFIG.count));
     if (config.speedMin > config.speedMax || config.temperatureMin > config.temperatureMax || config.pressureMin > config.pressureMax) {
-      message.warning('工况范围的最小值不能大于最大值');
+
       return;
     }
     const next = Array.from({ length: count }, (_, index) => {
@@ -151,7 +146,7 @@ const VirtualConditionExtension: React.FC = () => {
   };
 
   const startPrediction = () => {
-    if (generationStatus !== 'generated') return message.warning('请先生成虚拟工况。');
+    if (generationStatus !== 'generated') return;
     setPredictionStatus('loading');
     setPersistedProjectId(null);
     setPersistedArtifactId(null);
@@ -225,7 +220,7 @@ const VirtualConditionExtension: React.FC = () => {
   }, [setSavedProjectId, setPersistedProjectId, setPersistedArtifactId, addArtifact, conditions, config, constraints, effectiveSession.mode, model, persistedArtifactId, persistedProjectId, predictionStatus, projects, recordArtifactForTaskItem]);
 
   const requestSave = () => {
-    if (predictionStatus !== 'completed') return message.warning('请先完成虚拟工况预测');
+    if (predictionStatus !== 'completed') return;
     if (boundProject) {
       persistVirtualResult(boundProject.id);
       return;
@@ -313,13 +308,13 @@ const VirtualConditionExtension: React.FC = () => {
 
   const resultTabs = [
     { key: 'prediction', label: '预测结果', children: <><Space style={{ marginBottom: 12 }}><Select value={filter} onChange={setFilter} options={['全部', '高风险', '待验证'].map((value) => ({ value, label: value }))} /><Text type="secondary">当前选中：{selectedCondition?.code ?? '无'}</Text></Space><Table size="small" pagination={{ pageSize: 12, showSizeChanger: false }} dataSource={filteredConditions} columns={tableColumns} onRow={(row) => ({ onClick: () => setSelectedCondition(row) })} rowClassName={(row) => row.key === selectedCondition?.key ? 'ant-table-row-selected' : ''} /></> },
-    { key: 'trend', label: '趋势分析', children: completed ? <ReactECharts option={trendOption} style={{ height: 320 }} /> : <Alert type="info" showIcon title="完成预测后展示转速—推力与转速—温升趋势" /> },
+    { key: 'trend', label: '趋势分析', children: completed ? <ReactECharts option={trendOption} style={{ height: 320 }} /> : null },
     { key: 'risk', label: '风险与可信度', children: completed ? <Row gutter={16}>
       <Col span={8}><Card size="small" title={<Space><Tag color="green">高可信区域</Tag><Text>8000～8800 rpm</Text></Space>}><Progress percent={92} status="success" /><Paragraph>模型预测可信度较高，可作为工程参考。</Paragraph></Card></Col>
       <Col span={8}><Card size="small" title={<Space><Tag color="orange">谨慎区域</Tag><Text>8800～9400 rpm</Text></Space>}><Progress percent={68} strokeColor="#faad14" /><Paragraph>模型不确定性开始上升，建议结合实际任务谨慎使用。</Paragraph></Card></Col>
       <Col span={8}><Card size="small" title={<Space><Tag color="red">待验证区域</Tag><Text>9400～10000 rpm</Text></Space>}><Progress percent={36} status="exception" /><Paragraph>实测覆盖不足、模型不确定性增加，部分工况接近安全边界。</Paragraph></Card></Col>
-    </Row> : <Alert type="info" showIcon title="完成预测后展示风险与可信度分区" /> },
-    { key: 'coverage', label: '工况覆盖', children: completed ? <><Row gutter={16} style={{ marginBottom: 12 }}><Col span={5}><Statistic title="实测试验覆盖" value={42} suffix="组" /></Col><Col span={5}><Statistic title="模型校准覆盖" value={38} suffix="组" /></Col><Col span={5}><Statistic title="虚拟扩展工况" value={conditions.length} suffix="组" /></Col><Col span={5}><Statistic title="高可信虚拟工况" value={conditions.filter((row) => row.credibility === '高').length} suffix="组" /></Col><Col span={4}><Statistic title="待验证工况" value={conditions.filter((row) => row.risk === '高').length} suffix="组" /></Col></Row><Alert type="info" showIcon title="蓝色为真实试验覆盖，其余区域为模型虚拟预测" style={{ marginBottom: 8 }} /><ReactECharts option={coverageOption} style={{ height: 240 }} /></> : <Alert type="info" showIcon title="完成预测后展示真实试验与虚拟扩展覆盖关系" /> },
+    </Row> : null },
+    { key: 'coverage', label: '工况覆盖', children: completed ? <><Row gutter={16} style={{ marginBottom: 12 }}><Col span={5}><Statistic title="实测试验覆盖" value={42} suffix="组" /></Col><Col span={5}><Statistic title="模型校准覆盖" value={38} suffix="组" /></Col><Col span={5}><Statistic title="虚拟扩展工况" value={conditions.length} suffix="组" /></Col><Col span={5}><Statistic title="高可信虚拟工况" value={conditions.filter((row) => row.credibility === '高').length} suffix="组" /></Col><Col span={4}><Statistic title="待验证工况" value={conditions.filter((row) => row.risk === '高').length} suffix="组" /></Col></Row><ReactECharts option={coverageOption} style={{ height: 240 }} /></> : null },
   ];
 
   const sourceName = incoming?.source === 'dataAnalysis'
@@ -349,12 +344,12 @@ const VirtualConditionExtension: React.FC = () => {
         <Tag color={boundProject ? 'blue' : 'default'}>{session.sessionId ? '当前会话' : boundProject ? `项目：${boundProject.name}` : '独立模式'}</Tag>
       </div>
 
-      {sourceName && <Alert type="success" showIcon title={`已从${sourceName}带入业务上下文`} description={`${incoming?.validation ? `待验证区间：${incoming.validation.suggestedRange}；验证目标：${incoming.validation.goal}；` : ''}已携带可信模型：${model.modelName} ${model.version}`} style={{ marginBottom: 16 }} />}
+
 
       <PreparationChecklist
         title="工况扩展准备"
         items={[
-          ...(cfgSelection ? [{ key: 'cfg', label: '试验构型 CFG', value: cfgSelection.cfgId && !cfgSelection.error ? '已选择' : '未选择或无效', confirmed: Boolean(cfgSelection.cfgId && !cfgSelection.error), onClick: openConfig, preview: <Tag>{cfgSelection.cfgId && !cfgSelection.error ? '本次工况将关联到所选 CFG' : '请在工况配置中选择有效 CFG'}</Tag> }] : []),
+          ...(cfgSelection ? [{ key: 'cfg', label: '试验构型 CFG', value: cfgSelection.cfgId && !cfgSelection.error ? '已选择' : "", confirmed: Boolean(cfgSelection.cfgId && !cfgSelection.error), onClick: openConfig, preview: <Tag>{cfgSelection.cfgId && !cfgSelection.error ? '本次工况将关联到所选 CFG' : '请在工况配置中选择有效 CFG'}</Tag> }] : []),
           { key: 'config', label: '工况配置', value: `${config.speedMin}～${config.speedMax} rpm / ${config.count} 组`, confirmed: confirmed.config, onClick: openConfig, preview: <Space size={[4, 4]} wrap><Tag color="blue">{config.method}</Tag><Tag>转速 {config.speedMin}～{config.speedMax} rpm</Tag><Tag>温度 {config.temperatureMin}～{config.temperatureMax} ℃</Tag><Tag>压力 {config.pressureMin}～{config.pressureMax} MPa</Tag><Tag>{config.count} 组 · {config.sampling}</Tag></Space> },
           { key: 'constraints', label: '约束设置', value: `转速 ≤ ${constraints.speedMax} rpm`, confirmed: confirmed.constraints, onClick: openConstraints, preview: <Space size={[4, 4]} wrap><Tag color="green">转速 ≤ {constraints.speedMax} rpm</Tag><Tag>温度 ≤ {constraints.temperatureMax} ℃</Tag><Tag>压力 {constraints.pressureMin}～{constraints.pressureMax} MPa</Tag><Tag>{constraints.withinScope ? '限制在可信范围内' : '允许超出可信范围'}</Tag><Tag>{constraints.excludeAbnormal ? '排除异常工况' : '保留异常工况'}</Tag><Tag>{constraints.markOutsideTrusted ? '标记可信范围外工况' : '不标记范围外工况'}</Tag></Space> },
         ]}
@@ -383,7 +378,7 @@ const VirtualConditionExtension: React.FC = () => {
         ) : generationStatus === 'generated' ? (
           <><Alert type={completed ? 'success' : 'info'} showIcon title={completed ? `已完成 ${conditions.length} 个虚拟工况预测` : `已生成 ${conditions.length} 个虚拟工况，请点击“开始预测”`} style={{ marginBottom: 12 }} /><Tabs activeKey={activeTab} onChange={setActiveTab} items={resultTabs} /></>
         ) : (
-          <Alert type="info" showIcon title="请配置扩展范围并生成虚拟工况" />
+          null
         )}
         {completed && <div className="workspace-result-actions"><Space wrap>
           <Button icon={<SaveOutlined />} type="primary" onClick={requestSave}>{persistedProjectId ? (effectiveSession.mode === 'task' ? '已保存到当前任务' : '已保存到项目') : (effectiveSession.mode === 'task' ? '保存到当前任务' : '保存预测结果')}</Button>

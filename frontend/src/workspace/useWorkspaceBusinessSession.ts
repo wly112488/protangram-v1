@@ -4,7 +4,7 @@ import type { BusinessRouteState } from '@/types/businessContext';
 import { normalizeBusinessSession } from './businessSessionModel';
 import { useProjectStore } from './projectStore';
 import { useTaskStore } from './taskStore';
-import { getCapabilityFromPath, getSessionIdFromLocation } from './sessionModel';
+import { getCapabilityFromPath, getSessionIdFromLocation, getSessionWorkspaceContext } from './sessionModel';
 import { recordTaskBusinessArtifact } from './taskArtifactAssociation';
 import { useSessionStore } from './sessionStore';
 import { usePhysicalObjectStore } from './physicalObjectStore';
@@ -13,11 +13,18 @@ import { captureResultContext } from './analysisResultModel';
 import { getProfessionalSources, professionalDataContext } from './professionalContext';
 import { saveOwnedArtifact } from './sessionResourceStore';
 import { useProfessionalScope } from './professionalScopeContext';
+import { useTrialConfigurationStore } from './trialConfigurationStore';
 
 export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null) => {
   const location = useLocation();
   const sessionId = getSessionIdFromLocation(location.pathname, location.search);
-  const storedSession = useMemo(() => sessionId ? useSessionStore.getState().getWorkspaceSession(sessionId) : undefined, [sessionId]);
+  const storedWorkSession = useSessionStore(state => state.sessions.find(item => item.id === sessionId));
+  const storedScope = storedWorkSession?.businessScope;
+  const storedProjectId = storedWorkSession?.storageProjectId;
+  const storedTaskId = storedWorkSession?.taskId;
+  const storedSession = useMemo(() => sessionId && storedProjectId ? getSessionWorkspaceContext({ id: sessionId,
+    storageProjectId: storedProjectId, taskId: storedTaskId, businessScope: storedScope }) : undefined,
+    [sessionId, storedScope, storedProjectId, storedTaskId]);
   const projects = useProjectStore((state) => state.projects);
   const tasks = useTaskStore((state) => state.tasks);
   const requestedTaskId = new URLSearchParams(location.search).get('taskId');
@@ -49,12 +56,13 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
   const capability = getCapabilityFromPath(location.pathname);
   const professionalScope = useProfessionalScope();
   const objects = usePhysicalObjectStore(state => state.objects);
+  const configurations = useTrialConfigurationStore(state => state.configurations);
   const sourceSessions = useSessionStore(state => state.sessions);
   const physicalSource = useMemo(() => resolvePhysicalSource(objects, session), [objects, session]);
-  const sources = useMemo(() => getProfessionalSources(objects, projects, sourceSessions, session), [objects, projects, sourceSessions, session]);
+  const sources = useMemo(() => getProfessionalSources(objects, projects, sourceSessions, session, configurations), [objects, projects, sourceSessions, session, configurations]);
   const dataContext = useMemo(() => session.physicalObjectId && !physicalSource.missing ? {
-    ...professionalDataContext(sources), scope: { ...professionalDataContext(sources).scope, cfgId: session.cfgId ?? physicalSource.trial?.cfgId },
-  } : undefined, [sources, session.physicalObjectId, session.cfgId, physicalSource.missing, physicalSource.trial?.cfgId]);
+    ...professionalDataContext(sources), scope: { ...professionalDataContext(sources).scope, cfgId: session.cfgId },
+  } : undefined, [sources, session.physicalObjectId, session.cfgId, physicalSource.missing]);
   const addArtifact = useCallback((projectId: string, input: Parameters<ReturnType<typeof useProjectStore.getState>['addArtifact']>[1]) => {
     if (physicalSource.missing) return null;
     const professionalCapability = capability === 'doe' || capability === 'analysis' || capability === 'digitalTwin' || capability === 'virtualCondition';
@@ -63,8 +71,9 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     const draft = useSessionStore.getState().sessions.find(item => item.id === session.sessionId)?.drafts[capability];
     const inheritedContext = session.physicalObjectId ? captureResultContext(objects, session) : undefined;
     const modelPlan = input.payload.modelPlan as { trialId?: string; cfgId?: string } | undefined;
-    const resultScope = inheritedContext && modelPlan?.trialId === inheritedContext.scope.trialId && modelPlan?.cfgId
-      ? { ...inheritedContext.scope, cfgId: modelPlan.cfgId } : inheritedContext?.scope;
+    const capturedScope = input.payload.sourceScope as typeof professionalScope;
+    const resultScope = capturedScope ?? (inheritedContext && modelPlan?.trialId === inheritedContext.scope.trialId && modelPlan?.cfgId
+      ? { ...inheritedContext.scope, cfgId: modelPlan.cfgId } : inheritedContext?.scope);
     const capturedFiles = (input.payload.sourceContext as { rawFiles?: NonNullable<typeof dataContext>['rawFiles'] } | undefined)?.rawFiles;
     const sourceContext = inheritedContext
       ? { ...inheritedContext, scope: resultScope!, rawFiles: capturedFiles ?? dataContext?.rawFiles ?? inheritedContext.rawFiles }
@@ -76,7 +85,7 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
       ...input.payload,
       sourceCapability: capability,
       resultMode: input.payload.resultMode ?? (input.type === 'design' && (input.payload.designSummary || input.payload.designMethod) ? 'configuration' : 'demo'),
-      sourceScope: professionalScope ?? sourceContext?.scope,
+      sourceScope: capturedScope ?? professionalScope ?? sourceContext?.scope,
       sourceContext,
       upstreamArtifactIds: upstreamRefs?.map(reference => reference.artifactId) ?? [...new Set([...(incoming?.artifactIds ?? []), ...upstream.flatMap(result => result.artifactRef ? [result.artifactRef.artifactId] : [])])],
       upstreamArtifactRefs: upstreamRefs ?? [...new Map([...upstream.flatMap(result => result.artifactRef ? [result.artifactRef] : []), ...projects.flatMap(project => project.artifacts.filter(artifact => incoming?.artifactIds?.includes(artifact.id) && artifact.id !== input.id).map(artifact => ({ projectId: project.id, artifactId: artifact.id })))].map(reference => [`${reference.projectId}/${reference.artifactId}`, reference])).values()],
@@ -85,7 +94,7 @@ export const useWorkspaceBusinessSession = (incoming: BusinessRouteState | null)
     } };
     let artifact;
     try {
-      const ownerCfgId = professionalScope?.cfgId ?? session.cfgId;
+      const ownerCfgId = capturedScope?.cfgId ?? professionalScope?.cfgId ?? session.cfgId;
       artifact = session.sessionId && ownerCfgId
         ? saveOwnedArtifact(session.sessionId, {kind:'cfg',cfgId:ownerCfgId}, prepared)
         : useProjectStore.getState().addArtifact(projectId, prepared);

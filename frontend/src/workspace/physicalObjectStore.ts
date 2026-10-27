@@ -1,3 +1,4 @@
+import { createLocalId } from '../utils/createLocalId';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { flattenEquipment, mapEquipment } from './equipmentCompositionModel';
@@ -48,7 +49,7 @@ export interface PhysicalObject {
   basedOnId?: string; parameters: ValueField[]; materials: ValueField[]; children: PhysicalObject[]; designs: DesignCase[]; experiments: ExperimentDefinition[]; models: SimulationModel[];
 }
 
-const id = (prefix: string) => `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+const id = (prefix: string) => `${prefix}-${createLocalId()}`;
 const blankConfig = (name: string, description = ''): PhysicalConfiguration => ({ id: id('config'), name, description, parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
 const blankFamily = (name: string, type = '自定义对象', description = ''): PhysicalObject => ({ id: id('object'), name, type, description, configurations: [], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [] });
 export const findObjectCategory = (items: PhysicalObject[], categoryOrObjectId: string) => items.find(category => category.id === categoryOrObjectId || category.legacyCategories?.some(item => item.id === categoryOrObjectId) || category.id === flattenEquipment(items).find(object => object.id === categoryOrObjectId)?.categoryId);
@@ -185,7 +186,7 @@ export const usePhysicalObjectStore = create<PhysicalObjectState>()(persist((set
     const now = new Date().toISOString(), idToSave = tableId ?? id('table');
     set(state => ({ objects: mapRecord(state.objects, trialId, recordId, item => ({ ...item, tables: tableId ? item.tables.map(old => old.id === tableId ? { ...old, ...table, updatedAt: now } : old) : [...item.tables, { ...table, id: idToSave, createdAt: now, updatedAt: now }] })) }));return idToSave;
   },
-}), { name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage), version: 6, migrate: migratePhysicalState }));
+}), { name: 'protangram-physical-objects-v1', storage: createJSONStorage(() => localStorage), version: 7, migrate: migratePhysicalState }));
 
 // Migration-only input shape. Old fields never remain as a parallel live record system.
 type LegacyRecord = Partial<TestRecord> & { id: string; charts?: DerivedChart[]; data?: ValueField[] };
@@ -229,6 +230,11 @@ function migrateExperiment(legacy: LegacyExperiment): ExperimentDefinition {
   });
   return { ...metadata, id: legacy.id!, name: legacy.name!, parameters: mergeParameters(settings, legacy.parameters), trials: normalized };
 }
+function normalizeChildren(children: PhysicalObject[]): PhysicalObject[] {
+  return children.map(child => ({ ...child, children: normalizeChildren(child.children ?? []),
+    configurations: (child.configurations ?? []).map(device => ({...device, children: normalizeChildren(device.children ?? []), experiments: (device.experiments ?? []).map(migrateExperiment)})),
+    experiments: (child.experiments ?? []).map(migrateExperiment) }));
+}
 export function migratePhysicalState(persisted: unknown): Pick<PhysicalObjectState, 'objects'> {
   const old = (persisted as { objects?: Array<Record<string, unknown>> })?.objects ?? [];
   if (!Array.isArray(old)) throw new Error('物理对象存储格式无效，未覆盖原数据');
@@ -237,7 +243,7 @@ export function migratePhysicalState(persisted: unknown): Pick<PhysicalObjectSta
     const hasChildren = Array.isArray(item.configurations);
     const declaredType = String(item.type || '').trim();
     const name = declaredType && declaredType !== '自定义对象' ? declaredType : hasChildren ? String(item.name || '未分类对象') : '未分类对象';
-    const categoryName = name === '电涵道风扇' ? '涵道风扇' : name;
+    const categoryName = name === '电涵道风扇' || item.id === 'demo-category-fan' || name === '涵道风扇（演示）' ? '涵道风扇' : name;
     const incoming = hasChildren ? item.configurations as PhysicalConfiguration[] : [item as unknown as PhysicalConfiguration];
     // Very old root-level business data is a device too; do not discard it when
     // upgrading a mixed hierarchy that also has child devices.
@@ -245,7 +251,7 @@ export function migratePhysicalState(persisted: unknown): Pick<PhysicalObjectSta
     const devices = rootHasData ? [item as unknown as PhysicalConfiguration, ...incoming] : incoming;
     let category = groups.get(categoryName);
     if (!category) {
-      category = { ...blankFamily(categoryName, categoryName), ...(hasChildren ? item : {}), name: categoryName, type: categoryName, configurations: [], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [], legacyCategories: [] } as PhysicalObject;
+      category = { ...blankFamily(categoryName, categoryName), ...(hasChildren ? categoryName === '涵道风扇' ? old.find(value => value.id === 'category-fan' || value.id !== 'demo-category-fan' && value.name === '涵道风扇') ?? item : item : {}), name: categoryName, type: categoryName, configurations: [], parameters: [], materials: [], children: [], designs: [], experiments: [], models: [], legacyCategories: [] } as PhysicalObject;
       groups.set(categoryName, category);
     }
     if (hasChildren) {
@@ -256,7 +262,8 @@ export function migratePhysicalState(persisted: unknown): Pick<PhysicalObjectSta
     for (const device of devices) {
       const { configurations: _oldChildren, legacyCategories: _oldAliases, ...saved } = device as PhysicalConfiguration & Partial<PhysicalObject>;
       void _oldChildren; void _oldAliases;
-      category.configurations.push({ ...blankConfig(device.name || '未命名物理对象'), ...saved, experiments: (device.experiments ?? []).map(migrateExperiment) });
+      if (category.configurations.some(existing => existing.id === device.id)) continue;
+      category.configurations.push({ ...blankConfig(device.name || '未命名物理对象'), ...saved, children: normalizeChildren(device.children ?? []), experiments: (device.experiments ?? []).map(migrateExperiment) });
     }
   }
   for (const category of defaultCategories()) if (!groups.has(category.name)) groups.set(category.name, category);

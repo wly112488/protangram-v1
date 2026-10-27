@@ -1,5 +1,6 @@
+import { createLocalId } from '../utils/createLocalId';
 import { useState } from 'react';
-import { Alert, Button, Card, Empty, Form, Input, Modal, Space, Typography } from 'antd';
+import { Alert, Button, Card, Form, Input, Modal, Space, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { usePhysicalObjectStore, type ConcreteTrial, type ValueField } from './physicalObjectStore';
 import { useTrialConfigurationStore } from './trialConfigurationStore';
@@ -16,20 +17,20 @@ export default function TrialSettingsPanel({trial}:{trial:ConcreteTrial}) {
   };
   const save=(value:{name:string;fields?:Array<Partial<ValueField>>})=>{
     try {
-      const fields=(value.fields ?? []).map(field=>({...field,id:field.id || `set-field-${crypto.randomUUID()}`,name:field.name ?? '',value:field.value ?? '',form:'单值' as const}));
+      const fields=(value.fields ?? []).map(field=>({...field,id:field.id || `set-field-${createLocalId()}`,name:field.name ?? '',value:field.value ?? '',form:'单值' as const}));
       const store=usePhysicalObjectStore.getState();
       if(editing) store.updateTrialSetting(trial.id,editing.id,{name:value.name,fields});
       else store.addTrialSetting(trial.id,{name:value.name,fields});
       setOpen(false);
-    } catch(cause) {setError(cause instanceof Error?cause.message:'设置保存失败');}
+    } catch(cause) { console.error(cause);setError('设置保存失败');}
   };
   return <Card size="small" title="试验设置 SET" className="trial-settings-panel" extra={<Button onClick={()=>start()}>新增设置</Button>}>
-    {trial.cfgId&&<div><Typography.Text>CFG：{cfg?.name ?? '来源已失效'} · {trial.cfgId}</Typography.Text> <Button type="link" onClick={()=>navigate('/trial-configurations')}>查看 CFG</Button></div>}
+    {trial.cfgId&&<div><Typography.Text>历史 CFG（本次仍需选择）：{cfg?.name ?? ""} · {trial.cfgId}</Typography.Text> <Button type="link" onClick={()=>navigate('/trial-configurations')}>查看 CFG</Button></div>}
     <Typography.Paragraph type="secondary">按本次试验需要手动填写；没有设置也可进入分析或预测。</Typography.Paragraph>
     {(trial.settings ?? []).length ? trial.settings!.map(setting=><div key={setting.id} style={{padding:'8px 0',borderTop:'1px solid var(--ant-color-border-secondary,#eee)'}}>
       <Space><Typography.Text strong>{setting.name}</Typography.Text><Button type="link" aria-label={`编辑设置 ${setting.name}`} onClick={()=>start(setting)}>编辑</Button></Space>
       <div>{setting.fields.map(field=><span key={field.id} style={{marginRight:18}}>{field.name}：{field.value} {field.unit} {field.description && `（${field.description}）`}</span>)}</div>
-    </div>) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚无试验设置" />}
+    </div>) : null}
     <Modal title={editing?'编辑试验设置':'新增试验设置'} open={open} footer={null} onCancel={()=>setOpen(false)} destroyOnHidden width={760}>
       <Form name="trial-setting" form={form} layout="vertical" onFinish={save}>
         {error&&<Alert type="error" title={error} />}

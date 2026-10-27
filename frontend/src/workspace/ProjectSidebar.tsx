@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Empty, Input, Popconfirm, Tooltip, Tree, Typography, message } from 'antd';
+import { Button, Input, Popconfirm, Tooltip, Tree, Typography, message } from 'antd';
 import { DeleteOutlined, FolderOpenOutlined, LockOutlined, SearchOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import { useNavigate } from 'react-router-dom';
@@ -46,7 +46,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
             <FolderOpenOutlined />{project.name}{linkedTask && <span className="workspace-project-task-marker">任务项目</span>}
           </span>
           {projectId ? null : linkedTask ? (
-            <Tooltip title={`此项目支撑正式任务“${linkedTask.title}”，暂不支持单独删除，以免任务失去数据与成果。`}>
+            <Tooltip title={""}>
               <span className="workspace-project-delete-disabled"><Button type="text" size="small" disabled icon={<LockOutlined />} aria-label={`项目${project.name}关联正式任务，不能单独删除`} /></span>
             </Tooltip>
           ) : (
@@ -133,10 +133,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ mobileOpen = false, onN
             onSelect={handleTreeSelect}
           />
         ) : (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={projects.length === 0 ? '暂无项目' : '未找到项目'}
-          />
+          null
         )}
       </div>
 
